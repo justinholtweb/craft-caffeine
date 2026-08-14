@@ -176,4 +176,4 @@ element type, all three transports.
 
 ## License
 
-Proprietary. © Justin Holt.
+This plugin is released under the [Craft License](https://craftcms.github.io/license/).
