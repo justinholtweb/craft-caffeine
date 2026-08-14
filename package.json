@@ -1,0 +1,9 @@
+{
+  "name": "craft-caffeine-runtime",
+  "private": true,
+  "type": "module",
+  "description": "Caffeine's browser runtime and the JavaScript half of its conformance suite.",
+  "scripts": {
+    "test": "node tests/Conformance/run.mjs"
+  }
+}

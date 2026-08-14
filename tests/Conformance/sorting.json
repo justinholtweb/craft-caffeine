@@ -1,0 +1,87 @@
+{
+  "name": "sorting",
+  "description": "The ordering rules of QUERY_SPEC §3.4 and §8 — nulls last in both directions, mixed types, and a total order that never depends on the host language's sort stability.",
+  "index": {
+    "handle": "sorting",
+    "name": "Sorting",
+    "hitsPerPage": 24,
+    "attributes": [
+      { "key": "title", "source": "attribute", "path": "title", "roles": ["searchable", "payload"], "searchWeight": 1 },
+      { "key": "rank", "source": "field", "path": "rank", "roles": ["sortable"] },
+      { "key": "label", "source": "field", "path": "label", "roles": ["sortable"] },
+      { "key": "kind", "source": "field", "path": "kind", "roles": ["facet"], "facetType": "string", "facetOperator": "or" }
+    ],
+    "sortings": [
+      { "name": "rank_asc", "attribute": "rank", "direction": "asc" },
+      { "name": "rank_desc", "attribute": "rank", "direction": "desc" },
+      { "name": "label_asc", "attribute": "label", "direction": "asc" }
+    ]
+  },
+  "records": [
+    {
+      "objectId": "a-1",
+      "searchable": { "title": "alpha" },
+      "sortable": { "rank": 2, "label": "banana" },
+      "payload": { "title": "alpha" },
+      "facets": { "kind": ["x"] }
+    },
+    {
+      "objectId": "b-1",
+      "searchable": { "title": "beta" },
+      "sortable": { "rank": 1, "label": "apple" },
+      "payload": { "title": "beta" },
+      "facets": { "kind": ["x"] }
+    },
+    {
+      "objectId": "c-1",
+      "searchable": { "title": "gamma" },
+      "sortable": { "rank": null, "label": null },
+      "payload": { "title": "gamma" },
+      "facets": { "kind": ["y"] }
+    },
+    {
+      "objectId": "d-1",
+      "searchable": { "title": "delta" },
+      "sortable": { "rank": 2, "label": "Banana" },
+      "payload": { "title": "delta" },
+      "facets": { "kind": ["y"] }
+    },
+    {
+      "objectId": "e-1",
+      "searchable": { "title": "epsilon" },
+      "sortable": { "rank": null, "label": "cherry" },
+      "payload": { "title": "epsilon" },
+      "facets": { "kind": ["x"] }
+    }
+  ],
+  "cases": [
+    {
+      "name": "ascending sort puts nulls last and breaks ties on objectID",
+      "comment": "a-1 and d-1 both rank 2, so objectID decides. c-1 and e-1 have no rank and are unrankable rather than smallest.",
+      "state": { "sortBy": "rank_asc" },
+      "expect": { "nbHits": 5, "hits": ["b-1", "a-1", "d-1", "c-1", "e-1"] }
+    },
+    {
+      "name": "descending sort also puts nulls last, not first",
+      "comment": "The trap: reversing a comparator normally floats nulls to the top. A record with no value is not the largest either.",
+      "state": { "sortBy": "rank_desc" },
+      "expect": { "nbHits": 5, "hits": ["a-1", "d-1", "b-1", "c-1", "e-1"] }
+    },
+    {
+      "name": "strings sort by code unit, so uppercase precedes lowercase",
+      "comment": "QUERY_SPEC §8. Not locale collation, which would put Banana next to banana and would differ between PHP and the browser.",
+      "state": { "sortBy": "label_asc" },
+      "expect": { "nbHits": 5, "hits": ["d-1", "b-1", "a-1", "e-1", "c-1"] }
+    },
+    {
+      "name": "relevance with no query is the objectID tie-break alone",
+      "state": {},
+      "expect": { "nbHits": 5, "hits": ["a-1", "b-1", "c-1", "d-1", "e-1"] }
+    },
+    {
+      "name": "a filter applied to a named sorting preserves that order",
+      "state": { "sortBy": "rank_asc", "refinements": { "kind": ["x"] } },
+      "expect": { "nbHits": 3, "hits": ["b-1", "a-1", "e-1"] }
+    }
+  ]
+}

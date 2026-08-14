@@ -1,0 +1,11 @@
+{% import 'caffeine/_widgets/_menu' as menu %}
+
+{% if facet %}
+  <div class="caffeine-hierarchical-menu" data-caffeine-facet="{{ facet.key }}">
+    {% if (options.label ?? null) is not same as(false) %}
+      <h3 class="caffeine-hierarchical-menu__title">{{ options.label ?? facet.label }}</h3>
+    {% endif %}
+
+    {{ menu.branch(tree, 0, options.maxDepth ?? 10) }}
+  </div>
+{% endif %}

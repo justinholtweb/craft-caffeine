@@ -1,0 +1,161 @@
+{
+  "name": "varint",
+  "type": "varint",
+  "cases": [
+    {
+      "codec": "raw",
+      "values": [],
+      "expect": ""
+    },
+    {
+      "codec": "raw",
+      "values": [
+        0
+      ],
+      "expect": "AA=="
+    },
+    {
+      "codec": "raw",
+      "values": [
+        1,
+        2,
+        3
+      ],
+      "expect": "AQID"
+    },
+    {
+      "codec": "raw",
+      "values": [
+        127
+      ],
+      "expect": "fw=="
+    },
+    {
+      "codec": "raw",
+      "values": [
+        128
+      ],
+      "expect": "gAE="
+    },
+    {
+      "codec": "raw",
+      "values": [
+        16383
+      ],
+      "expect": "/38="
+    },
+    {
+      "codec": "raw",
+      "values": [
+        16384
+      ],
+      "expect": "gIAB"
+    },
+    {
+      "codec": "raw",
+      "values": [
+        1,
+        1,
+        1
+      ],
+      "expect": "AQEB"
+    },
+    {
+      "codec": "raw",
+      "values": [
+        0,
+        5,
+        3,
+        9,
+        1
+      ],
+      "expect": "AAUDCQE="
+    },
+    {
+      "codec": "raw",
+      "values": [
+        255,
+        65535,
+        16777215
+      ],
+      "expect": "/wH//wP///8H"
+    },
+    {
+      "codec": "raw",
+      "values": [
+        9007199254740991
+      ],
+      "expect": "/////////w8="
+    },
+    {
+      "codec": "delta",
+      "values": [],
+      "expect": ""
+    },
+    {
+      "codec": "delta",
+      "values": [
+        0
+      ],
+      "expect": "AA=="
+    },
+    {
+      "codec": "delta",
+      "values": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "expect": "AAEBAQ=="
+    },
+    {
+      "codec": "delta",
+      "values": [
+        5,
+        300,
+        70000
+      ],
+      "expect": "BacCxKAE"
+    },
+    {
+      "codec": "delta",
+      "values": [
+        3,
+        3,
+        4
+      ],
+      "expect": "AwAB"
+    },
+    {
+      "codec": "delta",
+      "values": [
+        0,
+        127,
+        128,
+        255,
+        256
+      ],
+      "expect": "AH8BfwE="
+    },
+    {
+      "codec": "delta",
+      "values": [
+        10,
+        20,
+        30,
+        40,
+        50
+      ],
+      "expect": "CgoKCgo="
+    },
+    {
+      "codec": "delta",
+      "values": [
+        0,
+        9007199254740991
+      ],
+      "expect": "AP////////8P"
+    }
+  ]
+}

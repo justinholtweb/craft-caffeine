@@ -1,0 +1,103 @@
+{# Two tools that answer the two questions this screen otherwise cannot.
+
+   The preview answers "why is my facet empty" without a rebuild: it runs the mapper against one
+   real element and shows exactly what came out, including which elements the record now depends
+   on. The playground answers "what are visitors actually getting", which is why it queries the
+   *published* artifact rather than recompiling — a playground that quietly rebuilt would be
+   answering a different question from the one being asked. #}
+
+<h2>{{ "Check a record"|t('caffeine') }}</h2>
+<p class="light">{{ "Run this definition against one element and see what the mapper produces. Nothing is saved or rebuilt."|t('caffeine') }}</p>
+
+<div class="flex">
+  <input type="number" id="caffeine-preview-id" class="text" size="10" placeholder="{{ 'Element ID'|t('caffeine') }}">
+  <button type="button" class="btn" id="caffeine-preview-go">{{ "Preview"|t('caffeine') }}</button>
+  <span class="spinner hidden" id="caffeine-preview-spinner"></span>
+</div>
+
+<pre id="caffeine-preview-out" class="caffeine-out" style="display:none"></pre>
+
+<h2 style="margin-top:2em">{{ "Query playground"|t('caffeine') }}</h2>
+<p class="light">{{ "Runs a state against the published artifact — the same engine, the same bytes visitors get."|t('caffeine') }}</p>
+
+<textarea id="caffeine-query-state" class="text code" rows="5" spellcheck="false">{{ '{
+  "query": "",
+  "refinements": {},
+  "page": 0
+}' }}</textarea>
+
+<div class="flex" style="margin-top:.5em">
+  <button type="button" class="btn submit" id="caffeine-query-go">{{ "Run"|t('caffeine') }}</button>
+  <span class="spinner hidden" id="caffeine-query-spinner"></span>
+  <span class="light" id="caffeine-query-timing"></span>
+</div>
+
+<pre id="caffeine-query-out" class="caffeine-out" style="display:none"></pre>
+
+{% css %}
+  .caffeine-out {
+    background: var(--gray-050, #f3f7fc);
+    border: 1px solid var(--hairline-color, #cdd8e4);
+    border-radius: var(--large-border-radius, 5px);
+    padding: 12px;
+    margin-top: 12px;
+    max-height: 420px;
+    overflow: auto;
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre;
+  }
+{% endcss %}
+
+{% js %}
+  (function () {
+    const handle = {{ index.handle|json_encode|raw }};
+
+    function wire(button, spinner, output, action, data, onDone) {
+      button.addEventListener('click', async function () {
+        spinner.classList.remove('hidden');
+        output.style.display = 'none';
+
+        try {
+          const response = await Craft.sendActionRequest('POST', action, { data: data() });
+          const body = response.data;
+
+          output.textContent = body.error ? body.error : JSON.stringify(body, null, 2);
+          output.style.display = '';
+
+          if (onDone) onDone(body);
+        } catch (error) {
+          output.textContent = (error.response && error.response.data && error.response.data.error)
+            || error.message
+            || 'Request failed.';
+          output.style.display = '';
+        } finally {
+          spinner.classList.add('hidden');
+        }
+      });
+    }
+
+    wire(
+      document.getElementById('caffeine-preview-go'),
+      document.getElementById('caffeine-preview-spinner'),
+      document.getElementById('caffeine-preview-out'),
+      'caffeine/indexes/preview',
+      () => ({ handle: handle, elementId: document.getElementById('caffeine-preview-id').value })
+    );
+
+    const timing = document.getElementById('caffeine-query-timing');
+
+    wire(
+      document.getElementById('caffeine-query-go'),
+      document.getElementById('caffeine-query-spinner'),
+      document.getElementById('caffeine-query-out'),
+      'caffeine/indexes/query',
+      () => ({ handle: handle, state: document.getElementById('caffeine-query-state').value }),
+      (body) => {
+        timing.textContent = body.ms !== undefined
+          ? `v${body.version} · ${body.ms} ms · ${body.result.nbHits} hits`
+          : '';
+      }
+    );
+  })();
+{% endjs %}

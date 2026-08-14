@@ -1,0 +1,24 @@
+{# A select inside a GET form, with a submit button the runtime hides. Without JavaScript the
+   button is how the choice is applied; with it, changing the select is enough. #}
+<form class="caffeine-sort-by" method="get" action="{{ search.canonicalUrl }}" data-caffeine-form>
+  {%- for name, value in search.params(['sort']) %}
+    <input type="hidden" name="{{ name }}" value="{{ value }}">
+  {%- endfor %}
+
+  <label class="caffeine-sort-by__label" for="caffeine-sort-{{ search.index.handle }}">
+    {{ options.label ?? 'Sort by'|t('caffeine') }}
+  </label>
+
+  <select class="caffeine-sort-by__select"
+          id="caffeine-sort-{{ search.index.handle }}"
+          name="{{ search.prefix }}sort"
+          data-caffeine-sort>
+    {% for name, sorting in sortings %}
+      <option value="{{ name }}"{{ name == search.state.sortBy ? ' selected' : '' }}>
+        {{ sorting.label ?: name }}
+      </option>
+    {% endfor %}
+  </select>
+
+  <button class="caffeine-sort-by__submit" type="submit" data-caffeine-submit>{{ 'Apply'|t('caffeine') }}</button>
+</form>

@@ -1,0 +1,78 @@
+{
+  "name": "facetvalue",
+  "type": "facetvalue",
+  "cases": [
+    {
+      "value": "Acme",
+      "expect": "Acme"
+    },
+    {
+      "value": "",
+      "expect": ""
+    },
+    {
+      "value": "Ünïcode",
+      "expect": "Ünïcode"
+    },
+    {
+      "value": "has, comma",
+      "expect": "has, comma"
+    },
+    {
+      "value": true,
+      "expect": "true"
+    },
+    {
+      "value": false,
+      "expect": "false"
+    },
+    {
+      "value": 0,
+      "expect": "0"
+    },
+    {
+      "value": 1,
+      "expect": "1"
+    },
+    {
+      "value": 10,
+      "expect": "10"
+    },
+    {
+      "value": -3,
+      "expect": "-3"
+    },
+    {
+      "value": 19.99,
+      "expect": "19.99"
+    },
+    {
+      "value": 0.5,
+      "expect": "0.5"
+    },
+    {
+      "value": 1775403180,
+      "expect": "1775403180"
+    },
+    {
+      "value": 100,
+      "expect": "100"
+    },
+    {
+      "value": 2500,
+      "expect": "2500"
+    },
+    {
+      "value": 0.000001,
+      "expect": "0.000001"
+    },
+    {
+      "value": 1234567890123,
+      "expect": "1234567890123"
+    },
+    {
+      "value": -0.25,
+      "expect": "-0.25"
+    }
+  ]
+}

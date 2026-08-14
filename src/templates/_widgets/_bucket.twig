@@ -1,0 +1,12 @@
+{# rel="nofollow" throughout: a faceted listing generates a combinatorial explosion of URLs, and
+   inviting a crawler into all of them is how a site ends up with 40,000 near-duplicate pages. #}
+<li class="caffeine-refinement-list__item{{ bucket.isRefined ? ' is-refined' }}">
+  <a href="{{ bucket.url }}"
+     rel="nofollow"
+     class="caffeine-refinement-list__link"
+     aria-pressed="{{ bucket.isRefined ? 'true' : 'false' }}"
+     data-caffeine-value="{{ bucket.key }}">
+    <span class="caffeine-refinement-list__label">{{ bucket.label }}</span>
+    <span class="caffeine-refinement-list__count">{{ bucket.count }}</span>
+  </a>
+</li>

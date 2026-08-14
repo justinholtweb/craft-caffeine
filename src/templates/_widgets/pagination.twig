@@ -1,0 +1,27 @@
+{% if search.nbPages > 1 %}
+  <nav class="caffeine-pagination" aria-label="{{ 'Pagination'|t('caffeine') }}">
+    <ul class="caffeine-pagination__items">
+      {% if previous %}
+        <li class="caffeine-pagination__item">
+          <a href="{{ previous }}" rel="prev nofollow" class="caffeine-pagination__link">{{ options.previousLabel ?? '‹ Previous'|t('caffeine') }}</a>
+        </li>
+      {% endif %}
+
+      {% for page in pages %}
+        <li class="caffeine-pagination__item{{ page.isCurrent ? ' is-current' }}">
+          {% if page.isCurrent %}
+            <span class="caffeine-pagination__link" aria-current="page">{{ page.label }}</span>
+          {% else %}
+            <a href="{{ page.url }}" rel="nofollow" class="caffeine-pagination__link">{{ page.label }}</a>
+          {% endif %}
+        </li>
+      {% endfor %}
+
+      {% if next %}
+        <li class="caffeine-pagination__item">
+          <a href="{{ next }}" rel="next nofollow" class="caffeine-pagination__link">{{ options.nextLabel ?? 'Next ›'|t('caffeine') }}</a>
+        </li>
+      {% endif %}
+    </ul>
+  </nav>
+{% endif %}

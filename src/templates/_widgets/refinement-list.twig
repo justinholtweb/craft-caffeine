@@ -1,0 +1,30 @@
+{% if facet %}
+  {% set limit = options.limit ?? 10 %}
+  {% set shown = facet.buckets|slice(0, limit) %}
+  {% set overflow = facet.buckets|slice(limit) %}
+
+  <div class="caffeine-refinement-list" data-caffeine-facet="{{ facet.key }}">
+    {% if (options.label ?? null) is not same as(false) %}
+      <h3 class="caffeine-refinement-list__title">{{ options.label ?? facet.label }}</h3>
+    {% endif %}
+
+    <ul class="caffeine-refinement-list__items">
+      {% for bucket in shown %}
+        {% include 'caffeine/_widgets/_bucket' with { bucket: bucket, facet: facet } only %}
+      {% endfor %}
+    </ul>
+
+    {# <details> rather than a button: it opens without JavaScript, so "show more" is not a
+       feature that quietly disappears for anyone who has it switched off. #}
+    {% if overflow|length %}
+      <details class="caffeine-refinement-list__more">
+        <summary>{{ 'Show {count} more'|t('caffeine', { count: overflow|length }) }}</summary>
+        <ul class="caffeine-refinement-list__items">
+          {% for bucket in overflow %}
+            {% include 'caffeine/_widgets/_bucket' with { bucket: bucket, facet: facet } only %}
+          {% endfor %}
+        </ul>
+      </details>
+    {% endif %}
+  </div>
+{% endif %}

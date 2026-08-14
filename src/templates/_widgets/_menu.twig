@@ -1,0 +1,25 @@
+{# Recursive, because a hierarchical facet is a tree by the time SearchContext hands it over —
+   the artifact itself only ever knows flat ancestor paths (QUERY_SPEC §4). #}
+{% macro branch(nodes, depth, maxDepth) %}
+  {% import _self as menu %}
+  {% if nodes|length and depth < maxDepth %}
+    <ul class="caffeine-hierarchical-menu__items caffeine-hierarchical-menu__items--{{ depth }}">
+      {% for node in nodes %}
+        <li class="caffeine-hierarchical-menu__item{{ node.isRefined ? ' is-refined' }}">
+          <a href="{{ node.url }}"
+             rel="nofollow"
+             class="caffeine-hierarchical-menu__link"
+             aria-pressed="{{ node.isRefined ? 'true' : 'false' }}"
+             data-caffeine-value="{{ node.key }}">
+            <span class="caffeine-hierarchical-menu__label">{{ node.label }}</span>
+            <span class="caffeine-hierarchical-menu__count">{{ node.count }}</span>
+          </a>
+          {# Children only under an open branch, which is what makes it a menu rather than a list. #}
+          {% if node.isRefined %}
+            {{ menu.branch(node.children, depth + 1, maxDepth) }}
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+{% endmacro %}

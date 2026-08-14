@@ -1,0 +1,10 @@
+/vendor
+/node_modules
+/.phpunit.cache
+/.pest
+/tests/Conformance/build
+composer.lock
+.DS_Store
+.idea
+.phpstan-cache
+/tests/bench/build

@@ -1,0 +1,212 @@
+{
+  "name": "products",
+  "description": "Facet counting, text matching, sorting and pagination over a small catalogue. Every expectation here is a rule from docs/QUERY_SPEC.md, and both engines must reproduce it exactly.",
+  "index": {
+    "handle": "products",
+    "name": "Products",
+    "hitsPerPage": 24,
+    "maxValuesPerFacet": 20,
+    "attributes": [
+      { "key": "title", "source": "attribute", "path": "title", "roles": ["searchable", "sortable", "payload"], "searchWeight": 5 },
+      { "key": "brand", "source": "field", "path": "brand", "roles": ["facet", "payload"], "facetType": "string", "facetOperator": "or" },
+      { "key": "colour", "source": "field", "path": "colour", "roles": ["facet"], "facetType": "string", "facetOperator": "or" },
+      { "key": "tags", "source": "field", "path": "tags", "roles": ["facet"], "facetType": "string", "facetOperator": "and" },
+      { "key": "price", "source": "field", "path": "price", "roles": ["facet", "sortable"], "facetType": "numeric", "facetOperator": "or" },
+      { "key": "featured", "source": "field", "path": "featured", "roles": ["facet"], "facetType": "boolean", "facetOperator": "or" },
+      { "key": "category", "source": "field", "path": "category", "roles": ["facet"], "facetType": "hierarchical", "facetOperator": "and" }
+    ],
+    "sortings": [
+      { "name": "price_asc", "attribute": "price", "direction": "asc" },
+      { "name": "price_desc", "attribute": "price", "direction": "desc" },
+      { "name": "title_asc", "attribute": "title", "direction": "asc" }
+    ]
+  },
+  "records": [
+    {
+      "objectId": "1-1",
+      "searchable": { "title": "Acme Saw" },
+      "sortable": { "title": "Acme Saw", "price": 10 },
+      "payload": { "title": "Acme Saw", "brand": "Acme" },
+      "facets": { "brand": ["Acme"], "colour": ["red"], "tags": ["sale"], "price": [10], "featured": [true], "category": ["Home > Tools > Saws"] }
+    },
+    {
+      "objectId": "2-1",
+      "searchable": { "title": "Acme Drill" },
+      "sortable": { "title": "Acme Drill", "price": 20 },
+      "payload": { "title": "Acme Drill", "brand": "Acme" },
+      "facets": { "brand": ["Acme"], "colour": ["blue"], "tags": ["new", "sale"], "price": [20], "featured": [false], "category": ["Home > Tools > Drills"] }
+    },
+    {
+      "objectId": "3-1",
+      "searchable": { "title": "Globex Saw" },
+      "sortable": { "title": "Globex Saw", "price": 30 },
+      "payload": { "title": "Globex Saw", "brand": "Globex" },
+      "facets": { "brand": ["Globex"], "colour": ["blue", "red"], "tags": ["new"], "price": [30], "featured": [true], "category": ["Home > Tools > Saws"] }
+    },
+    {
+      "objectId": "4-1",
+      "searchable": { "title": "Globex Hose" },
+      "sortable": { "title": "Globex Hose", "price": 40 },
+      "payload": { "title": "Globex Hose", "brand": "Globex" },
+      "facets": { "brand": ["Globex"], "colour": ["green"], "tags": [], "price": [40], "featured": [false], "category": ["Home > Garden"] }
+    },
+    {
+      "objectId": "5-1",
+      "searchable": { "title": "Initech Spade" },
+      "sortable": { "title": "Initech Spade", "price": 50 },
+      "payload": { "title": "Initech Spade", "brand": "Initech" },
+      "facets": { "brand": ["Initech"], "colour": ["red"], "tags": ["sale"], "price": [50], "featured": [true], "category": ["Home > Garden"] }
+    }
+  ],
+  "cases": [
+    {
+      "name": "an unrefined query returns everything, counted and ordered by the spec",
+      "state": {},
+      "expect": {
+        "nbHits": 5,
+        "page": 0,
+        "nbPages": 1,
+        "hits": ["1-1", "2-1", "3-1", "4-1", "5-1"],
+        "facets": {
+          "brand": [["Acme", 2], ["Globex", 2], ["Initech", 1]],
+          "colour": [["red", 3], ["blue", 2], ["green", 1]],
+          "tags": [["sale", 3], ["new", 2]],
+          "featured": [[true, 3], [false, 2]],
+          "category": [["Home", 5], ["Home > Tools", 3], ["Home > Garden", 2], ["Home > Tools > Saws", 2], ["Home > Tools > Drills", 1]]
+        },
+        "facetsStats": {
+          "price": { "min": 10, "max": 50, "avg": 30, "sum": 150 }
+        }
+      }
+    },
+    {
+      "name": "a disjunctive facet keeps its siblings' counts, so the visitor can widen",
+      "comment": "QUERY_SPEC §3.3. Globex must still read 2 after ticking Acme — that is the count the visitor gets by adding it. Colour, meanwhile, is counted against the narrowed set.",
+      "state": { "refinements": { "brand": ["Acme"] } },
+      "expect": {
+        "nbHits": 2,
+        "hits": ["1-1", "2-1"],
+        "facets": {
+          "brand": [["Acme", 2], ["Globex", 2], ["Initech", 1]],
+          "colour": [["blue", 1], ["red", 1]]
+        }
+      }
+    },
+    {
+      "name": "two disjunctive facets each exclude only their own refinements",
+      "state": { "refinements": { "brand": ["Acme"], "colour": ["red"] } },
+      "expect": {
+        "nbHits": 1,
+        "hits": ["1-1"],
+        "facets": {
+          "brand": [["Acme", 1], ["Globex", 1], ["Initech", 1]],
+          "colour": [["blue", 1], ["red", 1]]
+        }
+      }
+    },
+    {
+      "name": "a conjunctive facet requires every value and narrows its own counts",
+      "state": { "refinements": { "tags": ["sale", "new"] } },
+      "expect": {
+        "nbHits": 1,
+        "hits": ["2-1"],
+        "facets": {
+          "tags": [["new", 1], ["sale", 1]]
+        }
+      }
+    },
+    {
+      "name": "a refined value stays visible at zero so it can be undone",
+      "comment": "QUERY_SPEC §3.3. Acme+green matches nothing, but both controls must remain on screen or the visitor is stuck with no results and no way back.",
+      "state": { "refinements": { "brand": ["Acme"], "colour": ["green"] } },
+      "expect": {
+        "nbHits": 0,
+        "page": 0,
+        "nbPages": 0,
+        "hits": [],
+        "facets": {
+          "brand": [["Globex", 1], ["Acme", 0]],
+          "colour": [["blue", 1], ["red", 1], ["green", 0]]
+        }
+      }
+    },
+    {
+      "name": "a refinement naming a value that no longer exists matches nothing",
+      "state": { "refinements": { "brand": ["Nonesuch"] } },
+      "expect": { "nbHits": 0, "hits": [] }
+    },
+    {
+      "name": "text matching is conjunctive and prefix-matches only the last token",
+      "state": { "query": "acme sa" },
+      "expect": { "nbHits": 1, "hits": ["1-1"] }
+    },
+    {
+      "name": "a token matching nothing empties the result rather than being dropped",
+      "state": { "query": "zzz" },
+      "expect": { "nbHits": 0, "hits": [] }
+    },
+    {
+      "name": "equal relevance breaks the tie on objectID, ascending",
+      "state": { "query": "saw" },
+      "expect": { "nbHits": 2, "hits": ["1-1", "3-1"] }
+    },
+    {
+      "name": "a numeric range filters inclusively, and its stats exclude its own range",
+      "state": { "ranges": { "price": { "min": 20, "max": 40 } } },
+      "expect": {
+        "nbHits": 3,
+        "hits": ["2-1", "3-1", "4-1"],
+        "facetsStats": {
+          "price": { "min": 10, "max": 50, "avg": 30, "sum": 150 }
+        }
+      }
+    },
+    {
+      "name": "a named sorting orders by its attribute",
+      "state": { "sortBy": "price_desc" },
+      "expect": { "nbHits": 5, "hits": ["5-1", "4-1", "3-1", "2-1", "1-1"] }
+    },
+    {
+      "name": "a named sorting still applies with a text query active",
+      "state": { "query": "sa", "sortBy": "price_desc" },
+      "expect": { "nbHits": 2, "hits": ["3-1", "1-1"] }
+    },
+    {
+      "name": "an unknown sorting falls back to relevance rather than erroring",
+      "comment": "A bookmarked URL outlives the sorting it names.",
+      "state": { "sortBy": "no_such_sorting" },
+      "expect": { "nbHits": 5, "hits": ["1-1", "2-1", "3-1", "4-1", "5-1"] }
+    },
+    {
+      "name": "an out-of-range page is clamped, not an error",
+      "state": { "hitsPerPage": 2, "page": 99 },
+      "expect": { "nbHits": 5, "page": 2, "nbPages": 3, "hits": ["5-1"] }
+    },
+    {
+      "name": "pagination slices in sorted order",
+      "state": { "hitsPerPage": 2, "page": 1 },
+      "expect": { "nbHits": 5, "page": 1, "nbPages": 3, "hits": ["3-1", "4-1"] }
+    },
+    {
+      "name": "boolean facets keep real booleans, not the strings true and false",
+      "state": { "refinements": { "featured": [true] } },
+      "expect": {
+        "nbHits": 3,
+        "hits": ["1-1", "3-1", "5-1"],
+        "facets": { "featured": [[true, 3], [false, 2]] }
+      }
+    },
+    {
+      "name": "a hierarchical refinement matches every descendant",
+      "comment": "QUERY_SPEC §4. Ancestors are expanded at build time, so this is an ordinary exact match on a value every descendant carries.",
+      "state": { "refinements": { "category": ["Home > Tools"] } },
+      "expect": {
+        "nbHits": 3,
+        "hits": ["1-1", "2-1", "3-1"],
+        "facets": {
+          "category": [["Home", 3], ["Home > Tools", 3], ["Home > Tools > Saws", 2], ["Home > Tools > Drills", 1]]
+        }
+      }
+    }
+  ]
+}

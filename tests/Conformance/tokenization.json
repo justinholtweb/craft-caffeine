@@ -1,0 +1,28 @@
+{
+  "name": "tokenization",
+  "type": "tokens",
+  "description": "QUERY_SPEC §7. Document text is tokenised only in PHP, but the *query* is tokenised in both languages — so this is the one piece of logic that genuinely exists twice, and the only place the two engines can silently drift apart. A query for “Café” that stops matching a document containing “café” fails without any error.",
+  "cases": [
+    { "input": "Hello, World!", "expect": ["hello", "world"] },
+    { "input": "Café Crème", "expect": ["cafe", "creme"] },
+    { "input": "ÀÉÎÕÜ", "expect": ["aeiou"] },
+    { "input": "a bb ccc", "expect": ["bb", "ccc"] },
+    { "input": "<p>hello <b>there</b></p>", "expect": ["hello", "there"] },
+    { "input": "caf&eacute;", "expect": ["cafe"] },
+    { "input": "&amp; &lt; &gt;", "expect": [] },
+    { "input": "&#233;t&#233;", "expect": ["ete"] },
+    { "input": "model 42", "expect": ["model", "42"] },
+    { "input": "  leading and trailing  ", "expect": ["leading", "and", "trailing"] },
+    { "input": "hyphen-separated words", "expect": ["hyphen", "separated", "words"] },
+    { "input": "snake_case_words", "expect": ["snake", "case", "words"] },
+    { "input": "e-mail@example.com", "expect": ["mail", "example", "com"] },
+    { "input": "日本語 テスト", "expect": ["日本語", "テスト"] },
+    { "input": "Ελληνικά", "expect": ["ελληνικα"] },
+    { "input": "ПРИВЕТ мир", "expect": ["привет", "мир"] },
+    { "input": "", "expect": [] },
+    { "input": "!!! ??? ...", "expect": [] },
+    { "input": "MiXeD CaSe", "expect": ["mixed", "case"] },
+    { "input": "über straße", "expect": ["uber", "straße"] },
+    { "input": "3.14 and 1,000", "expect": ["14", "and", "000"] }
+  ]
+}

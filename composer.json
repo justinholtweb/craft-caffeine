@@ -1,0 +1,86 @@
+{
+    "name": "justinholtweb/craft-caffeine",
+    "description": "Instant faceted search and filtering for Craft — model an index in the control panel, and Caffeine keeps a self-contained JSON search artifact up to date and served, so refinements resolve in milliseconds without an element query.",
+    "type": "craft-plugin",
+    "version": "5.0.0",
+    "keywords": [
+        "craft",
+        "cms",
+        "craftcms",
+        "craft-plugin",
+        "caffeine",
+        "search",
+        "faceted search",
+        "facets",
+        "filtering",
+        "instantsearch",
+        "algolia",
+        "htmx",
+        "sprig"
+    ],
+    "license": "proprietary",
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "authors": [
+        {
+            "name": "Justin Holt",
+            "homepage": "https://justinholt.com"
+        }
+    ],
+    "support": {
+        "email": "justin@justinholt.com",
+        "issues": "https://github.com/justinholtweb/craft-caffeine/issues",
+        "source": "https://github.com/justinholtweb/craft-caffeine"
+    },
+    "require": {
+        "php": "^8.2",
+        "ext-json": "*",
+        "ext-mbstring": "*",
+        "craftcms/cms": "^5.3.0"
+    },
+    "require-dev": {
+        "craftcms/ecs": "dev-main",
+        "craftcms/phpstan": "dev-main",
+        "pestphp/pest": "^3.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "justinholtweb\\caffeine\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "justinholtweb\\caffeine\\tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "pest",
+        "phpstan": "phpstan analyse",
+        "ecs": "ecs check --ansi",
+        "ecs-fix": "ecs check --fix --ansi",
+        "conformance": [
+            "@php vendor/bin/pest --group=conformance",
+            "node tests/Conformance/run.mjs"
+        ]
+    },
+    "scripts-descriptions": {
+        "conformance": "Runs the shared fixture suite against both query engines. The PHP pass compiles the artifacts the JavaScript pass consumes, so the order matters."
+    },
+    "config": {
+        "allow-plugins": {
+            "yiisoft/yii2-composer": true,
+            "craftcms/plugin-installer": true,
+            "craftcms/generator": true,
+            "pestphp/pest-plugin": true
+        }
+    },
+    "extra": {
+        "name": "Caffeine",
+        "handle": "caffeine",
+        "developer": "Justin Holt",
+        "developerUrl": "https://justinholt.com",
+        "documentationUrl": "https://github.com/justinholtweb/craft-caffeine/blob/main/README.md",
+        "changelogUrl": "https://raw.githubusercontent.com/justinholtweb/craft-caffeine/main/CHANGELOG.md",
+        "class": "justinholtweb\\caffeine\\Plugin"
+    }
+}

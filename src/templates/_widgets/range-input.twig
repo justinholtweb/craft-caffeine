@@ -1,0 +1,40 @@
+{% if facet %}
+  {# Posts `<facet>_min` / `<facet>_max`, which UrlState accepts on the way in only — a form
+     cannot produce the canonical `price=10..50`, and giving up the no-JavaScript path for a
+     range widget was the worse trade. The next click restores the canonical URL. #}
+  <form class="caffeine-range-input"
+        method="get"
+        action="{{ search.canonicalUrl }}"
+        data-caffeine-form
+        data-caffeine-range="{{ facet.key }}">
+    {%- for name, value in search.params([facet.key]) %}
+      <input type="hidden" name="{{ name }}" value="{{ value }}">
+    {%- endfor %}
+
+    {% if (options.label ?? null) is not same as(false) %}
+      <h3 class="caffeine-range-input__title">{{ options.label ?? facet.label }}</h3>
+    {% endif %}
+
+    <input class="caffeine-range-input__min"
+           type="number"
+           name="{{ search.prefix }}{{ facet.key }}_min"
+           value="{{ range.min ?? '' }}"
+           placeholder="{{ facet.stats.min ?? '' }}"
+           step="{{ options.step ?? 'any' }}"
+           aria-label="{{ 'Minimum'|t('caffeine') }}"
+           data-caffeine-bound="min">
+
+    <span class="caffeine-range-input__separator">–</span>
+
+    <input class="caffeine-range-input__max"
+           type="number"
+           name="{{ search.prefix }}{{ facet.key }}_max"
+           value="{{ range.max ?? '' }}"
+           placeholder="{{ facet.stats.max ?? '' }}"
+           step="{{ options.step ?? 'any' }}"
+           aria-label="{{ 'Maximum'|t('caffeine') }}"
+           data-caffeine-bound="max">
+
+    <button class="caffeine-range-input__submit" type="submit" data-caffeine-submit>{{ 'Apply'|t('caffeine') }}</button>
+  </form>
+{% endif %}

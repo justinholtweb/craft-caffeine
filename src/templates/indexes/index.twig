@@ -1,0 +1,94 @@
+{% extends "_layouts/cp" %}
+{% import "_includes/forms" as forms %}
+
+{% set title = "Indexes"|t('caffeine') %}
+{% set selectedSubnavItem = 'indexes' %}
+
+{% block actionButton %}
+  <a href="{{ url('caffeine/indexes/new') }}" class="btn submit add icon">{{ "New index"|t('caffeine') }}</a>
+{% endblock %}
+
+{% block content %}
+  {% if rows is empty %}
+    <div class="zilch">
+      <p>{{ "No indexes yet."|t('caffeine') }}</p>
+      <p><a href="{{ url('caffeine/indexes/new') }}" class="btn submit">{{ "Create one"|t('caffeine') }}</a></p>
+    </div>
+  {% else %}
+    <table class="data fullwidth">
+      <thead>
+        <tr>
+          <th>{{ "Index"|t('caffeine') }}</th>
+          <th>{{ "Records"|t('caffeine') }}</th>
+          <th>{{ "Published"|t('caffeine') }}</th>
+          <th>{{ "Size"|t('caffeine') }}</th>
+          <th>{{ "Transport"|t('caffeine') }}</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+          {% set index = row.index %}
+          {% set status = row.status %}
+          <tr>
+            <td>
+              <a href="{{ url('caffeine/indexes/' ~ index.handle) }}"><strong>{{ index.name }}</strong></a>
+              <code class="light">{{ index.handle }}</code>
+              {% if not row.allowed %}
+                <span class="status-label"><span class="status orange"></span>
+                  {{ "Not available on this edition"|t('caffeine') }}</span>
+              {% elseif not index.enabled %}
+                <span class="status-label"><span class="status"></span>{{ "Disabled"|t('caffeine') }}</span>
+              {% endif %}
+              {% if index.description %}<p class="light">{{ index.description }}</p>{% endif %}
+            </td>
+
+            <td>
+              {{ status.records }}
+              {% if status.dirty %}
+                {# The number that matters most on this screen: what visitors are being served is
+                   behind the CMS by exactly this much. #}
+                <span class="error">{{ "{n} stale"|t('caffeine', { n: status.dirty }) }}</span>
+                {% if row.pending %}<span class="light">· {{ "update queued"|t('caffeine') }}</span>{% endif %}
+              {% endif %}
+            </td>
+
+            <td>
+              {% if status.version %}
+                v{{ status.version }}
+                <span class="light">{{ status.publishedAt ? status.publishedAt|datetime('short') }}</span>
+                {% if status.buildMs %}<span class="light">· {{ status.buildMs }}ms</span>{% endif %}
+              {% else %}
+                <span class="error">{{ "Never"|t('caffeine') }}</span>
+              {% endif %}
+            </td>
+
+            <td>{{ status.bytes ? (status.bytes / 1024)|number_format(1) ~ ' KB' : '—' }}</td>
+            <td><code>{{ index.transport }}</code></td>
+
+            <td class="thin nowrap">
+              {% if canBuild and row.allowed %}
+                <form method="post" style="display:inline">
+                  {{ csrfInput() }}
+                  {{ actionInput('caffeine/indexes/build') }}
+                  {{ hiddenInput('handle', index.handle) }}
+                  <button type="submit" class="btn small">{{ "Rebuild"|t('caffeine') }}</button>
+                </form>
+                <form method="post" style="display:inline">
+                  {{ csrfInput() }}
+                  {{ actionInput('caffeine/indexes/publish') }}
+                  {{ hiddenInput('handle', index.handle) }}
+                  <button type="submit" class="btn small">{{ "Publish"|t('caffeine') }}</button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <p class="light" style="margin-top:1em">
+      {{ "Publishing to {store}"|t('caffeine', { store: store }) }}
+    </p>
+  {% endif %}
+{% endblock %}

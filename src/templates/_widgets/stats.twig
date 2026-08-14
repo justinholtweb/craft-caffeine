@@ -1,0 +1,8 @@
+<p class="caffeine-stats" data-caffeine-stats>
+  {%- if search.isEmpty -%}
+    {{ options.emptyLabel ?? 'No results'|t('caffeine') }}
+  {%- else -%}
+    {{ 'Showing {from}–{to} of {total}'|t('caffeine', { from: search.from, to: search.to, total: search.nbHits }) }}
+  {%- endif -%}
+  {%- if options.timing ?? false %} <span class="caffeine-stats__timing">({{ search.processingTimeMS }}ms)</span>{% endif -%}
+</p>

@@ -1,0 +1,324 @@
+{% extends "_layouts/cp" %}
+{% import "_includes/forms" as forms %}
+
+{% set title = isNew ? "New index"|t('caffeine') : index.name %}
+{% set selectedSubnavItem = 'indexes' %}
+{% set fullPageForm = true %}
+{% set crumbs = [{ label: "Indexes"|t('caffeine'), url: url('caffeine/indexes') }] %}
+
+{% set roleCol = { type: 'checkbox', thin: true } %}
+
+{% block content %}
+  {{ actionInput('caffeine/indexes/save') }}
+  {{ hiddenInput('uid', index.uid) }}
+  {{ redirectInput('caffeine/indexes') }}
+
+  {{ forms.textField({
+    first: true,
+    label: "Name"|t('caffeine'),
+    id: 'name',
+    name: 'name',
+    value: index.name,
+    required: true,
+    errors: index.getErrors('name'),
+  }) }}
+
+  {{ forms.textField({
+    label: "Handle"|t('caffeine'),
+    instructions: "Used in Twig, in the artifact filename, and nowhere a visitor sees. Renaming it changes both."|t('caffeine'),
+    id: 'handle',
+    name: 'handle',
+    class: 'code',
+    value: index.handle,
+    required: true,
+    errors: index.getErrors('handle'),
+  }) }}
+
+  {{ forms.textareaField({
+    label: "Description"|t('caffeine'),
+    id: 'description',
+    name: 'description',
+    rows: 2,
+    value: index.description,
+  }) }}
+
+  <hr>
+
+  <h2>{{ "Sources"|t('caffeine') }}</h2>
+  <p class="light">{{ "Where records come from. Containers and types are comma-separated handles; leave them empty to include everything."|t('caffeine') }}</p>
+
+  {% for handle, help in containerHelp %}
+    {% if help.containers|length %}
+      <p class="light"><strong>{{ handle }}</strong> — {{ "containers"|t('caffeine') }}: <code>{{ help.containers|join(', ') }}</code>
+      {%- if help.subTypes|length %} · {{ "types"|t('caffeine') }}: <code>{{ help.subTypes|join(', ') }}</code>{% endif %}</p>
+    {% endif %}
+  {% endfor %}
+
+  {{ forms.editableTableField({
+    label: false,
+    id: 'sources',
+    name: 'sources',
+    allowAdd: true,
+    allowDelete: true,
+    allowReorder: true,
+    addRowLabel: "Add a source"|t('caffeine'),
+    errors: index.getErrors('sources'),
+    cols: {
+      type: { heading: "Element type"|t('caffeine'), type: 'select', options: sourceOptions },
+      containers: { heading: "Containers"|t('caffeine'), type: 'singleline', code: true },
+      subTypes: { heading: "Types"|t('caffeine'), type: 'singleline', code: true },
+      status: { heading: "Status"|t('caffeine'), type: 'select', options: [
+        { label: "Live"|t('caffeine'), value: 'live' },
+        { label: "Enabled"|t('caffeine'), value: 'enabled' },
+        { label: "Any"|t('caffeine'), value: 'any' },
+      ] },
+    },
+    rows: index.sources|map(s => {
+      type: s.type,
+      containers: s.containers|join(', '),
+      subTypes: s.subTypes|join(', '),
+      status: s.status,
+    }),
+  }) }}
+
+  <hr>
+
+  <h2>{{ "Attributes"|t('caffeine') }}</h2>
+  <p class="light">{{ "One row per key in a record. Roles are not exclusive — a title is usually searchable, sortable and payload at once."|t('caffeine') }}</p>
+  <p class="light">{{ "A geo facet points its path at an address field and is filtered by distance rather than by value, so it has no buckets."|t('caffeine') }}</p>
+  {% if not isPro %}
+    <p class="light">{{ "Lite builds string and boolean facets. Hierarchical, numeric, date and geo facets need Pro."|t('caffeine') }}</p>
+  {% endif %}
+
+  {{ forms.editableTableField({
+    label: false,
+    id: 'attributes',
+    name: 'attributes',
+    allowAdd: true,
+    allowDelete: true,
+    allowReorder: true,
+    addRowLabel: "Add an attribute"|t('caffeine'),
+    errors: index.getErrors('attributes'),
+    cols: {
+      key: { heading: "Key"|t('caffeine'), type: 'singleline', code: true, width: 110 },
+      label: { heading: "Label"|t('caffeine'), type: 'singleline', width: 110 },
+      source: { heading: "From"|t('caffeine'), type: 'select', options: [
+        { label: "Attribute"|t('caffeine'), value: 'attribute' },
+        { label: "Field"|t('caffeine'), value: 'field' },
+      ] },
+      path: { heading: "Path"|t('caffeine'), type: 'singleline', code: true, width: 130 },
+      searchable: roleCol|merge({ heading: "Search"|t('caffeine') }),
+      facet: roleCol|merge({ heading: "Facet"|t('caffeine') }),
+      sortable: roleCol|merge({ heading: "Sort"|t('caffeine') }),
+      payload: roleCol|merge({ heading: "Payload"|t('caffeine') }),
+      searchWeight: { heading: "Weight"|t('caffeine'), type: 'singleline', width: 60 },
+      facetType: { heading: "Facet type"|t('caffeine'), type: 'select', options: facetTypeOptions },
+      facetOperator: { heading: "Operator"|t('caffeine'), type: 'select', options: [
+        { label: "Or"|t('caffeine'), value: 'or' },
+        { label: "And"|t('caffeine'), value: 'and' },
+      ] },
+    },
+    rows: index.attributes|map(a => {
+      key: a.key,
+      label: a.label,
+      source: a.source,
+      path: a.path,
+      searchable: a.roles|filter(r => r == 'searchable')|length > 0,
+      facet: a.roles|filter(r => r == 'facet')|length > 0,
+      sortable: a.roles|filter(r => r == 'sortable')|length > 0,
+      payload: a.roles|filter(r => r == 'payload')|length > 0,
+      searchWeight: a.searchWeight,
+      facetType: a.facetType,
+      facetOperator: a.facetOperator,
+    }),
+  }) }}
+
+  <p class="light">
+    {{ "Per-attribute settings this screen doesn’t show — value ordering, numeric buckets, transforms, hierarchy separator — are kept as they are when you save, so they can be managed in project config without this screen undoing them."|t('caffeine') }}
+  </p>
+
+  <hr>
+
+  <h2>{{ "Sortings"|t('caffeine') }}</h2>
+  <p class="light">{{ "Each is precomputed into the artifact, so switching sort at query time is a pointer swap rather than a sort. Relevance always exists and doesn’t need a row."|t('caffeine') }}</p>
+
+  {{ forms.editableTableField({
+    label: false,
+    id: 'sortings',
+    name: 'sortings',
+    allowAdd: true,
+    allowDelete: true,
+    allowReorder: true,
+    addRowLabel: "Add a sorting"|t('caffeine'),
+    errors: index.getErrors('sortings'),
+    cols: {
+      name: { heading: "Name"|t('caffeine'), type: 'singleline', code: true },
+      label: { heading: "Label"|t('caffeine'), type: 'singleline' },
+      attribute: { heading: "Attribute key"|t('caffeine'), type: 'singleline', code: true },
+      direction: { heading: "Direction"|t('caffeine'), type: 'select', options: [
+        { label: "Ascending"|t('caffeine'), value: 'asc' },
+        { label: "Descending"|t('caffeine'), value: 'desc' },
+      ] },
+    },
+    rows: index.sortings|map(s => {
+      name: s.name,
+      label: s.label,
+      attribute: s.attribute,
+      direction: s.direction,
+    }),
+  }) }}
+
+  <hr>
+
+  <h2>{{ "Words"|t('caffeine') }}</h2>
+
+  {% if not isPro %}
+    <p class="light">{{ "Stopwords and synonyms need Caffeine Pro."|t('caffeine') }}</p>
+  {% endif %}
+
+  {{ forms.textField({
+    disabled: not isPro,
+    label: "Stopwords"|t('caffeine'),
+    instructions: "Comma-separated words to ignore. Removed from documents *and* from searches — dropping “the” from one side only would make a search for “the saw” match nothing, because every word in a query has to match."|t('caffeine'),
+    id: 'stopwords',
+    name: 'stopwords',
+    value: index.stopwords|join(', '),
+  }) }}
+
+  {{ forms.textareaField({
+    disabled: not isPro,
+    label: "Synonyms"|t('caffeine'),
+    instructions: "One group per line, comma-separated: “sofa, couch, settee”. Every word in a group finds the others. Expanded when the index is built, so changing this needs a rebuild."|t('caffeine'),
+    id: 'synonyms',
+    name: 'synonyms',
+    rows: 4,
+    value: index.synonyms|join("\n"),
+  }) }}
+
+  {% if not isNew and isPro %}
+    <hr>
+    {% include 'caffeine/indexes/_tools' %}
+  {% endif %}
+{% endblock %}
+
+{% block details %}
+  <div class="meta">
+    {{ forms.selectField({
+      label: "Transport"|t('caffeine'),
+      instructions: "How refinements reach the browser."|t('caffeine'),
+      id: 'transport',
+      name: 'transport',
+      value: index.transport,
+      options: transportOptions,
+    }) }}
+
+    {{ forms.textField({
+      label: "Hits per page"|t('caffeine'),
+      id: 'hitsPerPage',
+      name: 'hitsPerPage',
+      type: 'number',
+      size: 5,
+      value: index.hitsPerPage,
+      errors: index.getErrors('hitsPerPage'),
+    }) }}
+
+    {{ forms.textField({
+      label: "Values per facet"|t('caffeine'),
+      instructions: "Before “show more”."|t('caffeine'),
+      id: 'maxValuesPerFacet',
+      name: 'maxValuesPerFacet',
+      type: 'number',
+      size: 5,
+      value: index.maxValuesPerFacet,
+      errors: index.getErrors('maxValuesPerFacet'),
+    }) }}
+
+    {{ forms.textField({
+      label: "Publish debounce"|t('caffeine'),
+      instructions: "Seconds to wait after a change, so a burst of edits costs one rebuild. 0 republishes immediately."|t('caffeine'),
+      id: 'publishDebounce',
+      name: 'publishDebounce',
+      type: 'number',
+      size: 5,
+      value: index.publishDebounce,
+      errors: index.getErrors('publishDebounce'),
+    }) }}
+
+    {{ forms.lightswitchField({
+      label: "Shard the payload"|t('caffeine'),
+      instructions: "Split card data into its own file, so a facet-count request never fetches it."|t('caffeine'),
+      id: 'shardPayload',
+      name: 'shardPayload',
+      on: index.shardPayload,
+    }) }}
+
+    {{ forms.lightswitchField({
+      label: "Enabled"|t('caffeine'),
+      id: 'enabled',
+      name: 'enabled',
+      on: index.enabled,
+    }) }}
+
+    {{ forms.checkboxSelectField({
+      label: "Sites"|t('caffeine'),
+      instructions: "Leave all unchecked to build every site."|t('caffeine'),
+      id: 'siteIds',
+      name: 'siteIds',
+      options: siteOptions,
+      values: index.siteIds,
+      showAllOption: false,
+    }) }}
+  </div>
+
+  {% if status %}
+    <div class="meta read-only">
+      <div class="data">
+        <div class="heading">{{ "Records"|t('caffeine') }}</div>
+        <div class="value">{{ status.records }}{% if status.dirty %} <span class="error">({{ status.dirty }} stale)</span>{% endif %}</div>
+      </div>
+      <div class="data">
+        <div class="heading">{{ "Published"|t('caffeine') }}</div>
+        <div class="value">{{ status.version ? 'v' ~ status.version : "never"|t('caffeine') }}</div>
+      </div>
+      {% if status.url %}
+        <div class="data">
+          <div class="heading">{{ "Pointer"|t('caffeine') }}</div>
+          <div class="value"><a href="{{ status.url }}" target="_blank" rel="noopener">current.json</a></div>
+        </div>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  {% if not isNew %}
+    {# Not a <form>. This block renders inside Craft's full-page form, and a nested form is
+       invalid HTML: the parser drops the inner tag and keeps its children, so a hidden
+       `action=caffeine/indexes/delete` ends up in the page form alongside the save action — and
+       Craft takes the last one. Clicking Save would delete the index. Posted from JavaScript
+       instead. #}
+    <div class="meta read-only">
+      <button type="button" class="btn small delete" id="caffeine-delete">
+        {{ "Delete index"|t('caffeine') }}
+      </button>
+    </div>
+  {% endif %}
+{% endblock %}
+
+{% if isNew %}
+  {% js %}
+    new Craft.HandleGenerator('#name', '#handle');
+  {% endjs %}
+{% else %}
+  {% js %}
+    document.getElementById('caffeine-delete').addEventListener('click', async function () {
+      if (!confirm({{ "Delete this index? Its records and published artifacts go with it."|t('caffeine')|json_encode|raw }})) {
+        return;
+      }
+
+      await Craft.sendActionRequest('POST', 'caffeine/indexes/delete', {
+        data: { handle: {{ index.handle|json_encode|raw }} },
+      });
+
+      window.location.href = Craft.getCpUrl('caffeine/indexes');
+    });
+  {% endjs %}
+{% endif %}

@@ -1,0 +1,34 @@
+{% set refinements = search.refinements %}
+
+{% if refinements|length or search.query %}
+  <div class="caffeine-current-refinements">
+    <ul class="caffeine-current-refinements__items">
+      {% if search.query %}
+        <li class="caffeine-current-refinements__item">
+          <a href="{{ search.queryUrl('') }}" rel="nofollow" class="caffeine-current-refinements__link">
+            <span class="caffeine-current-refinements__label">{{ '“{query}”'|t('caffeine', { query: search.query }) }}</span>
+            <span class="caffeine-current-refinements__remove" aria-hidden="true">×</span>
+            <span class="visually-hidden">{{ 'Remove'|t('caffeine') }}</span>
+          </a>
+        </li>
+      {% endif %}
+
+      {% for refinement in refinements %}
+        <li class="caffeine-current-refinements__item">
+          <a href="{{ refinement.url }}" rel="nofollow" class="caffeine-current-refinements__link">
+            <span class="caffeine-current-refinements__facet">{{ refinement.facetLabel }}:</span>
+            <span class="caffeine-current-refinements__label">{{ refinement.label }}</span>
+            <span class="caffeine-current-refinements__remove" aria-hidden="true">×</span>
+            <span class="visually-hidden">{{ 'Remove'|t('caffeine') }}</span>
+          </a>
+        </li>
+      {% endfor %}
+    </ul>
+
+    {% if options.clearAll ?? true %}
+      <a href="{{ search.clearUrl }}" rel="nofollow" class="caffeine-current-refinements__clear">
+        {{ options.clearLabel ?? 'Clear all'|t('caffeine') }}
+      </a>
+    {% endif %}
+  </div>
+{% endif %}

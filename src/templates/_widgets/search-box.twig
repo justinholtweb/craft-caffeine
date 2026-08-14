@@ -1,0 +1,20 @@
+{# A real GET form, so it searches without JavaScript. The hidden fields carry the active
+   refinements forward — without them, typing would silently clear every filter. #}
+<form class="caffeine-search-box" method="get" action="{{ search.canonicalUrl }}" role="search" data-caffeine-form>
+  {%- for name, value in search.params(['q']) %}
+    <input type="hidden" name="{{ name }}" value="{{ value }}">
+  {%- endfor %}
+
+  <input
+    class="caffeine-search-box__input"
+    type="search"
+    name="{{ search.prefix }}q"
+    value="{{ search.query }}"
+    placeholder="{{ options.placeholder ?? 'Search'|t('caffeine') }}"
+    aria-label="{{ options.label ?? 'Search'|t('caffeine') }}"
+    autocomplete="off"
+    data-caffeine-query>
+
+  {# Hidden once the runtime takes over, because typing already searches. #}
+  <button class="caffeine-search-box__submit" type="submit" data-caffeine-submit>{{ 'Search'|t('caffeine') }}</button>
+</form>

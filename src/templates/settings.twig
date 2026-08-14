@@ -1,0 +1,74 @@
+{% extends "_layouts/cp" %}
+{% import "_includes/forms" as forms %}
+
+{% set title = "Settings"|t('caffeine') %}
+{% set selectedSubnavItem = 'settings' %}
+{% set fullPageForm = true %}
+
+{% block content %}
+  {{ actionInput('caffeine/settings/save') }}
+
+  {{ forms.autosuggestField({
+    label: "Filesystem"|t('caffeine'),
+    instructions: "Where artifacts are published. Leave empty to publish into the web root, which is right for most sites; naming a filesystem puts them on S3 or a CDN so PHP never serves them."|t('caffeine'),
+    id: 'filesystemHandle',
+    name: 'settings[filesystemHandle]',
+    value: settings.filesystemHandle,
+    suggestions: filesystemSuggestions,
+    errors: settings.getErrors('filesystemHandle'),
+  }) }}
+
+  {{ forms.textField({
+    label: "Publish path"|t('caffeine'),
+    instructions: "Directory, within that filesystem or the web root, that artifacts are written under."|t('caffeine'),
+    id: 'publishPath',
+    name: 'settings[publishPath]',
+    value: settings.publishPath,
+    errors: settings.getErrors('publishPath'),
+  }) }}
+
+  {{ forms.textField({
+    label: "Versions to keep"|t('caffeine'),
+    instructions: "Superseded artifacts are kept, because a visitor who loaded the page a moment before a rebuild is still fetching the previous one. Pruning it out from under them turns a rebuild into a 404."|t('caffeine'),
+    id: 'keepVersions',
+    name: 'settings[keepVersions]',
+    type: 'number',
+    size: 5,
+    value: settings.keepVersions,
+    errors: settings.getErrors('keepVersions'),
+  }) }}
+
+  <hr>
+
+  {{ forms.lightswitchField({
+    label: "Update automatically"|t('caffeine'),
+    instructions: "Rebuild and republish when content changes. Off means indexes only update when you say so."|t('caffeine'),
+    id: 'autoUpdate',
+    name: 'settings[autoUpdate]',
+    on: settings.autoUpdate,
+  }) }}
+
+  {{ forms.lightswitchField({
+    label: "Use the queue"|t('caffeine'),
+    instructions: "Build in the background rather than during the request that saved the element. Turning this off is only sensible in tests — a synchronous build blocks the editor's save."|t('caffeine'),
+    id: 'useQueue',
+    name: 'settings[useQueue]',
+    on: settings.useQueue,
+  }) }}
+
+  {{ forms.lightswitchField({
+    label: "Write precompressed copies"|t('caffeine'),
+    instructions: "Write .gz and .br alongside each artifact so a web server can serve them without recompressing on every request."|t('caffeine'),
+    id: 'precompress',
+    name: 'settings[precompress]',
+    on: settings.precompress,
+  }) }}
+
+  {{ forms.selectField({
+    label: "Log level"|t('caffeine'),
+    id: 'logLevel',
+    name: 'settings[logLevel]',
+    options: logLevelOptions,
+    value: settings.logLevel,
+  }) }}
+{% endblock %}

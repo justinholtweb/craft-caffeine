@@ -1,0 +1,916 @@
+{
+  "name": "urlstate",
+  "type": "urlstate",
+  "path": "/products",
+  "facets": {
+    "brand": {
+      "type": "string",
+      "values": [
+        "Acme",
+        "Globex",
+        "Smith, John",
+        "Back\\slash",
+        "Ünïcode",
+        "Two Words"
+      ]
+    },
+    "category": {
+      "type": "hierarchical",
+      "values": [
+        "Home",
+        "Home > Tools"
+      ]
+    },
+    "price": {
+      "type": "numeric",
+      "values": [
+        10,
+        50,
+        19.99
+      ]
+    },
+    "featured": {
+      "type": "boolean",
+      "values": [
+        true,
+        false
+      ]
+    },
+    "postDate": {
+      "type": "date",
+      "values": [
+        1775403180,
+        1781197320
+      ]
+    }
+  },
+  "cases": [
+    {
+      "name": "an unrefined state has no query string at all",
+      "state": {
+        "query": "",
+        "refinements": {},
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      },
+      "expectParams": {},
+      "expectUrl": "/products",
+      "expectParsed": {
+        "query": "",
+        "refinements": {},
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      }
+    },
+    {
+      "name": "a text query",
+      "state": {
+        "query": "cordless drill",
+        "refinements": {},
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      },
+      "expectParams": {
+        "q": "cordless drill"
+      },
+      "expectUrl": "/products?q=cordless%20drill",
+      "expectParsed": {
+        "query": "cordless drill",
+        "refinements": {},
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      }
+    },
+    {
+      "name": "two values on one facet",
+      "state": {
+        "query": "",
+        "refinements": {
+          "brand": [
+            "Acme",
+            "Globex"
+          ]
+        },
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      },
+      "expectParams": {
+        "brand": "Acme,Globex"
+      },
+      "expectUrl": "/products?brand=Acme,Globex",
+      "expectParsed": {
+        "query": "",
+        "refinements": {
+          "brand": [
+            "Acme",
+            "Globex"
+          ]
+        },
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      }
+    },
+    {
+      "name": "a comma inside a value is escaped, not a separator",
+      "state": {
+        "query": "",
+        "refinements": {
+          "brand": [
+            "Smith, John",
+            "Acme"
+          ]
+        },
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      },
+      "expectParams": {
+        "brand": "Smith\\, John,Acme"
+      },
+      "expectUrl": "/products?brand=Smith%5C,%20John,Acme",
+      "expectParsed": {
+        "query": "",
+        "refinements": {
+          "brand": [
+            "Smith, John",
+            "Acme"
+          ]
+        },
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      }
+    },
+    {
+      "name": "a backslash inside a value is escaped",
+      "state": {
+        "query": "",
+        "refinements": {
+          "brand": [
+            "Back\\slash"
+          ]
+        },
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      },
+      "expectParams": {
+        "brand": "Back\\\\slash"
+      },
+      "expectUrl": "/products?brand=Back%5C%5Cslash",
+      "expectParsed": {
+        "query": "",
+        "refinements": {
+          "brand": [
+            "Back\\slash"
+          ]
+        },
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      }
+    },
+    {
+      "name": "a space is percent-encoded",
+      "state": {
+        "query": "",
+        "refinements": {
+          "brand": [
+            "Two Words"
+          ]
+        },
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      },
+      "expectParams": {
+        "brand": "Two Words"
+      },
+      "expectUrl": "/products?brand=Two%20Words",
+      "expectParsed": {
+        "query": "",
+        "refinements": {
+          "brand": [
+            "Two Words"
+          ]
+        },
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      }
+    },
+    {
+      "name": "a non-ASCII value",
+      "state": {
+        "query": "",
+        "refinements": {
+          "brand": [
+            "Ünïcode"
+          ]
+        },
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      },
+      "expectParams": {
+        "brand": "Ünïcode"
+      },
+      "expectUrl": "/products?brand=%C3%9Cn%C3%AFcode",
+      "expectParsed": {
+        "query": "",
+        "refinements": {
+          "brand": [
+            "Ünïcode"
+          ]
+        },
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      }
+    },
+    {
+      "name": "a hierarchical path",
+      "state": {
+        "query": "",
+        "refinements": {
+          "category": [
+            "Home > Tools"
+          ]
+        },
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      },
+      "expectParams": {
+        "category": "Home > Tools"
+      },
+      "expectUrl": "/products?category=Home%20%3E%20Tools",
+      "expectParsed": {
+        "query": "",
+        "refinements": {
+          "category": [
+            "Home > Tools"
+          ]
+        },
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      }
+    },
+    {
+      "name": "a boolean facet",
+      "state": {
+        "query": "",
+        "refinements": {
+          "featured": [
+            true
+          ]
+        },
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      },
+      "expectParams": {
+        "featured": "true"
+      },
+      "expectUrl": "/products?featured=true",
+      "expectParsed": {
+        "query": "",
+        "refinements": {
+          "featured": [
+            true
+          ]
+        },
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      }
+    },
+    {
+      "name": "an exact numeric refinement is not a range",
+      "state": {
+        "query": "",
+        "refinements": {
+          "price": [
+            10
+          ]
+        },
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      },
+      "expectParams": {
+        "price": "10"
+      },
+      "expectUrl": "/products?price=10",
+      "expectParsed": {
+        "query": "",
+        "refinements": {
+          "price": [
+            10
+          ]
+        },
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      }
+    },
+    {
+      "name": "a float value keeps its decimals",
+      "state": {
+        "query": "",
+        "refinements": {
+          "price": [
+            19.99
+          ]
+        },
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      },
+      "expectParams": {
+        "price": "19.99"
+      },
+      "expectUrl": "/products?price=19.99",
+      "expectParsed": {
+        "query": "",
+        "refinements": {
+          "price": [
+            19.99
+          ]
+        },
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      }
+    },
+    {
+      "name": "a range with both ends",
+      "state": {
+        "query": "",
+        "refinements": {},
+        "ranges": {
+          "price": {
+            "min": 10,
+            "max": 50
+          }
+        },
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      },
+      "expectParams": {
+        "price": "10..50"
+      },
+      "expectUrl": "/products?price=10..50",
+      "expectParsed": {
+        "query": "",
+        "refinements": {},
+        "ranges": {
+          "price": {
+            "min": 10,
+            "max": 50
+          }
+        },
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      }
+    },
+    {
+      "name": "a range open at the top",
+      "state": {
+        "query": "",
+        "refinements": {},
+        "ranges": {
+          "price": {
+            "min": 10
+          }
+        },
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      },
+      "expectParams": {
+        "price": "10.."
+      },
+      "expectUrl": "/products?price=10..",
+      "expectParsed": {
+        "query": "",
+        "refinements": {},
+        "ranges": {
+          "price": {
+            "min": 10
+          }
+        },
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      }
+    },
+    {
+      "name": "a range open at the bottom",
+      "state": {
+        "query": "",
+        "refinements": {},
+        "ranges": {
+          "price": {
+            "max": 50
+          }
+        },
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      },
+      "expectParams": {
+        "price": "..50"
+      },
+      "expectUrl": "/products?price=..50",
+      "expectParsed": {
+        "query": "",
+        "refinements": {},
+        "ranges": {
+          "price": {
+            "max": 50
+          }
+        },
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      }
+    },
+    {
+      "name": "a date range",
+      "state": {
+        "query": "",
+        "refinements": {},
+        "ranges": {
+          "postDate": {
+            "min": 1775403180,
+            "max": 1781197320
+          }
+        },
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      },
+      "expectParams": {
+        "postDate": "1775403180..1781197320"
+      },
+      "expectUrl": "/products?postDate=1775403180..1781197320",
+      "expectParsed": {
+        "query": "",
+        "refinements": {},
+        "ranges": {
+          "postDate": {
+            "min": 1775403180,
+            "max": 1781197320
+          }
+        },
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      }
+    },
+    {
+      "name": "a refinement and a range on the same facet share one parameter",
+      "state": {
+        "query": "",
+        "refinements": {
+          "price": [
+            19.99
+          ]
+        },
+        "ranges": {
+          "price": {
+            "min": 10,
+            "max": 50
+          }
+        },
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      },
+      "expectParams": {
+        "price": "19.99,10..50"
+      },
+      "expectUrl": "/products?price=19.99,10..50",
+      "expectParsed": {
+        "query": "",
+        "refinements": {
+          "price": [
+            19.99
+          ]
+        },
+        "ranges": {
+          "price": {
+            "min": 10,
+            "max": 50
+          }
+        },
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      }
+    },
+    {
+      "name": "the default sorting is omitted",
+      "state": {
+        "query": "",
+        "refinements": {},
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      },
+      "expectParams": {},
+      "expectUrl": "/products",
+      "expectParsed": {
+        "query": "",
+        "refinements": {},
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      }
+    },
+    {
+      "name": "a named sorting",
+      "state": {
+        "query": "",
+        "refinements": {},
+        "ranges": {},
+        "sortBy": "price_asc",
+        "page": 0,
+        "hitsPerPage": null
+      },
+      "expectParams": {
+        "sort": "price_asc"
+      },
+      "expectUrl": "/products?sort=price_asc",
+      "expectParsed": {
+        "query": "",
+        "refinements": {},
+        "ranges": {},
+        "sortBy": "price_asc",
+        "page": 0,
+        "hitsPerPage": null
+      }
+    },
+    {
+      "name": "the first page is omitted",
+      "state": {
+        "query": "",
+        "refinements": {},
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      },
+      "expectParams": {},
+      "expectUrl": "/products",
+      "expectParsed": {
+        "query": "",
+        "refinements": {},
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      }
+    },
+    {
+      "name": "a later page is one-based in the URL",
+      "state": {
+        "query": "",
+        "refinements": {},
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 4,
+        "hitsPerPage": null
+      },
+      "expectParams": {
+        "page": "5"
+      },
+      "expectUrl": "/products?page=5",
+      "expectParsed": {
+        "query": "",
+        "refinements": {},
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 4,
+        "hitsPerPage": null
+      }
+    },
+    {
+      "name": "an explicit page size",
+      "state": {
+        "query": "",
+        "refinements": {},
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": 48
+      },
+      "expectParams": {
+        "perPage": "48"
+      },
+      "expectUrl": "/products?perPage=48",
+      "expectParsed": {
+        "query": "",
+        "refinements": {},
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": 48
+      }
+    },
+    {
+      "name": "everything at once",
+      "state": {
+        "query": "saw",
+        "refinements": {
+          "brand": [
+            "Acme"
+          ],
+          "featured": [
+            false
+          ]
+        },
+        "ranges": {
+          "price": {
+            "min": 10,
+            "max": 50
+          }
+        },
+        "sortBy": "price_asc",
+        "page": 2,
+        "hitsPerPage": 12
+      },
+      "expectParams": {
+        "q": "saw",
+        "brand": "Acme",
+        "featured": "false",
+        "price": "10..50",
+        "sort": "price_asc",
+        "page": "3",
+        "perPage": "12"
+      },
+      "expectUrl": "/products?q=saw&brand=Acme&featured=false&price=10..50&sort=price_asc&page=3&perPage=12",
+      "expectParsed": {
+        "query": "saw",
+        "refinements": {
+          "brand": [
+            "Acme"
+          ],
+          "featured": [
+            false
+          ]
+        },
+        "ranges": {
+          "price": {
+            "min": 10,
+            "max": 50
+          }
+        },
+        "sortBy": "price_asc",
+        "page": 2,
+        "hitsPerPage": 12
+      }
+    },
+    {
+      "name": "a prefix keeps two indexes on one page apart",
+      "state": {
+        "query": "saw",
+        "refinements": {
+          "brand": [
+            "Acme"
+          ]
+        },
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 1,
+        "hitsPerPage": null
+      },
+      "options": {
+        "prefix": "p_"
+      },
+      "expectParams": {
+        "p_q": "saw",
+        "p_brand": "Acme",
+        "p_page": "2"
+      },
+      "expectUrl": "/products?p_q=saw&p_brand=Acme&p_page=2",
+      "expectParsed": {
+        "query": "saw",
+        "refinements": {
+          "brand": [
+            "Acme"
+          ]
+        },
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 1,
+        "hitsPerPage": null
+      }
+    },
+    {
+      "name": "a range posted by a plain form",
+      "parseParams": {
+        "price_min": "10",
+        "price_max": "50"
+      },
+      "expectParsed": {
+        "query": "",
+        "refinements": {},
+        "ranges": {
+          "price": {
+            "min": 10,
+            "max": 50
+          }
+        },
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      }
+    },
+    {
+      "name": "a form range open at the top",
+      "parseParams": {
+        "price_min": "10"
+      },
+      "expectParsed": {
+        "query": "",
+        "refinements": {},
+        "ranges": {
+          "price": {
+            "min": 10
+          }
+        },
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      }
+    },
+    {
+      "name": "a form range open at the bottom",
+      "parseParams": {
+        "price_max": "50"
+      },
+      "expectParsed": {
+        "query": "",
+        "refinements": {},
+        "ranges": {
+          "price": {
+            "max": 50
+          }
+        },
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      }
+    },
+    {
+      "name": "the canonical range wins over form fields",
+      "parseParams": {
+        "price": "10..50",
+        "price_min": "99",
+        "price_max": "999"
+      },
+      "expectParsed": {
+        "query": "",
+        "refinements": {},
+        "ranges": {
+          "price": {
+            "min": 10,
+            "max": 50
+          }
+        },
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      }
+    },
+    {
+      "name": "empty form fields are ignored",
+      "parseParams": {
+        "price_min": "",
+        "price_max": ""
+      },
+      "expectParsed": {
+        "query": "",
+        "refinements": {},
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      }
+    },
+    {
+      "name": "non-numeric form fields are ignored",
+      "parseParams": {
+        "price_min": "abc"
+      },
+      "expectParsed": {
+        "query": "",
+        "refinements": {},
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      }
+    },
+    {
+      "name": "form fields on a string facet do nothing",
+      "parseParams": {
+        "brand_min": "10"
+      },
+      "expectParsed": {
+        "query": "",
+        "refinements": {},
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      }
+    },
+    {
+      "name": "an unknown parameter is ignored",
+      "parseParams": {
+        "nonsense": "x",
+        "brand": "Acme"
+      },
+      "expectParsed": {
+        "query": "",
+        "refinements": {
+          "brand": [
+            "Acme"
+          ]
+        },
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      }
+    },
+    {
+      "name": "a refinement naming a value that no longer exists survives as itself",
+      "parseParams": {
+        "brand": "Vanished"
+      },
+      "expectParsed": {
+        "query": "",
+        "refinements": {
+          "brand": [
+            "Vanished"
+          ]
+        },
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      }
+    },
+    {
+      "name": "a page below one clamps to the first",
+      "parseParams": {
+        "page": "0"
+      },
+      "expectParsed": {
+        "query": "",
+        "refinements": {},
+        "ranges": {},
+        "sortBy": "relevance",
+        "page": 0,
+        "hitsPerPage": null
+      }
+    }
+  ]
+}
