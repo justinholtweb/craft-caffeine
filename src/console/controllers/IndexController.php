@@ -67,6 +67,32 @@ class IndexController extends Controller
     }
 
     /**
+     * Removes records, ledger rows and published files left behind by deleted indexes, and
+     * unreferenced files in the publish directories of the ones that remain.
+     *
+     * Craft's garbage collection does the same, but only when it happens to run. This is for
+     * running it on purpose, after a deploy or a database restore.
+     */
+    public function actionPruneOrphans(): int
+    {
+        $result = Plugin::getInstance()->indexes->collectGarbage();
+
+        $this->stdout(sprintf("  %d deleted index(es) torn down\n", $result['indexes']));
+        $this->stdout(sprintf("  %d orphaned record(s) removed\n", $result['records']));
+        $this->stdout(sprintf("  %d unreferenced file(s) removed\n", count($result['files'])));
+
+        foreach ($result['files'] as $file) {
+            $this->stdout("    {$file}\n", Console::FG_GREY);
+        }
+
+        foreach ($result['busy'] as $handle) {
+            $this->stdout("  {$handle} is publishing right now; its files were left alone. Run this again shortly.\n", Console::FG_YELLOW);
+        }
+
+        return ExitCode::OK;
+    }
+
+    /**
      * Builds records for one index, or every index when no handle is given.
      */
     public function actionBuild(?string $handle = null): int

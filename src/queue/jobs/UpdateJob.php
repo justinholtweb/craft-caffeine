@@ -128,7 +128,7 @@ class UpdateJob extends BaseJob
         $index = Plugin::getInstance()->indexes->getByUid($this->indexUid);
 
         return Craft::t('caffeine', 'Updating the “{index}” search index', [
-            'index' => $index?->name ?? $this->indexUid,
+            'index' => $index->name ?? $this->indexUid,
         ]);
     }
 }

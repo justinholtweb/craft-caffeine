@@ -152,10 +152,17 @@ class SearchContext
             $buckets = [];
 
             foreach ($raw['buckets'] ?? [] as $bucket) {
-                $buckets[] = $bucket + [
+                // A fixed value is the page itself, so it shows as refined and its link goes
+                // nowhere: toggling it would only add it to the query string of the same page.
+                $fixed = $this->state->isFixed($key, $bucket['value']);
+
+                $buckets[] = [
+                    'isRefined' => ($bucket['isRefined'] ?? false) || $fixed,
+                    'fixed' => $fixed,
+                    'url' => $fixed ? $this->urlFor($this->state) : $this->toggleUrl($key, $bucket['value']),
+                ] + $bucket + [
                     'key' => FacetValue::toKey($bucket['value']),
                     'label' => $this->label($definition, $bucket['value']),
-                    'url' => $this->toggleUrl($key, $bucket['value']),
                 ];
             }
 
@@ -165,7 +172,9 @@ class SearchContext
                 'type' => $definition->facetType,
                 'operator' => $raw['operator'] ?? 'or',
                 'isRefined' => ($this->state->refinements[$key] ?? []) !== []
-                    || isset($this->state->ranges[$key]),
+                    || isset($this->state->ranges[$key])
+                    || ($this->state->filters[$key] ?? []) !== [],
+                'fixed' => ($this->state->filters[$key] ?? []) !== [],
                 'buckets' => $buckets,
                 'stats' => $this->result['facets_stats'][$key] ?? null,
             ];

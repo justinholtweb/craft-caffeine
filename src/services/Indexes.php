@@ -252,7 +252,8 @@ class Indexes extends Component
     {
         $this->indexes = null;
 
-        $uid = $event->tokenMatches['uid'] ?? null;
+        // Craft passes the `{uid}` token positionally, not by name.
+        $uid = $event->tokenMatches[0] ?? null;
 
         if (!is_string($uid)) {
             return;
@@ -265,7 +266,8 @@ class Indexes extends Component
     {
         $this->indexes = null;
 
-        $uid = $event->tokenMatches['uid'] ?? null;
+        // Craft passes the `{uid}` token positionally, not by name.
+        $uid = $event->tokenMatches[0] ?? null;
 
         if (!is_string($uid)) {
             return;
@@ -282,6 +284,42 @@ class Indexes extends Component
     {
         Plugin::getInstance()->records->deleteForIndex($uid);
         Plugin::getInstance()->artifacts->deleteForIndex($uid);
+    }
+
+    /**
+     * Removes everything left behind by indexes that no longer exist, and files in the publish
+     * directories of the ones that do that nothing references any more.
+     *
+     * What Craft's garbage collection runs, and what `caffeine/index/prune-orphans` runs for an
+     * operator who wants it done now — after a deploy, or after restoring a database.
+     *
+     * @return array{indexes: int, records: int, files: list<string>, busy: list<string>}
+     */
+    public function collectGarbage(): array
+    {
+        $plugin = Plugin::getInstance();
+        $known = array_keys($this->allByUid());
+
+        $result = [
+            'indexes' => $plugin->artifacts->deleteOrphans($known),
+            'records' => $plugin->records->deleteOrphans($known),
+            'files' => [],
+            'busy' => [],
+        ];
+
+        foreach ($this->all() as $index) {
+            $deleted = $plugin->artifacts->sweep($index);
+
+            if ($deleted === null) {
+                // Publishing right now. The next run gets it.
+                $result['busy'][] = $index->handle;
+                continue;
+            }
+
+            array_push($result['files'], ...$deleted);
+        }
+
+        return $result;
     }
 
     public function reset(): void

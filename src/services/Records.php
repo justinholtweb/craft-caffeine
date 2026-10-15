@@ -84,9 +84,9 @@ class Records extends Component
                     $this->save($index, $record);
                 }
 
-                $transaction?->commit();
+                $transaction->commit();
             } catch (\Throwable $e) {
-                $transaction?->rollBack();
+                $transaction->rollBack();
                 throw $e;
             }
         }

@@ -135,6 +135,7 @@ queue job rebuilds and republishes. A `resave/entries` over 5,000 entries collap
 | `caffeine/index/status` | Record counts, and what is stale. |
 | `caffeine/index/build [handle] [--all]` | Map content into records. |
 | `caffeine/index/preview <handle> <id>` | What Caffeine would build for one element. |
+| `caffeine/index/prune-orphans` | Clean up after deleted indexes, and remove published files nothing references. |
 | `caffeine/artifact/publish [handle] [--force]` | Compile and publish. |
 | `caffeine/artifact/status` | What is live, and whether it is behind the CMS. |
 | `caffeine/artifact/verify <handle>` | Check the published artifact against a fresh compile. |

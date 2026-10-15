@@ -32,7 +32,13 @@ export class Engine {
     const hitsPerPage = Math.max(1, state.hitsPerPage || defaultHitsPerPage)
 
     // §3.1
-    const { candidates, scores } = this.match(state.query || '')
+    let { candidates, scores } = this.match(state.query || '')
+
+    // Fixed filters narrow the candidates themselves, so every facet — disjunctive ones counted
+    // without their own refinements included — is counted within them.
+    if (state.filters && Object.keys(state.filters).length > 0) {
+      candidates = this.intersectAll(candidates, this.buildFilters({ refinements: state.filters }), null)
+    }
 
     // §3.2 — kept per facet, because counting rebuilds the intersection leaving one out.
     const filters = this.buildFilters(state)

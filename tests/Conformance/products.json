@@ -207,6 +207,34 @@
           "category": [["Home", 3], ["Home > Tools", 3], ["Home > Tools > Saws", 2], ["Home > Tools > Drills", 1]]
         }
       }
+    },
+    {
+      "name": "a fixed filter narrows the records before anything is counted",
+      "comment": "The `filters` option: the category a category page is. Brand is disjunctive, yet Globex and Initech do not appear — a fixed filter is the universe, not a sibling refinement.",
+      "state": { "filters": { "brand": ["Acme"] } },
+      "expect": {
+        "nbHits": 2,
+        "hits": ["1-1", "2-1"],
+        "facets": { "brand": [["Acme", 2]], "colour": [["blue", 1], ["red", 1]] }
+      }
+    },
+    {
+      "name": "a refinement on a fixed facet cannot widen past the filter",
+      "state": { "filters": { "brand": ["Acme"] }, "refinements": { "brand": ["Globex"] } },
+      "expect": {
+        "nbHits": 0,
+        "hits": [],
+        "facets": { "brand": [["Acme", 2], ["Globex", 0]] }
+      }
+    },
+    {
+      "name": "refinements on other facets are counted within a fixed filter",
+      "state": { "filters": { "category": ["Home > Tools"] }, "refinements": { "brand": ["Globex"] } },
+      "expect": {
+        "nbHits": 1,
+        "hits": ["3-1"],
+        "facets": { "brand": [["Acme", 2], ["Globex", 1]] }
+      }
     }
   ]
 }

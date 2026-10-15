@@ -32,6 +32,17 @@ interface StoreInterface
     /** Public URL of a published file, or null when the store is not web-accessible. */
     public function url(string $path): ?string;
 
+    /**
+     * Files directly inside a directory, keyed by path in the same form `write()` takes, each
+     * with its modification time in Unix seconds — null when the backend cannot say. Empty when
+     * the directory is not there.
+     *
+     * Exists for one job: finding files no ledger row lists, which nothing else could ever see.
+     *
+     * @return array<string, int|null>
+     */
+    public function files(string $directory): array;
+
     /** Human-readable location, for the CP and console output. */
     public function describe(): string;
 }

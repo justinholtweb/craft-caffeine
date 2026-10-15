@@ -257,7 +257,7 @@ class ArtifactController extends Controller
     }
 
     /**
-     * @return list<IndexDefinition>
+     * @return array<IndexDefinition>
      */
     private function resolveIndexes(?string $handle): array
     {

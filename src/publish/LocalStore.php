@@ -25,7 +25,7 @@ class LocalStore implements StoreInterface
 
     public static function forPath(string $publishPath): self
     {
-        $webroot = Craft::getAlias('@webroot');
+        $webroot = Craft::getAlias('@webroot', false);
 
         if (!is_string($webroot)) {
             throw new RuntimeException('Caffeine cannot publish locally: the @webroot alias is not set.');
@@ -93,6 +93,23 @@ class LocalStore implements StoreInterface
         if (is_dir($directory) && (@scandir($directory) ?: []) === ['.', '..']) {
             @rmdir($directory);
         }
+    }
+
+    public function files(string $directory): array
+    {
+        $full = $this->path($directory);
+        $files = [];
+
+        foreach (@scandir($full) ?: [] as $name) {
+            if (!is_file("{$full}/{$name}")) {
+                continue;
+            }
+
+            $mtime = @filemtime("{$full}/{$name}");
+            $files[trim($directory, '/') . '/' . $name] = $mtime === false ? null : $mtime;
+        }
+
+        return $files;
     }
 
     public function url(string $path): ?string

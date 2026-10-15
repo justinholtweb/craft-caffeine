@@ -36,6 +36,13 @@ class Engine
         // §3.1 — text matching.
         [$candidates, $scores] = $this->match($state->query);
 
+        // Fixed filters narrow the candidates themselves rather than joining the per-facet
+        // filters, so a disjunctive facet counted "without its own refinements" is still counted
+        // within them, and a visitor's refinement on the same facet cannot widen past them.
+        if ($state->filters !== []) {
+            $candidates = $this->intersectAll($candidates, $this->buildFilters(new QueryState(refinements: $state->filters)));
+        }
+
         // §3.2 — filtering. Each facet's filter is kept separately, because facet counting
         // needs to rebuild the intersection while leaving one facet out.
         $filters = $this->buildFilters($state);
@@ -466,7 +473,7 @@ class Engine
     /**
      * §3.3 — which values appear, and in what order.
      *
-     * @param array{type: string, operator: string, values: list<mixed>, postings: list<list<int>>, records: list<list<int>>} $facet
+     * @param array{type: string, operator: string, sort?: string|null, valueOrder?: list<mixed>, maxValues?: int, values: list<mixed>, postings: list<list<int>>, records: list<list<int>>} $facet
      * @param array<int, int> $counts value index → count
      * @return list<array{value: mixed, count: int, isRefined: bool}>
      */

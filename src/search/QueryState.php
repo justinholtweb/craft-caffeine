@@ -23,7 +23,7 @@ class QueryState
          * A radius of zero filters nothing and only enables the distance sorting, which is what
          * "order by nearest, show everything" needs.
          *
-         * @var array<string, array{lat: float, lng: float, radius: float}>
+         * @var array<string, array{lat: float, lng: float, radius?: float}>
          */
         public array $around = [],
         public string $sortBy = 'relevance',
@@ -31,6 +31,14 @@ class QueryState
         public ?int $hitsPerPage = null,
         /** @var list<string>|null Facets to count. Null means all of them. */
         public ?array $facets = null,
+        /**
+         * Refinements that always apply and are not the visitor's to change: the category a
+         * category page *is*. They narrow the records before anything else, so every count is
+         * taken within them, and they are never encoded into a URL.
+         *
+         * @var array<string, list<string|bool|float>> facet key → values
+         */
+        public array $filters = [],
     ) {
     }
 
@@ -40,6 +48,17 @@ class QueryState
             // Loose comparison would make the string "0" match the boolean false, which shows
             // up as the wrong checkbox appearing ticked on a boolean facet.
             if ($refined === $value) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function isFixed(string $facet, string|bool|float $value): bool
+    {
+        foreach ($this->filters[$facet] ?? [] as $fixed) {
+            if ($fixed === $value) {
                 return true;
             }
         }
@@ -153,6 +172,10 @@ class QueryState
             page: max(0, (int)($data['page'] ?? 0)),
             hitsPerPage: isset($data['hitsPerPage']) ? (int)$data['hitsPerPage'] : null,
             facets: isset($data['facets']) ? array_values((array)$data['facets']) : null,
+            filters: array_map(
+                fn($values) => array_values((array)$values),
+                array_filter((array)($data['filters'] ?? []), fn($values) => (array)$values !== []),
+            ),
         );
     }
 
@@ -170,6 +193,7 @@ class QueryState
             'page' => $this->page,
             'hitsPerPage' => $this->hitsPerPage,
             'facets' => $this->facets,
+            'filters' => $this->filters,
         ], fn($v) => $v !== null && $v !== '' && $v !== []);
     }
 }

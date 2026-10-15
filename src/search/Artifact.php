@@ -36,7 +36,7 @@ class Artifact
          * counting. Deriving either from the other at query time would cost more than the
          * bytes they take up.
          *
-         * @var array<string, array{type: string, operator: string, values: list<mixed>, postings: list<list<int>>, records: list<list<int>>}>
+         * @var array<string, array{type: string, operator: string, sort?: string|null, valueOrder?: list<mixed>, maxValues?: int, values: list<mixed>, postings: list<list<int>>, records: list<list<int>>}>
          */
         public readonly array $facets,
         /**

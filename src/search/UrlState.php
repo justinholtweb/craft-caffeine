@@ -102,9 +102,7 @@ class UrlState
         }
 
         foreach ($tokens as $key => $values) {
-            if ($values !== []) {
-                $params[$prefix . $key] = implode(',', $values);
-            }
+            $params[$prefix . $key] = implode(',', $values);
         }
 
         if ($state->sortBy !== '' && $state->sortBy !== $defaultSort) {
@@ -128,7 +126,7 @@ class UrlState
      * Parses query-string parameters back into a state.
      *
      * @param array<string, mixed> $params Usually `$request->getQueryParams()`.
-     * @param array<string, array{type: string, values: list<mixed>}> $facets The artifact's facets.
+     * @param array<string, array{type?: string, values?: list<mixed>}> $facets The artifact's facets.
      * @param array{prefix?: string, defaultSort?: string} $options
      */
     public static function parse(array $params, array $facets, array $options = []): QueryState

@@ -51,6 +51,7 @@ class Extractors extends Component
 
         $registered = array_values(array_filter(
             $event->extractors,
+            // @phpstan-ignore function.alreadyNarrowedType (registered by third-party handlers, so not trusted)
             fn($class) => is_string($class) && is_subclass_of($class, ValueExtractorInterface::class),
         ));
 

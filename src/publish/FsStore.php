@@ -50,6 +50,34 @@ class FsStore implements StoreInterface
         }
     }
 
+    public function files(string $directory): array
+    {
+        $prefix = trim($this->prefix, '/');
+        $files = [];
+
+        try {
+            foreach ($this->fs->getFileList($this->path($directory), false) as $listing) {
+                if ($listing->getIsDir()) {
+                    continue;
+                }
+
+                // Back to a store path: the listing's URI is relative to the filesystem root,
+                // so it carries the publish prefix that `path()` added.
+                $uri = ltrim($listing->getUri(), '/');
+
+                if ($prefix !== '' && str_starts_with($uri, $prefix . '/')) {
+                    $uri = substr($uri, strlen($prefix) + 1);
+                }
+
+                $files[$uri] = $listing->getDateModified();
+            }
+        } catch (Throwable) {
+            // A directory that is not there lists as nothing, whatever the driver thinks of it.
+        }
+
+        return $files;
+    }
+
     public function url(string $path): ?string
     {
         $root = $this->fs->getRootUrl();

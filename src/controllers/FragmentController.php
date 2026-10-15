@@ -119,7 +119,7 @@ class FragmentController extends Controller
     }
 
     /**
-     * @return array{index: string, prefix: string, path: string, template: string, element: array|null, variables: array}
+     * @return array{index: string, prefix: string|null, path: string, template: string, element: array|null, variables: array|null}
      */
     private function decodeToken(string $token): array
     {

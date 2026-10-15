@@ -102,6 +102,31 @@ try {
     check('the sorting survives', $parsed->sortBy === 'title_asc');
     check('the page survives', $parsed->page === 2);
 
+    echo "\nFixed filters\n";
+
+    // A category page: the facet is the page, so it narrows the results without ever being part
+    // of the URL — otherwise the runtime sees URL and rendered state disagree on every load.
+    $refined = $plugin->search->context('products', ['path' => '/listing', 'params' => ['choice' => 'red']]);
+    $fixed = $plugin->search->context('products', ['path' => '/listing', 'params' => [], 'filters' => ['choice' => 'red']]);
+
+    check('a fixed filter narrows like the refinement would', $fixed->getNbHits() === $refined->getNbHits() && $fixed->getNbHits() > 0,
+        $fixed->getNbHits() . ' vs ' . $refined->getNbHits());
+    check('and leaves the URL state empty', ($fixed->config()['state']['refinements'] ?? []) === [] && $fixed->params() === []);
+    check('but reaches the runtime separately', ($fixed->config()['state']['filters'] ?? null) === ['choice' => ['red']]);
+
+    $red = null;
+
+    foreach ($fixed->facet('choice')['buckets'] ?? [] as $bucket) {
+        if ($bucket['value'] === 'red') {
+            $red = $bucket;
+        }
+    }
+
+    check('its bucket is marked fixed and refined', ($red['fixed'] ?? false) && ($red['isRefined'] ?? false));
+    check('and links back to the same page rather than toggling', ($red['url'] ?? null) === '/listing', $red['url'] ?? 'null');
+    check('other facets\' URLs leave it out', !str_contains($fixed->toggleUrl('featured', true), 'choice'),
+        $fixed->toggleUrl('featured', true));
+
     echo "\nWidget overrides\n";
 
     $override = "{$templates}/_caffeine/stats.twig";

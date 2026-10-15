@@ -14,6 +14,7 @@ use justinholtweb\caffeine\Plugin;
 use justinholtweb\caffeine\search\Artifact;
 use justinholtweb\caffeine\search\ArtifactDecoder;
 use justinholtweb\caffeine\search\Compiler;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -33,11 +34,33 @@ class Artifacts extends Component
     public const STATUS_FAILED = 'failed';
 
     /**
+     * How long a publish waits for another one on the same index to finish.
+     *
+     * Long enough to sit out a large rebuild; short enough that a stuck lock fails a queue job
+     * rather than holding the worker indefinitely.
+     */
+    private const LOCK_TIMEOUT = 120;
+
+    /** A temporary file left by an interrupted local write, collectable once it is this old. */
+    private const STALE_TEMPORARY = 3600;
+
+    /** `<checksum>.<kind>.json`, with or without a compressed sidecar's extension. */
+    private const CONTENT_ADDRESSED = '/^[0-9a-f]{16}\.[a-z]+\.json(\.(gz|br))?$/';
+
+    /**
      * Compiles, publishes if anything changed, and retires what it replaced.
      *
      * @return array{published: bool, reason: string, version: int, checksum: string, records: int, bytes: int, buildMs: int, pruned: int, url: string|null}
      */
     public function publish(IndexDefinition $index): array
+    {
+        return $this->locked($index->uid, self::LOCK_TIMEOUT, fn() => $this->publishLocked($index));
+    }
+
+    /**
+     * @return array{published: bool, reason: string, version: int, checksum: string, records: int, bytes: int, buildMs: int, pruned: int, url: string|null}
+     */
+    private function publishLocked(IndexDefinition $index): array
     {
         $startedAt = microtime(true);
         $publisher = Plugin::getInstance()->publisher;
@@ -106,7 +129,7 @@ class Artifacts extends Component
             'records' => $prepared['nbRecords'],
             'bytes' => $prepared['bytes'],
             'buildMs' => $buildMs,
-            'pruned' => $this->prune($index),
+            'pruned' => $this->pruneLocked($index),
             'url' => $publisher->pointerUrl($index),
         ];
     }
@@ -180,6 +203,11 @@ class Artifacts extends Component
      * @return int Versions retired.
      */
     public function prune(IndexDefinition $index): int
+    {
+        return $this->locked($index->uid, self::LOCK_TIMEOUT, fn() => $this->pruneLocked($index));
+    }
+
+    private function pruneLocked(IndexDefinition $index): int
     {
         $keep = max(1, Plugin::getInstance()->getSettings()->keepVersions);
 
@@ -385,6 +413,96 @@ class Artifacts extends Component
         }
 
         return count($orphans);
+    }
+
+    /**
+     * Deletes files in an index's publish directory that nothing references.
+     *
+     * Pruning only ever deletes what a ledger row lists, so a file no row lists is invisible to
+     * it and stays forever: shards from a publish that failed after writing them, or files left
+     * behind when the database was restored to a point before they were published. Their names
+     * are content-addressed, so a shard no retained row lists and the live pointer does not name
+     * is unreachable by construction, and safe to remove.
+     *
+     * Takes the same lock as publishing, without waiting. A publish can adopt an existing shard
+     * by name before its ledger row exists, and sweeping in that window would delete a file the
+     * new pointer is about to name.
+     *
+     * @return list<string>|null Paths deleted, or null when a publish held the lock.
+     */
+    public function sweep(IndexDefinition $index): ?array
+    {
+        return $this->locked($index->uid, 0, function() use ($index): array {
+            $publisher = Plugin::getInstance()->publisher;
+            $store = $publisher->store();
+            $keep = [$publisher->path($index, Publisher::POINTER) => true];
+
+            $rows = (new Query())
+                ->select(['files'])
+                ->from(Install::TABLE_ARTIFACTS)
+                ->where(['indexUid' => $index->uid])
+                ->column();
+
+            foreach ($rows as $files) {
+                foreach ((array)Json::decodeIfJson($files ?? '[]') as $file) {
+                    $keep[$file] = true;
+                }
+            }
+
+            // Whatever the live pointer names is kept even if the ledger has lost track of it: a
+            // restored database can be older than the pointer, and that pointer is being served.
+            foreach ($publisher->pointer($index)['shards'] ?? [] as $shard) {
+                $path = $publisher->path($index, (string)($shard['file'] ?? ''));
+                $keep[$path] = $keep["{$path}.gz"] = $keep["{$path}.br"] = true;
+            }
+
+            $deleted = [];
+
+            foreach ($store->files($index->handle) as $path => $modified) {
+                if (isset($keep[$path])) {
+                    continue;
+                }
+
+                $name = basename($path);
+                $stray = preg_match(self::CONTENT_ADDRESSED, $name) === 1
+                    || (str_contains($name, '.tmp.') && $modified !== null && $modified < time() - self::STALE_TEMPORARY);
+
+                if ($stray) {
+                    $store->delete($path);
+                    $deleted[] = $path;
+                }
+            }
+
+            return $deleted;
+        });
+    }
+
+    /**
+     * Runs a callback holding the index's publish lock.
+     *
+     * @template T
+     * @param callable(): T $callback
+     * @param mixed $busy Returned instead when `$timeout` is zero and the lock is taken.
+     * @return T
+     */
+    private function locked(string $indexUid, int $timeout, callable $callback, mixed $busy = null): mixed
+    {
+        $mutex = Craft::$app->getMutex();
+        $name = "caffeine:publish:{$indexUid}";
+
+        if (!$mutex->acquire($name, $timeout)) {
+            if ($timeout === 0) {
+                return $busy;
+            }
+
+            throw new RuntimeException("Another Caffeine publish of this index has held the lock for over {$timeout}s.");
+        }
+
+        try {
+            return $callback();
+        } finally {
+            $mutex->release($name);
+        }
     }
 
     /**

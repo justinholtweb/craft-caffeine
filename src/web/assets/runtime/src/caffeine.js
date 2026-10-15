@@ -17,6 +17,13 @@ const INSTANCES = new WeakMap()
 /** How long to wait after the last keystroke before searching. */
 const TYPING_DELAY = 250
 
+/** Controls with a caret. A region holding one of these is not swapped while it has focus. */
+const TEXT_ENTRY = 'textarea, [contenteditable=""], [contenteditable="true"], ' +
+  'input:not([type=checkbox]):not([type=radio]):not([type=submit]):not([type=button])' +
+  ':not([type=reset]):not([type=image]):not([type=file]):not([type=range]):not([type=color])'
+
+const FOCUSABLE = 'a[href], button, input, select, textarea, [tabindex]'
+
 class Caffeine {
   constructor(root) {
     this.root = root
@@ -296,21 +303,28 @@ class Caffeine {
    */
   swapRegions(regions) {
     const focused = document.activeElement
+    const typing = focused && focused.matches ? focused.matches(TEXT_ENTRY) : false
     const focusedRegion = focused && focused.closest ? focused.closest('[data-caffeine-region]') : null
-    const focusedSelection = focused && focused.selectionStart !== undefined
+    const focusedSelection = typing && typeof focused.selectionStart === 'number'
       ? [focused.selectionStart, focused.selectionEnd]
       : null
+
+    // Captured before the swap, so focus can be put back on the same control in the new markup.
+    const focusKey = focusedRegion && !typing ? describeFocus(focused, focusedRegion) : null
 
     for (const [id, html] of Object.entries(regions)) {
       const target = this.root.querySelector(`[data-caffeine-region="${cssEscape(id)}"]`)
 
       if (!target) continue
 
-      // The region holding the cursor is skipped. Replacing it would drop focus mid-word and
-      // reset the caret, which is unusable when the field is a search box being typed into.
-      if (focusedRegion && target === focusedRegion) continue
+      // Only a region holding a text field being typed into is skipped. Replacing it would drop
+      // focus mid-word and reset the caret. Anything else focused — a facet link, which Chromium
+      // focuses on click, a checkbox, a select — must swap, or the click paints nothing.
+      if (typing && target === focusedRegion) continue
 
       target.innerHTML = html
+
+      if (focusKey && target === focusedRegion) restoreFocus(target, focusKey)
     }
 
     for (const button of this.root.querySelectorAll('[data-caffeine-submit]')) {
@@ -368,6 +382,9 @@ class Caffeine {
       prefix: this.config.prefix || '',
       defaultSort: this.config.defaultSort,
     })
+
+    // Never in the URL, so carried over from what the server rendered.
+    state.filters = (this.config.state || {}).filters || {}
 
     const result = this.engine.search(state, this.config.hitsPerPage)
 
@@ -429,9 +446,14 @@ class Caffeine {
         item.hidden = false
         if (count) count.textContent = String(bucket.count)
 
-        item.classList.toggle('is-refined', bucket.isRefined)
-        link.setAttribute('aria-pressed', bucket.isRefined ? 'true' : 'false')
-        link.href = this.toggleHref(state, key, bucket.value)
+        const fixed = (state.filters[key] || []).some((value) => value === bucket.value)
+        const refined = bucket.isRefined || fixed
+
+        item.classList.toggle('is-refined', refined)
+        link.setAttribute('aria-pressed', refined ? 'true' : 'false')
+        link.href = fixed
+          ? this.urlstate.url(this.basePath, state, { prefix: this.config.prefix || '', defaultSort: this.config.defaultSort })
+          : this.toggleHref(state, key, bucket.value)
       }
     }
   }
@@ -468,6 +490,42 @@ function escapeHtml(value) {
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
+}
+
+/**
+ * Enough about a focused control to find its counterpart once its region has been replaced.
+ *
+ * The href alone is not enough: a facet link's href flips once its value is toggled, so the
+ * control's position among its region's focusables is kept as well.
+ */
+function describeFocus(element, region) {
+  return {
+    id: element.id || null,
+    name: element.getAttribute('name'),
+    value: 'value' in element ? element.value : null,
+    href: element.getAttribute('href'),
+    tag: element.tagName,
+    position: Array.from(region.querySelectorAll(FOCUSABLE)).indexOf(element),
+  }
+}
+
+/** Puts focus back on the replaced control's counterpart, so keyboard users keep their place. */
+function restoreFocus(region, key) {
+  const candidates = Array.from(region.querySelectorAll(FOCUSABLE))
+  const match =
+    (key.id && candidates.find((el) => el.id === key.id)) ||
+    (key.name && candidates.find((el) => el.getAttribute('name') === key.name && el.value === key.value)) ||
+    (key.href && candidates.find((el) => el.getAttribute('href') === key.href)) ||
+    (key.position >= 0 && candidates[key.position]?.tagName === key.tag && candidates[key.position]) ||
+    null
+
+  if (match) {
+    match.focus({ preventScroll: true })
+    return
+  }
+
+  if (!region.hasAttribute('tabindex')) region.setAttribute('tabindex', '-1')
+  region.focus({ preventScroll: true })
 }
 
 /** `CSS.escape` where it exists; a conservative fallback where it does not. */

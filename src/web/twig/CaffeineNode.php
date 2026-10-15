@@ -162,7 +162,7 @@ class CaffeineNode extends Node
     {
         $tag = $options['tag'] ?? 'div';
 
-        if ($tag === false || $tag === null || $tag === '') {
+        if ($tag === false || $tag === '') {
             // Opted out of the wrapper entirely. The runtime then has nothing to find, so this
             // is only sensible for a listing that is server-rendered and never enhanced.
             return null;

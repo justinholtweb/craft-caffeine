@@ -223,7 +223,7 @@ class Mapper extends Component
     {
         try {
             return $element->$name;
-        } catch (Throwable) {
+        } catch (Throwable) { // @phpstan-ignore catch.neverThrown (a magic __get behind an element attribute can throw)
             return null;
         }
     }

@@ -229,6 +229,7 @@ function normalizeState(state) {
     page: state.page || 0,
     hitsPerPage: state.hitsPerPage || null,
     facets: state.facets || null,
+    filters: state.filters || {},
   }
 }
 

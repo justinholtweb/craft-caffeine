@@ -32,7 +32,7 @@ class ProductSource extends BaseSource
 
     public static function elementType(): string
     {
-        return self::PRODUCT;
+        return self::PRODUCT; // @phpstan-ignore return.type (Commerce is optional, so the class is named by string)
     }
 
     public static function isAvailable(): bool
@@ -67,7 +67,7 @@ class ProductSource extends BaseSource
             ->orderBy(['elements.id' => SORT_ASC]);
 
         if ($definition->containers !== []) {
-            $query->type($definition->containers);
+            $query->type($definition->containers); // @phpstan-ignore method.notFound (a Commerce ProductQuery)
         }
 
         return $this->applyStatus($query, $definition);
@@ -81,7 +81,7 @@ class ProductSource extends BaseSource
 
         if ($definition->containers !== []) {
             try {
-                $handle = $element->getType()->handle;
+                $handle = $element->getType()->handle; // @phpstan-ignore class.notFound (Commerce is optional)
             } catch (Throwable) {
                 return false;
             }

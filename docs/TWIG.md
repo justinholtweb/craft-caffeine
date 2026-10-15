@@ -55,6 +55,20 @@ Options go in a `with` hash:
 | `runtime` | `true` | `false` leaves the JavaScript off entirely; the links still work. |
 | `htmx` | `false` | Emit HTMX attributes instead of loading the runtime. See §5. |
 | `with` | `{}` | Extra variables the fragment endpoint should pass back into the template. |
+| `filters` | `{}` | Refinements that always apply and are not part of the URL: `{ category: ['City'] }`. See below. |
+
+`filters` is for a listing whose page *is* a refinement: a category or brand page served by the
+same template as `/shop`. The filter narrows the records before anything is counted, so every
+facet count is taken within it and a visitor's own refinements cannot widen past it. It never
+appears in a URL, so `toggleUrl()`, `params()` and the runtime leave it alone, and a cached page
+is not re-fetched on load. The fragment endpoint re-renders the same template, which passes the
+same filters again, so editing the query string cannot remove them. A fixed bucket comes back with
+`fixed: true` and `isRefined: true`, and its `url` points at the current page rather than toggling
+it, so a template can show it as a label instead of a removable chip.
+
+```twig
+{% caffeine 'products' with { filters: { category: [entry.title] } } %}
+```
 
 `{% caffeineresults %}` marks the region a refinement replaces. It has to be inside
 `{% caffeine %}`, and there should be one per index.

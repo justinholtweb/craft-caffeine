@@ -57,7 +57,7 @@ class ArtifactEncoder
         $facets = [];
 
         foreach ($artifact->facets as $key => $facet) {
-            [$postings, $postingLengths] = $this->encodeLists((array)($facet['postings'] ?? []), true);
+            [$postings, $postingLengths] = $this->encodeLists($facet['postings'], true);
 
             // The reverse map is dense by construction — the compiler writes an entry for every
             // record — but it is read back by position, so it is rebuilt by position here rather
@@ -76,7 +76,7 @@ class ArtifactEncoder
                 'sort' => $facet['sort'] ?? null,
                 'valueOrder' => $facet['valueOrder'] ?? [],
                 'maxValues' => $facet['maxValues'] ?? 0,
-                'values' => array_values((array)($facet['values'] ?? [])),
+                'values' => array_values($facet['values']),
                 'postings' => $postings,
                 'postingLengths' => $postingLengths,
                 'records' => $recordIndexes,

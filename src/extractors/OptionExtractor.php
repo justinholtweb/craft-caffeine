@@ -28,7 +28,7 @@ class OptionExtractor implements ValueExtractorInterface
         try {
             $stored = $value->value;
             $label = $value->label;
-        } catch (Throwable) {
+        } catch (Throwable) { // @phpstan-ignore catch.neverThrown (a magic __get behind these properties can throw)
             return null;
         }
 

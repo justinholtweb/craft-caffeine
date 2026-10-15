@@ -9,6 +9,7 @@ use justinholtweb\caffeine\models\SearchContext;
 use justinholtweb\caffeine\Plugin;
 use justinholtweb\caffeine\search\Artifact;
 use justinholtweb\caffeine\search\Engine;
+use justinholtweb\caffeine\search\FacetValue;
 use justinholtweb\caffeine\search\QueryState;
 use justinholtweb\caffeine\search\UrlState;
 use yii\base\InvalidConfigException;
@@ -53,7 +54,7 @@ class Search extends Component
     /**
      * Builds the context a `{% caffeine %}` block exposes.
      *
-     * @param array{state?: QueryState|array<string, mixed>|null, path?: string, prefix?: string, params?: array<string, mixed>} $options
+     * @param array{state?: QueryState|array<string, mixed>|null, path?: string, prefix?: string, params?: array<string, mixed>, filters?: array<string, mixed>} $options
      */
     public function context(string $handle, array $options = []): SearchContext
     {
@@ -76,7 +77,9 @@ class Search extends Component
         $prefix = (string)($options['prefix'] ?? '');
         $path = (string)($options['path'] ?? $this->currentPath());
 
-        $state = $this->resolveState($index, $artifact, $options, $prefix);
+        // Cloned, so filling in the filters never reaches a state object the caller passed in.
+        $state = clone $this->resolveState($index, $artifact, $options, $prefix);
+        $state->filters = $this->resolveFilters($artifact, (array)($options['filters'] ?? []));
 
         $result = (new Engine($artifact))->search($state, $index->hitsPerPage);
 
@@ -176,6 +179,41 @@ class Search extends Component
             'prefix' => $prefix,
             'defaultSort' => $index->defaultSorting()->name,
         ]);
+    }
+
+    /**
+     * Resolves the tag's `filters` option against the artifact's stored values.
+     *
+     * Not taken from the request, and not carried in the fragment token either: the endpoint
+     * re-renders the same template, which passes the same filters again, so there is nothing in
+     * the query string a visitor could edit to strip them.
+     *
+     * @param array<string, mixed> $filters facet key → value or list of values
+     * @return array<string, list<string|bool|float>>
+     */
+    private function resolveFilters(Artifact $artifact, array $filters): array
+    {
+        $resolved = [];
+
+        foreach ($filters as $key => $values) {
+            $facet = $artifact->facets[$key] ?? null;
+
+            if ($facet === null) {
+                continue;
+            }
+
+            foreach ((array)$values as $value) {
+                if ($value === null || $value === '') {
+                    continue;
+                }
+
+                // Through the key and back, so `'10'` and `10` both land on whatever the artifact
+                // actually stores — the engine compares strictly.
+                $resolved[(string)$key][] = FacetValue::fromKey(FacetValue::toKey($value), $facet['values']);
+            }
+        }
+
+        return $resolved;
     }
 
     /**

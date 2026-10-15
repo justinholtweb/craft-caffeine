@@ -5,7 +5,39 @@ All notable changes to Caffeine are documented here.
 Caffeine follows [semantic versioning](https://semver.org). The major version tracks Craft, so
 5.x supports Craft 5 — the same convention the rest of the family uses.
 
-## 5.0.0 — unreleased
+## 5.0.1 — 2026-10-15
+
+### Added
+
+- A `filters` option on `{% caffeine %}` for refinements that always apply and stay out of the
+  URL, so a category or brand page can share the shop's listing template. Fixed buckets come back
+  with `fixed: true`. ([#2](https://github.com/justinholtweb/craft-caffeine/issues/2))
+- `caffeine/index/prune-orphans`, which runs the same cleanup as Craft's garbage collection on
+  demand. ([#3](https://github.com/justinholtweb/craft-caffeine/issues/3))
+
+### Changed
+
+- Garbage collection now also deletes content-addressed files in an index's publish directory
+  that no ledger row lists and the live pointer does not name, such as files left behind by a
+  database restore, plus temporary files from interrupted writes that are over an hour old.
+- Publishing, pruning and the sweep take a per-index lock, so two publishes of the same index no
+  longer race each other.
+
+### Fixed
+
+- Clicking a facet link in Chrome or Edge, which focus links on click, no longer leaves its
+  region unchanged. Only a region with a text field being typed into is skipped, and focus goes
+  back to the same control after the swap. Back and Forward are fixed by the same change.
+  ([#1](https://github.com/justinholtweb/craft-caffeine/issues/1))
+- A page passing a refinement through `params` that wasn't in its URL no longer re-fetches its
+  results on every load; use `filters` for this instead.
+  ([#2](https://github.com/justinholtweb/craft-caffeine/issues/2))
+- Deleting an index through project config now removes its records, ledger rows and published
+  files, and changing one marks its records dirty. Both handlers read the index uid from the
+  wrong key and returned without doing anything.
+  ([#3](https://github.com/justinholtweb/craft-caffeine/issues/3))
+
+## 5.0.0 — 2026-08-14
 
 Initial release.
 

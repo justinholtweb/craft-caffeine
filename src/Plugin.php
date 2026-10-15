@@ -155,10 +155,7 @@ class Plugin extends BasePlugin
     private function registerGarbageCollection(): void
     {
         Event::on(Gc::class, Gc::EVENT_RUN, function() {
-            $known = array_keys($this->indexes->allByUid());
-
-            $this->artifacts->deleteOrphans($known);
-            $this->records->deleteOrphans($known);
+            $this->indexes->collectGarbage();
         });
     }
 
