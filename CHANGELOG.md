@@ -5,6 +5,12 @@ All notable changes to Caffeine are documented here.
 Caffeine follows [semantic versioning](https://semver.org). The major version tracks Craft, so
 5.x supports Craft 5 — the same convention the rest of the family uses.
 
+## 5.1.0 — 2026-10-18
+
+The same code as 5.0.1, under the version it should have had. 5.0.1 added features, which calls
+for a minor release, not a patch. Nothing changed between them, so upgrading from 5.0.1 is a
+no-op.
+
 ## 5.0.1 — 2026-10-15
 
 ### Added
