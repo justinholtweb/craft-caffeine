@@ -137,6 +137,33 @@
     {{ "Per-attribute settings this screen doesn’t show — value ordering, numeric buckets, transforms, hierarchy separator — are kept as they are when you save, so they can be managed in project config without this screen undoing them."|t('caffeine') }}
   </p>
 
+  {% if dynamicAttributes ?? [] is not empty %}
+    <h3>{{ "Added by a plugin or module"|t('caffeine') }}</h3>
+    <p class="light">{{ "These attributes come from an event handler each time the index loads. They are built and queried like the ones above, but they are not saved with this index and can’t be edited here."|t('caffeine') }}</p>
+    <table class="data fullwidth">
+      <thead>
+        <tr>
+          <th>{{ "Key"|t('caffeine') }}</th>
+          <th>{{ "Label"|t('caffeine') }}</th>
+          <th>{{ "Path"|t('caffeine') }}</th>
+          <th>{{ "Roles"|t('caffeine') }}</th>
+          <th>{{ "Facet type"|t('caffeine') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in dynamicAttributes %}
+          <tr>
+            <td><code>{{ a.key }}</code></td>
+            <td>{{ a.label }}</td>
+            <td><code>{{ a.path }}</code></td>
+            <td>{{ a.roles|join(', ') }}</td>
+            <td>{{ a.isFacet() ? a.facetType }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+
   <hr>
 
   <h2>{{ "Sortings"|t('caffeine') }}</h2>

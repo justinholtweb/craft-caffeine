@@ -55,7 +55,7 @@ class Plugin extends BasePlugin
     /** Log category used by everything in the plugin. */
     public const LOG_CATEGORY = 'caffeine';
 
-    public string $schemaVersion = '1.0.0';
+    public string $schemaVersion = '1.1.0';
     public bool $hasCpSection = true;
     public bool $hasCpSettings = true;
 

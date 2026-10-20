@@ -74,6 +74,15 @@ class Artifacts extends Component
         // timestamp — a rebuild that changed nothing leaves the store exactly as it found it.
         // Downstream caches never see a reason to refetch.
         if ($live !== null && $live['checksum'] === $prepared['checksum']) {
+            // The definition can change without changing a byte of the artifact — a label, a
+            // facet no record has values for yet. Recorded anyway, or every later build would
+            // see the old fingerprint and rebuild everything again for nothing.
+            if (($live['definitionHash'] ?? null) !== $index->fingerprint()) {
+                Craft::$app->getDb()->createCommand()
+                    ->update(Install::TABLE_ARTIFACTS, ['definitionHash' => $index->fingerprint()], ['id' => $live['id']])
+                    ->execute();
+            }
+
             return [
                 'published' => false,
                 'reason' => 'unchanged',
@@ -115,6 +124,7 @@ class Artifacts extends Component
             'checksum' => $prepared['checksum'],
             'files' => $result['files'],
             'buildMs' => $buildMs,
+            'definitionHash' => $index->fingerprint(),
         ]);
 
         // Records for elements that have gone away have now fallen out of a published artifact,
@@ -283,6 +293,17 @@ class Artifacts extends Component
             ->one();
 
         return $row ?: null;
+    }
+
+    /**
+     * Fingerprint of the definition the live artifact was published from, or null when nothing
+     * is live or it was published before fingerprints were recorded.
+     */
+    public function definitionHash(string $indexUid): ?string
+    {
+        $hash = $this->live($indexUid)['definitionHash'] ?? null;
+
+        return is_string($hash) && $hash !== '' ? $hash : null;
     }
 
     /**

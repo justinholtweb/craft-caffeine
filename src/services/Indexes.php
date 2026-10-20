@@ -5,6 +5,7 @@ namespace justinholtweb\caffeine\services;
 use Craft;
 use craft\base\Component;
 use craft\events\ConfigEvent;
+use justinholtweb\caffeine\events\DefineIndexEvent;
 use justinholtweb\caffeine\models\AttributeDefinition;
 use justinholtweb\caffeine\models\Edition;
 use justinholtweb\caffeine\models\IndexDefinition;
@@ -26,8 +27,34 @@ class Indexes extends Component
     /** Indexes live at `caffeine.indexes.<uid>`. */
     public const CONFIG_PATH = self::CONFIG_ROOT . '.indexes';
 
-    /** @var array<string, IndexDefinition>|null Keyed by uid. */
+    /**
+     * @event DefineIndexEvent Fired for each index as definitions load, before anything builds or
+     * queries against them. Attributes and sortings a handler adds are flagged `dynamic` and never
+     * saved to project config.
+     *
+     * ```php
+     * Event::on(Indexes::class, Indexes::EVENT_DEFINE_INDEX, function(DefineIndexEvent $event) {
+     *     if ($event->index->handle !== 'products') {
+     *         return;
+     *     }
+     *
+     *     $event->index->attributes[] = new AttributeDefinition([
+     *         'key' => 'spec_motor',
+     *         'label' => 'Motor',
+     *         'source' => AttributeDefinition::SOURCE_FIELD,
+     *         'path' => 'listingSpecs.Motor',
+     *         'roles' => [AttributeDefinition::ROLE_FACET],
+     *     ]);
+     * });
+     * ```
+     */
+    public const EVENT_DEFINE_INDEX = 'defineIndex';
+
+    /** @var array<string, IndexDefinition>|null Keyed by uid, with every handler applied. */
     private ?array $indexes = null;
+
+    /** @var array<string, IndexDefinition>|null Keyed by uid, exactly as project config has them. */
+    private ?array $stored = null;
 
     /**
      * Every index, keyed by handle.
@@ -46,12 +73,39 @@ class Indexes extends Component
     }
 
     /**
+     * Every index keyed by uid, as the build and the query see them: with whatever
+     * `EVENT_DEFINE_INDEX` handlers added.
+     *
      * @return array<string, IndexDefinition>
      */
     public function allByUid(): array
     {
         if ($this->indexes !== null) {
             return $this->indexes;
+        }
+
+        $indexes = [];
+
+        foreach ($this->storedByUid() as $uid => $stored) {
+            $indexes[$uid] = $this->define($stored);
+        }
+
+        return $this->indexes = $indexes;
+    }
+
+    /**
+     * Every index keyed by uid, exactly as project config stores it, with no handler applied.
+     *
+     * What the control panel edits. Editing the defined version instead would show the module's
+     * attributes as if they were part of the index, and a save would freeze any adjustment a
+     * handler made to a stored one into project config.
+     *
+     * @return array<string, IndexDefinition>
+     */
+    public function storedByUid(): array
+    {
+        if ($this->stored !== null) {
+            return $this->stored;
         }
 
         $config = Craft::$app->getProjectConfig()->get(self::CONFIG_PATH) ?? [];
@@ -69,7 +123,139 @@ class Indexes extends Component
         // first index" means — which matters once Lite starts enforcing its limit of one.
         uasort($indexes, fn(IndexDefinition $a, IndexDefinition $b) => strcmp($a->handle, $b->handle));
 
-        return $this->indexes = $indexes;
+        return $this->stored = $indexes;
+    }
+
+    public function getStoredByUid(string $uid): ?IndexDefinition
+    {
+        return $this->storedByUid()[$uid] ?? null;
+    }
+
+    public function getStoredByHandle(string $handle): ?IndexDefinition
+    {
+        foreach ($this->storedByUid() as $index) {
+            if ($index->handle === $handle) {
+                return $index;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Applies `EVENT_DEFINE_INDEX` to a copy of a stored definition.
+     *
+     * Whatever a handler added is flagged `dynamic`, by identity rather than by trusting the
+     * handler to set the flag. Anything it added that would break the build is dropped with a
+     * warning: a module's typo should cost one facet, not every listing on the site.
+     */
+    private function define(IndexDefinition $stored): IndexDefinition
+    {
+        $index = clone $stored;
+        $index->attributes = array_map(fn(AttributeDefinition $a) => clone $a, $stored->attributes);
+        $index->sortings = array_map(fn(SortingDefinition $s) => clone $s, $stored->sortings);
+
+        if (!$this->hasEventHandlers(self::EVENT_DEFINE_INDEX)) {
+            return $index;
+        }
+
+        $before = [];
+
+        foreach ([...$index->attributes, ...$index->sortings] as $definition) {
+            $before[spl_object_id($definition)] = true;
+        }
+
+        $this->trigger(self::EVENT_DEFINE_INDEX, new DefineIndexEvent(['index' => $index]));
+
+        $keys = [];
+        $attributes = [];
+
+        foreach (array_values($index->attributes) as $attribute) {
+            if (!isset($before[spl_object_id($attribute)])) {
+                $attribute->dynamic = true;
+
+                if (!$attribute->validate() || isset($keys[$attribute->key])) {
+                    Craft::warning(sprintf(
+                        'Caffeine ignored the attribute “%s” added to “%s”: %s',
+                        $attribute->key,
+                        $index->handle,
+                        isset($keys[$attribute->key]) ? 'the key is already in use.' : implode(' ', $attribute->getFirstErrors()),
+                    ), Plugin::LOG_CATEGORY);
+
+                    continue;
+                }
+            }
+
+            $keys[$attribute->key] = true;
+            $attributes[] = $attribute;
+        }
+
+        $index->attributes = $attributes;
+
+        foreach ($index->sortings as $sorting) {
+            if (!isset($before[spl_object_id($sorting)])) {
+                $sorting->dynamic = true;
+            }
+        }
+
+        return $index;
+    }
+
+    /**
+     * Marks every record of an index for rebuilding and schedules the update.
+     *
+     * For a module whose `EVENT_DEFINE_INDEX` handler just started adding something different —
+     * an editor created a new attribute — so the records catch up now rather than at the next
+     * deploy. Safe to call as often as you like: the update is debounced like any other.
+     *
+     * @return int Records marked.
+     */
+    public function invalidate(IndexDefinition|string $index): int
+    {
+        // Definitions are re-read, so the handler runs again and sees the new attribute set.
+        $this->reset();
+
+        $index = $index instanceof IndexDefinition
+            ? $this->getByUid($index->uid)
+            : ($this->getByHandle($index) ?? $this->getByUid($index));
+
+        if ($index === null) {
+            return 0;
+        }
+
+        $plugin = Plugin::getInstance();
+        $marked = $plugin->records->markIndexDirty($index->uid);
+
+        if ($plugin->getSettings()->autoUpdate && $this->isAllowed($index)) {
+            $plugin->autoUpdate->schedule($index);
+        }
+
+        return $marked;
+    }
+
+    /**
+     * Marks an index's records dirty when the definition they would be built under is not the
+     * one the live artifact was published from.
+     *
+     * The automatic half of `invalidate()`: a deploy that changes what a module adds never
+     * touches project config, so nothing else would notice. Runs before every dirty build, so
+     * `caffeine/index/build` after a deploy does the right thing without `--all`.
+     *
+     * @return bool Whether the definition had changed.
+     */
+    public function checkDefinition(IndexDefinition $index): bool
+    {
+        $published = Plugin::getInstance()->artifacts->definitionHash($index->uid);
+
+        // Published before fingerprints were recorded. Nothing to compare against; the next
+        // publish records one.
+        if ($published === null || $published === $index->fingerprint()) {
+            return false;
+        }
+
+        Plugin::getInstance()->records->markIndexDirty($index->uid);
+
+        return true;
     }
 
     /**
@@ -209,7 +395,7 @@ class Indexes extends Component
             "Save Caffeine index “{$index->handle}”",
         );
 
-        $this->indexes = null;
+        $this->reset();
 
         return true;
     }
@@ -234,7 +420,7 @@ class Indexes extends Component
             "Delete Caffeine index “{$index->handle}”",
         );
 
-        $this->indexes = null;
+        $this->reset();
 
         return true;
     }
@@ -250,7 +436,7 @@ class Indexes extends Component
      */
     public function handleChangedIndex(ConfigEvent $event): void
     {
-        $this->indexes = null;
+        $this->reset();
 
         // Craft passes the `{uid}` token positionally, not by name.
         $uid = $event->tokenMatches[0] ?? null;
@@ -264,7 +450,7 @@ class Indexes extends Component
 
     public function handleDeletedIndex(ConfigEvent $event): void
     {
-        $this->indexes = null;
+        $this->reset();
 
         // Craft passes the `{uid}` token positionally, not by name.
         $uid = $event->tokenMatches[0] ?? null;
@@ -325,5 +511,6 @@ class Indexes extends Component
     public function reset(): void
     {
         $this->indexes = null;
+        $this->stored = null;
     }
 }

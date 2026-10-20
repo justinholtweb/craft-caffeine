@@ -137,6 +137,12 @@ class AttributeDefinition extends Model
      */
     public array $transforms = [];
 
+    /**
+     * Added by an `Indexes::EVENT_DEFINE_INDEX` handler rather than stored in project config.
+     * Set by Caffeine, and the reason `IndexDefinition::toConfig()` leaves it out.
+     */
+    public bool $dynamic = false;
+
     public function label(): string
     {
         return $this->label ?: $this->key;

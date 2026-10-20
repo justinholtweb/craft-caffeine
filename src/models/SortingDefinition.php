@@ -26,6 +26,9 @@ class SortingDefinition extends Model
 
     public string $direction = 'asc';
 
+    /** Added by an `Indexes::EVENT_DEFINE_INDEX` handler. Never written to project config. */
+    public bool $dynamic = false;
+
     public function label(): string
     {
         return $this->label ?: $this->name;

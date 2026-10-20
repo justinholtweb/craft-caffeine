@@ -330,18 +330,27 @@ class IndexDefinition extends Model
     }
 
     /**
+     * The definition as project config stores it.
+     *
+     * Attributes and sortings an `EVENT_DEFINE_INDEX` handler added are left out unless asked
+     * for. They belong to the module that adds them on every load, and writing them into
+     * config would freeze one snapshot of a set that is meant to change with content.
+     *
      * @return array<string, mixed>
      */
-    public function toConfig(): array
+    public function toConfig(bool $includeDynamic = false): array
     {
+        $attributes = array_filter($this->attributes, fn(AttributeDefinition $a) => $includeDynamic || !$a->dynamic);
+        $sortings = array_filter($this->sortings, fn(SortingDefinition $s) => $includeDynamic || !$s->dynamic);
+
         return [
             'handle' => $this->handle,
             'name' => $this->name,
             'description' => $this->description,
             'sources' => array_map(fn(SourceDefinition $s) => $s->toConfig(), array_values($this->sources)),
             'siteIds' => array_values($this->siteIds),
-            'attributes' => array_map(fn(AttributeDefinition $a) => $a->toConfig(), array_values($this->attributes)),
-            'sortings' => array_map(fn(SortingDefinition $s) => $s->toConfig(), array_values($this->sortings)),
+            'attributes' => array_map(fn(AttributeDefinition $a) => $a->toConfig(), array_values($attributes)),
+            'sortings' => array_map(fn(SortingDefinition $s) => $s->toConfig(), array_values($sortings)),
             'transport' => $this->transport,
             'hitsPerPage' => $this->hitsPerPage,
             'maxValuesPerFacet' => $this->maxValuesPerFacet,
@@ -351,6 +360,18 @@ class IndexDefinition extends Model
             'shardPayload' => $this->shardPayload,
             'enabled' => $this->enabled,
         ];
+    }
+
+    /**
+     * A short hash of everything the build reads, module-added attributes included.
+     *
+     * Recorded with each publish, so a build can tell when the definition it would build under
+     * is not the one the live artifact came from. Project-config changes are caught by their own
+     * handler. This is what catches the ones that never pass through project config.
+     */
+    public function fingerprint(): string
+    {
+        return substr(hash('sha256', (string)json_encode($this->toConfig(true))), 0, 16);
     }
 
     public function ensureUid(): string

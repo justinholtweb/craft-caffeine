@@ -67,7 +67,9 @@ class IndexesController extends Controller
         // `$index` arrives populated when a failed save re-renders, so the editor shows what the
         // author typed rather than what was last saved.
         if ($index === null) {
-            $index = $handle !== null ? $plugin->indexes->getByHandle($handle) : new IndexDefinition();
+            // The stored definition, not the one modules have added to: those additions are
+            // shown read-only and must not round-trip into project config.
+            $index = $handle !== null ? $plugin->indexes->getStoredByHandle($handle) : new IndexDefinition();
 
             if ($index === null) {
                 throw new NotFoundHttpException("No index with the handle “{$handle}”.");
@@ -103,6 +105,10 @@ class IndexesController extends Controller
                 Craft::$app->getSites()->getAllSites(),
             ),
             'status' => $index->uid !== '' ? $plugin->artifacts->status($index) : null,
+            'dynamicAttributes' => array_values(array_filter(
+                $plugin->indexes->getByUid($index->uid)->attributes ?? [],
+                fn($attribute) => $attribute->dynamic,
+            )),
             'isPro' => $plugin->isPro(),
             'facetTypeOptions' => array_map(
                 fn(string $type) => ['label' => ucfirst($type), 'value' => $type],
@@ -123,7 +129,7 @@ class IndexesController extends Controller
         $plugin = Plugin::getInstance();
 
         $uid = (string)$request->getBodyParam('uid', '');
-        $existing = $uid !== '' ? $plugin->indexes->getByUid($uid) : null;
+        $existing = $uid !== '' ? $plugin->indexes->getStoredByUid($uid) : null;
 
         $index = IndexDefinition::fromForm($request->getBodyParams(), $existing);
 

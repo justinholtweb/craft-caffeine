@@ -5,6 +5,26 @@ All notable changes to Caffeine are documented here.
 Caffeine follows [semantic versioning](https://semver.org). The major version tracks Craft, so
 5.x supports Craft 5 — the same convention the rest of the family uses.
 
+## 5.2.0 — 2026-10-20
+
+### Added
+
+- `Indexes::EVENT_DEFINE_INDEX`, so a plugin or module can add attributes and sortings to an
+  index as it loads. Facets can then come from content editors manage, instead of from project
+  config. What a handler adds is never saved to project config.
+  ([#4](https://github.com/justinholtweb/craft-caffeine/issues/4))
+- `Indexes::invalidate()`, which marks an index's records dirty and schedules an update, for a
+  module whose attribute set just changed.
+- `Indexes::getStoredByHandle()` / `getStoredByUid()` / `storedByUid()`, which return a definition
+  exactly as project config stores it. The index edit screen now uses these.
+
+### Changed
+
+- Each publish records a fingerprint of the definition it was built from. A dirty build compares
+  it with the current definition first and rebuilds every record when they differ, so a change in
+  what a module adds is caught without `--all`. Artifacts published before this release have no
+  fingerprint and are left alone until their next publish. Requires a database migration.
+
 ## 5.1.0 — 2026-10-18
 
 The same code as 5.0.1, under the version it should have had. 5.0.1 added features, which calls

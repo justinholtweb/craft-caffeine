@@ -139,6 +139,9 @@ class Install extends Migration
             // a glob that might catch a neighbour's files.
             'files' => $this->text(),
             'buildMs' => $this->integer()->unsigned(),
+            // IndexDefinition::fingerprint() at publish, so a build can tell the definition has
+            // changed in ways project config never saw — module-added attributes.
+            'definitionHash' => $this->string(16),
             'error' => $this->text(),
             'dateCreated' => $this->dateTime()->notNull(),
             'dateUpdated' => $this->dateTime()->notNull(),

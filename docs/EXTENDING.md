@@ -198,6 +198,62 @@ wrappers over `search.facet()` and `search.toggleUrl()`, and nothing depends on 
 | --- | --- | --- |
 | `Sources::EVENT_REGISTER_SOURCES` | `services\Sources` | Add an element type. |
 | `Extractors::EVENT_REGISTER_EXTRACTORS` | `services\Extractors` | Add or override a field-type reader. |
+| `Indexes::EVENT_DEFINE_INDEX` | `services\Indexes` | Add attributes or sortings to an index as it loads. |
+
+### Facets from content: `EVENT_DEFINE_INDEX`
+
+Every attribute in an index normally lives in project config, so adding a facet means a change in
+dev and a deploy. That's wrong for a set that editors grow in the control panel, such as product
+specs or one taxonomy section where each new term should become a facet. For those, add the
+attributes when the index loads:
+
+```php
+use justinholtweb\caffeine\events\DefineIndexEvent;
+use justinholtweb\caffeine\models\AttributeDefinition;
+use justinholtweb\caffeine\services\Indexes;
+use yii\base\Event;
+
+Event::on(Indexes::class, Indexes::EVENT_DEFINE_INDEX, function(DefineIndexEvent $event) {
+    if ($event->index->handle !== 'products') {
+        return;
+    }
+
+    foreach (MySpecs::all() as $spec) {
+        $event->index->attributes[] = new AttributeDefinition([
+            'key' => 'spec_' . $spec->handle,
+            'label' => $spec->name,
+            'source' => AttributeDefinition::SOURCE_FIELD,
+            'path' => 'listingSpecs.' . $spec->name,
+            'roles' => [AttributeDefinition::ROLE_FACET],
+        ]);
+    }
+});
+```
+
+What you add is built, published and queried like any other attribute. It shows up in
+`search.facets`, and it's listed read-only on the index's edit screen. It is never written to
+project config: Caffeine flags everything a handler added as `dynamic` and leaves it out when the
+index is saved, and the control panel edits the stored definition, not the one your handler added
+to. Sortings you add are treated the same way. To sort on an attribute you add, add the sorting
+from the handler too.
+
+An attribute that would break the build is dropped with a warning in the log, and the rest of the
+index is left alone. That covers a failed validation and a key the index already uses.
+
+**When your set changes,** call `invalidate()` so the records are rebuilt now:
+
+```php
+Plugin::getInstance()->indexes->invalidate('products');
+```
+
+It reloads the definitions, so your handler runs again, then marks every record dirty and
+schedules the usual debounced update. Call it from whatever event fires when an editor adds or
+renames a spec.
+
+You don't need it after a deploy. Each publish records a fingerprint of the definition it was
+built from, your attributes included, and every dirty build compares that fingerprint with the
+current one first. So `caffeine/index/build` without `--all`, or the next automatic update,
+rebuilds every record when what your handler adds has changed.
 
 ---
 

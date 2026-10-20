@@ -2,7 +2,7 @@
     "name": "justinholtweb/craft-caffeine",
     "description": "Instant faceted search and filtering for Craft — model an index in the control panel, and Caffeine keeps a self-contained JSON search artifact up to date and served, so refinements resolve in milliseconds without an element query.",
     "type": "craft-plugin",
-    "version": "5.1.0",
+    "version": "5.2.0",
     "keywords": [
         "craft",
         "cms",

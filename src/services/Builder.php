@@ -77,6 +77,10 @@ class Builder extends Component
      */
     public function buildDirty(IndexDefinition $index, ?callable $progress = null): array
     {
+        // A definition that changed outside project config — a module adding different
+        // attributes since the last publish — leaves every record stale. This is what notices.
+        Plugin::getInstance()->indexes->checkDefinition($index);
+
         $elementIds = Plugin::getInstance()->records->dirtyElementIds($index->uid);
 
         if ($elementIds === []) {
