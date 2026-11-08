@@ -1,0 +1,1605 @@
+{
+  "name": "counting",
+  "description": "Facet counts and stats along each route an engine may take to them (QUERY_SPEC \u00a73.3): every record, a small base set looked up record by record, and a large one scanned against the postings. Whichever route an engine takes, the counts must be the same, and stats are summed in dictionary order.",
+  "index": {
+    "handle": "counting",
+    "name": "Counting",
+    "hitsPerPage": 100,
+    "attributes": [
+      {
+        "key": "title",
+        "source": "attribute",
+        "path": "title",
+        "roles": [
+          "searchable",
+          "payload"
+        ],
+        "searchWeight": 1
+      },
+      {
+        "key": "model",
+        "source": "field",
+        "path": "model",
+        "roles": [
+          "facet"
+        ],
+        "facetType": "string",
+        "facetOperator": "or",
+        "facetSort": "alpha",
+        "maxValuesPerFacet": 50
+      },
+      {
+        "key": "weight",
+        "source": "field",
+        "path": "weight",
+        "roles": [
+          "facet"
+        ],
+        "facetType": "numeric",
+        "facetOperator": "or",
+        "facetSort": "alpha",
+        "maxValuesPerFacet": 50
+      },
+      {
+        "key": "spec",
+        "source": "field",
+        "path": "spec",
+        "roles": [
+          "facet"
+        ],
+        "facetType": "string",
+        "facetOperator": "or",
+        "facetSort": "alpha",
+        "maxValuesPerFacet": 50
+      }
+    ],
+    "sortings": []
+  },
+  "records": [
+    {
+      "objectId": "1-1",
+      "searchable": {
+        "title": "item1 common"
+      },
+      "payload": {
+        "title": "item1 common"
+      },
+      "facets": {
+        "model": [
+          "m02"
+        ],
+        "weight": [
+          0.75
+        ],
+        "spec": [
+          "s0"
+        ]
+      }
+    },
+    {
+      "objectId": "2-1",
+      "searchable": {
+        "title": "item2"
+      },
+      "payload": {
+        "title": "item2"
+      },
+      "facets": {
+        "model": [
+          "m00",
+          "m01"
+        ],
+        "weight": [
+          1.5
+        ]
+      }
+    },
+    {
+      "objectId": "3-1",
+      "searchable": {
+        "title": "item3 common"
+      },
+      "payload": {
+        "title": "item3 common"
+      },
+      "facets": {
+        "model": [
+          "m01",
+          "m05"
+        ],
+        "weight": [
+          1.05
+        ]
+      }
+    },
+    {
+      "objectId": "4-1",
+      "searchable": {
+        "title": "item4"
+      },
+      "payload": {
+        "title": "item4"
+      },
+      "facets": {
+        "model": [
+          "m08"
+        ],
+        "weight": [
+          0.45
+        ]
+      }
+    },
+    {
+      "objectId": "5-1",
+      "searchable": {
+        "title": "item5 common"
+      },
+      "payload": {
+        "title": "item5 common"
+      },
+      "facets": {
+        "model": [
+          "m01"
+        ],
+        "weight": [
+          0.75
+        ]
+      }
+    },
+    {
+      "objectId": "6-1",
+      "searchable": {
+        "title": "item6 needle"
+      },
+      "payload": {
+        "title": "item6 needle"
+      },
+      "facets": {
+        "model": [
+          "m01"
+        ],
+        "weight": [
+          0.45
+        ],
+        "spec": [
+          "s1"
+        ]
+      }
+    },
+    {
+      "objectId": "7-1",
+      "searchable": {
+        "title": "item7 common"
+      },
+      "payload": {
+        "title": "item7 common"
+      },
+      "facets": {
+        "model": [
+          "m08"
+        ],
+        "weight": [
+          0.75
+        ]
+      }
+    },
+    {
+      "objectId": "8-1",
+      "searchable": {
+        "title": "item8"
+      },
+      "payload": {
+        "title": "item8"
+      },
+      "facets": {
+        "model": [
+          "m09"
+        ],
+        "weight": [
+          0.3
+        ]
+      }
+    },
+    {
+      "objectId": "9-1",
+      "searchable": {
+        "title": "item9 common"
+      },
+      "payload": {
+        "title": "item9 common"
+      },
+      "facets": {
+        "model": [
+          "m09"
+        ],
+        "weight": [
+          0.15
+        ]
+      }
+    },
+    {
+      "objectId": "10-1",
+      "searchable": {
+        "title": "item10"
+      },
+      "payload": {
+        "title": "item10"
+      },
+      "facets": {
+        "model": [
+          "m06",
+          "m09"
+        ],
+        "weight": [
+          0.15
+        ]
+      }
+    },
+    {
+      "objectId": "11-1",
+      "searchable": {
+        "title": "item11 common"
+      },
+      "payload": {
+        "title": "item11 common"
+      },
+      "facets": {
+        "model": [
+          "m00"
+        ],
+        "weight": [
+          0.9
+        ],
+        "spec": [
+          "s2"
+        ]
+      }
+    },
+    {
+      "objectId": "12-1",
+      "searchable": {
+        "title": "item12"
+      },
+      "payload": {
+        "title": "item12"
+      },
+      "facets": {
+        "model": [
+          "m04"
+        ],
+        "weight": [
+          0.75
+        ]
+      }
+    },
+    {
+      "objectId": "13-1",
+      "searchable": {
+        "title": "item13 common"
+      },
+      "payload": {
+        "title": "item13 common"
+      },
+      "facets": {
+        "model": [
+          "m08"
+        ],
+        "weight": [
+          0.3
+        ]
+      }
+    },
+    {
+      "objectId": "14-1",
+      "searchable": {
+        "title": "item14"
+      },
+      "payload": {
+        "title": "item14"
+      },
+      "facets": {
+        "model": [
+          "m04",
+          "m08"
+        ],
+        "weight": [
+          1.5
+        ]
+      }
+    },
+    {
+      "objectId": "15-1",
+      "searchable": {
+        "title": "item15 common"
+      },
+      "payload": {
+        "title": "item15 common"
+      },
+      "facets": {
+        "model": [
+          "m01",
+          "m02"
+        ],
+        "weight": [
+          1.05
+        ]
+      }
+    },
+    {
+      "objectId": "16-1",
+      "searchable": {
+        "title": "item16"
+      },
+      "payload": {
+        "title": "item16"
+      },
+      "facets": {
+        "model": [
+          "m03",
+          "m05"
+        ],
+        "weight": [
+          0.3
+        ],
+        "spec": [
+          "s3"
+        ]
+      }
+    },
+    {
+      "objectId": "17-1",
+      "searchable": {
+        "title": "item17 common"
+      },
+      "payload": {
+        "title": "item17 common"
+      },
+      "facets": {
+        "model": [
+          "m00",
+          "m01"
+        ],
+        "weight": [
+          1.05
+        ]
+      }
+    },
+    {
+      "objectId": "18-1",
+      "searchable": {
+        "title": "item18"
+      },
+      "payload": {
+        "title": "item18"
+      },
+      "facets": {
+        "model": [
+          "m07"
+        ],
+        "weight": [
+          1.2
+        ]
+      }
+    },
+    {
+      "objectId": "19-1",
+      "searchable": {
+        "title": "item19 common"
+      },
+      "payload": {
+        "title": "item19 common"
+      },
+      "facets": {
+        "model": [
+          "m05",
+          "m06"
+        ],
+        "weight": [
+          0.9
+        ]
+      }
+    },
+    {
+      "objectId": "20-1",
+      "searchable": {
+        "title": "item20"
+      },
+      "payload": {
+        "title": "item20"
+      },
+      "facets": {
+        "model": [
+          "m05",
+          "m07"
+        ],
+        "weight": [
+          0.6
+        ]
+      }
+    },
+    {
+      "objectId": "21-1",
+      "searchable": {
+        "title": "item21 common"
+      },
+      "payload": {
+        "title": "item21 common"
+      },
+      "facets": {
+        "model": [
+          "m02"
+        ],
+        "weight": [
+          1.2
+        ],
+        "spec": [
+          "s0"
+        ]
+      }
+    },
+    {
+      "objectId": "22-1",
+      "searchable": {
+        "title": "item22"
+      },
+      "payload": {
+        "title": "item22"
+      },
+      "facets": {
+        "model": [
+          "m01"
+        ],
+        "weight": [
+          1.05
+        ]
+      }
+    },
+    {
+      "objectId": "23-1",
+      "searchable": {
+        "title": "item23 common"
+      },
+      "payload": {
+        "title": "item23 common"
+      },
+      "facets": {
+        "model": [
+          "m08"
+        ],
+        "weight": [
+          0.9
+        ]
+      }
+    },
+    {
+      "objectId": "24-1",
+      "searchable": {
+        "title": "item24 solo"
+      },
+      "payload": {
+        "title": "item24 solo"
+      },
+      "facets": {
+        "model": [
+          "m07"
+        ],
+        "weight": [
+          0.6
+        ]
+      }
+    },
+    {
+      "objectId": "25-1",
+      "searchable": {
+        "title": "item25 common"
+      },
+      "payload": {
+        "title": "item25 common"
+      },
+      "facets": {
+        "model": [
+          "m01",
+          "m09"
+        ],
+        "weight": [
+          0.9
+        ]
+      }
+    },
+    {
+      "objectId": "26-1",
+      "searchable": {
+        "title": "item26"
+      },
+      "payload": {
+        "title": "item26"
+      },
+      "facets": {
+        "model": [
+          "m02"
+        ],
+        "weight": [
+          1.35
+        ],
+        "spec": [
+          "s1"
+        ]
+      }
+    },
+    {
+      "objectId": "27-1",
+      "searchable": {
+        "title": "item27 common"
+      },
+      "payload": {
+        "title": "item27 common"
+      },
+      "facets": {
+        "model": [
+          "m02"
+        ],
+        "weight": [
+          1.5
+        ]
+      }
+    },
+    {
+      "objectId": "28-1",
+      "searchable": {
+        "title": "item28"
+      },
+      "payload": {
+        "title": "item28"
+      },
+      "facets": {
+        "model": [
+          "m06"
+        ],
+        "weight": [
+          0.15
+        ]
+      }
+    },
+    {
+      "objectId": "29-1",
+      "searchable": {
+        "title": "item29 common"
+      },
+      "payload": {
+        "title": "item29 common"
+      },
+      "facets": {
+        "model": [
+          "m01",
+          "m08"
+        ],
+        "weight": [
+          1.05
+        ]
+      }
+    },
+    {
+      "objectId": "30-1",
+      "searchable": {
+        "title": "item30"
+      },
+      "payload": {
+        "title": "item30"
+      },
+      "facets": {
+        "model": [
+          "m05"
+        ],
+        "weight": [
+          1.2
+        ]
+      }
+    },
+    {
+      "objectId": "31-1",
+      "searchable": {
+        "title": "item31 common"
+      },
+      "payload": {
+        "title": "item31 common"
+      },
+      "facets": {
+        "model": [
+          "m09"
+        ],
+        "weight": [
+          0.9
+        ],
+        "spec": [
+          "s2"
+        ]
+      }
+    },
+    {
+      "objectId": "32-1",
+      "searchable": {
+        "title": "item32"
+      },
+      "payload": {
+        "title": "item32"
+      },
+      "facets": {
+        "model": [
+          "m01",
+          "m07"
+        ],
+        "weight": [
+          1.5
+        ]
+      }
+    },
+    {
+      "objectId": "33-1",
+      "searchable": {
+        "title": "item33 common"
+      },
+      "payload": {
+        "title": "item33 common"
+      },
+      "facets": {
+        "model": [
+          "m04"
+        ],
+        "weight": [
+          0.9
+        ]
+      }
+    },
+    {
+      "objectId": "34-1",
+      "searchable": {
+        "title": "item34"
+      },
+      "payload": {
+        "title": "item34"
+      },
+      "facets": {
+        "model": [
+          "m00",
+          "m01"
+        ],
+        "weight": [
+          1.2
+        ]
+      }
+    },
+    {
+      "objectId": "35-1",
+      "searchable": {
+        "title": "item35 common"
+      },
+      "payload": {
+        "title": "item35 common"
+      },
+      "facets": {
+        "model": [
+          "m04",
+          "m07"
+        ],
+        "weight": [
+          0.6
+        ]
+      }
+    },
+    {
+      "objectId": "36-1",
+      "searchable": {
+        "title": "item36"
+      },
+      "payload": {
+        "title": "item36"
+      },
+      "facets": {
+        "model": [
+          "m05",
+          "m06"
+        ],
+        "weight": [
+          0.15
+        ],
+        "spec": [
+          "s3"
+        ]
+      }
+    },
+    {
+      "objectId": "37-1",
+      "searchable": {
+        "title": "item37 common"
+      },
+      "payload": {
+        "title": "item37 common"
+      },
+      "facets": {
+        "model": [
+          "m05"
+        ],
+        "weight": [
+          0.3
+        ]
+      }
+    },
+    {
+      "objectId": "38-1",
+      "searchable": {
+        "title": "item38"
+      },
+      "payload": {
+        "title": "item38"
+      },
+      "facets": {
+        "model": [
+          "m01",
+          "m07"
+        ],
+        "weight": [
+          0.15
+        ]
+      }
+    },
+    {
+      "objectId": "39-1",
+      "searchable": {
+        "title": "item39 common"
+      },
+      "payload": {
+        "title": "item39 common"
+      },
+      "facets": {
+        "model": [
+          "m04"
+        ],
+        "weight": [
+          0.3
+        ]
+      }
+    },
+    {
+      "objectId": "40-1",
+      "searchable": {
+        "title": "item40"
+      },
+      "payload": {
+        "title": "item40"
+      },
+      "facets": {
+        "model": [
+          "m03",
+          "m06"
+        ],
+        "weight": [
+          0.75
+        ]
+      }
+    },
+    {
+      "objectId": "41-1",
+      "searchable": {
+        "title": "item41 common"
+      },
+      "payload": {
+        "title": "item41 common"
+      },
+      "facets": {
+        "model": [
+          "m01"
+        ],
+        "weight": [
+          0.3
+        ],
+        "spec": [
+          "s0"
+        ]
+      }
+    },
+    {
+      "objectId": "42-1",
+      "searchable": {
+        "title": "item42 needle"
+      },
+      "payload": {
+        "title": "item42 needle"
+      },
+      "facets": {
+        "model": [
+          "m06"
+        ],
+        "weight": [
+          0.9
+        ]
+      }
+    },
+    {
+      "objectId": "43-1",
+      "searchable": {
+        "title": "item43 common"
+      },
+      "payload": {
+        "title": "item43 common"
+      },
+      "facets": {
+        "model": [
+          "m02"
+        ],
+        "weight": [
+          1.5
+        ]
+      }
+    },
+    {
+      "objectId": "44-1",
+      "searchable": {
+        "title": "item44"
+      },
+      "payload": {
+        "title": "item44"
+      },
+      "facets": {
+        "model": [
+          "m08"
+        ],
+        "weight": [
+          0.6
+        ]
+      }
+    },
+    {
+      "objectId": "45-1",
+      "searchable": {
+        "title": "item45 common"
+      },
+      "payload": {
+        "title": "item45 common"
+      },
+      "facets": {
+        "model": [
+          "m05",
+          "m06"
+        ],
+        "weight": [
+          1.2
+        ]
+      }
+    },
+    {
+      "objectId": "46-1",
+      "searchable": {
+        "title": "item46"
+      },
+      "payload": {
+        "title": "item46"
+      },
+      "facets": {
+        "model": [
+          "m03"
+        ],
+        "weight": [
+          0.3
+        ],
+        "spec": [
+          "s1"
+        ]
+      }
+    },
+    {
+      "objectId": "47-1",
+      "searchable": {
+        "title": "item47 common"
+      },
+      "payload": {
+        "title": "item47 common"
+      },
+      "facets": {
+        "model": [
+          "m02"
+        ],
+        "weight": [
+          0.3
+        ]
+      }
+    },
+    {
+      "objectId": "48-1",
+      "searchable": {
+        "title": "item48"
+      },
+      "payload": {
+        "title": "item48"
+      },
+      "facets": {
+        "model": [
+          "m03"
+        ],
+        "weight": [
+          0.15
+        ]
+      }
+    },
+    {
+      "objectId": "49-1",
+      "searchable": {
+        "title": "item49 common"
+      },
+      "payload": {
+        "title": "item49 common"
+      },
+      "facets": {
+        "model": [
+          "m09"
+        ],
+        "weight": [
+          0.3
+        ]
+      }
+    },
+    {
+      "objectId": "50-1",
+      "searchable": {
+        "title": "item50"
+      },
+      "payload": {
+        "title": "item50"
+      },
+      "facets": {
+        "model": [
+          "m04"
+        ],
+        "weight": [
+          0.15
+        ]
+      }
+    },
+    {
+      "objectId": "51-1",
+      "searchable": {
+        "title": "item51 common"
+      },
+      "payload": {
+        "title": "item51 common"
+      },
+      "facets": {
+        "model": [
+          "m06"
+        ],
+        "weight": [
+          0.9
+        ],
+        "spec": [
+          "s2"
+        ]
+      }
+    },
+    {
+      "objectId": "52-1",
+      "searchable": {
+        "title": "item52"
+      },
+      "payload": {
+        "title": "item52"
+      },
+      "facets": {
+        "model": [
+          "m09"
+        ],
+        "weight": [
+          1.05
+        ]
+      }
+    },
+    {
+      "objectId": "53-1",
+      "searchable": {
+        "title": "item53 common"
+      },
+      "payload": {
+        "title": "item53 common"
+      },
+      "facets": {
+        "model": [
+          "m02"
+        ],
+        "weight": [
+          1.2
+        ]
+      }
+    },
+    {
+      "objectId": "54-1",
+      "searchable": {
+        "title": "item54"
+      },
+      "payload": {
+        "title": "item54"
+      },
+      "facets": {
+        "model": [
+          "m00",
+          "m09"
+        ],
+        "weight": [
+          0.9
+        ]
+      }
+    },
+    {
+      "objectId": "55-1",
+      "searchable": {
+        "title": "item55 common"
+      },
+      "payload": {
+        "title": "item55 common"
+      },
+      "facets": {
+        "model": [
+          "m06",
+          "m08"
+        ],
+        "weight": [
+          0.75
+        ]
+      }
+    },
+    {
+      "objectId": "56-1",
+      "searchable": {
+        "title": "item56"
+      },
+      "payload": {
+        "title": "item56"
+      },
+      "facets": {
+        "model": [
+          "m06"
+        ],
+        "weight": [
+          0.3
+        ],
+        "spec": [
+          "s3"
+        ]
+      }
+    },
+    {
+      "objectId": "57-1",
+      "searchable": {
+        "title": "item57 common"
+      },
+      "payload": {
+        "title": "item57 common"
+      },
+      "facets": {
+        "model": [
+          "m06"
+        ],
+        "weight": [
+          0.15
+        ]
+      }
+    },
+    {
+      "objectId": "58-1",
+      "searchable": {
+        "title": "item58"
+      },
+      "payload": {
+        "title": "item58"
+      },
+      "facets": {
+        "model": [
+          "m01"
+        ],
+        "weight": [
+          0.45
+        ]
+      }
+    },
+    {
+      "objectId": "59-1",
+      "searchable": {
+        "title": "item59 common"
+      },
+      "payload": {
+        "title": "item59 common"
+      },
+      "facets": {
+        "model": [
+          "m02"
+        ],
+        "weight": [
+          0.3
+        ]
+      }
+    },
+    {
+      "objectId": "60-1",
+      "searchable": {
+        "title": "item60"
+      },
+      "payload": {
+        "title": "item60"
+      },
+      "facets": {
+        "model": [
+          "m09"
+        ],
+        "weight": [
+          0.15
+        ]
+      }
+    }
+  ],
+  "cases": [
+    {
+      "name": "unrefined: every record is the base set, so a count is a postings length",
+      "state": {},
+      "expect": {
+        "nbHits": 60,
+        "facets": {
+          "model": [
+            [
+              "m00",
+              5
+            ],
+            [
+              "m01",
+              14
+            ],
+            [
+              "m02",
+              9
+            ],
+            [
+              "m03",
+              4
+            ],
+            [
+              "m04",
+              6
+            ],
+            [
+              "m05",
+              8
+            ],
+            [
+              "m06",
+              11
+            ],
+            [
+              "m07",
+              6
+            ],
+            [
+              "m08",
+              8
+            ],
+            [
+              "m09",
+              9
+            ]
+          ],
+          "weight": [
+            [
+              0.15,
+              9
+            ],
+            [
+              0.3,
+              11
+            ],
+            [
+              0.45,
+              3
+            ],
+            [
+              0.6,
+              4
+            ],
+            [
+              0.75,
+              6
+            ],
+            [
+              0.9,
+              9
+            ],
+            [
+              1.05,
+              6
+            ],
+            [
+              1.2,
+              6
+            ],
+            [
+              1.35,
+              1
+            ],
+            [
+              1.5,
+              5
+            ]
+          ],
+          "spec": [
+            [
+              "s0",
+              3
+            ],
+            [
+              "s1",
+              3
+            ],
+            [
+              "s2",
+              3
+            ],
+            [
+              "s3",
+              3
+            ]
+          ]
+        },
+        "facetsStats": {
+          "weight": {
+            "min": 0.15,
+            "max": 1.5,
+            "avg": 0.7225000000000001,
+            "sum": 43.35000000000001
+          }
+        }
+      }
+    },
+    {
+      "name": "a query matching two records",
+      "comment": "PHP looks each record up in the postings for model; JavaScript walks its reverse map.",
+      "state": {
+        "query": "needle"
+      },
+      "expect": {
+        "nbHits": 2,
+        "facets": {
+          "model": [
+            [
+              "m01",
+              1
+            ],
+            [
+              "m06",
+              1
+            ]
+          ],
+          "weight": [
+            [
+              0.45,
+              1
+            ],
+            [
+              0.9,
+              1
+            ]
+          ],
+          "spec": [
+            [
+              "s1",
+              1
+            ]
+          ]
+        },
+        "facetsStats": {
+          "weight": {
+            "min": 0.45,
+            "max": 0.9,
+            "avg": 0.675,
+            "sum": 1.35
+          }
+        }
+      }
+    },
+    {
+      "name": "a query matching one record",
+      "comment": "Also the lookup route for the numeric weight facet in PHP, so its stats are summed from there.",
+      "state": {
+        "query": "solo"
+      },
+      "expect": {
+        "nbHits": 1,
+        "facets": {
+          "model": [
+            [
+              "m07",
+              1
+            ]
+          ],
+          "weight": [
+            [
+              0.6,
+              1
+            ]
+          ],
+          "spec": []
+        },
+        "facetsStats": {
+          "weight": {
+            "min": 0.6,
+            "max": 0.6,
+            "avg": 0.6,
+            "sum": 0.6
+          }
+        }
+      }
+    },
+    {
+      "name": "a query matching half the records",
+      "comment": "PHP scans the postings. JavaScript walks its reverse map for model and weight, but spec has only twelve (record, value) pairs, fewer than thirty records, so it scans spec's postings.",
+      "state": {
+        "query": "common"
+      },
+      "expect": {
+        "nbHits": 30,
+        "facets": {
+          "model": [
+            [
+              "m00",
+              2
+            ],
+            [
+              "m01",
+              7
+            ],
+            [
+              "m02",
+              8
+            ],
+            [
+              "m04",
+              3
+            ],
+            [
+              "m05",
+              4
+            ],
+            [
+              "m06",
+              5
+            ],
+            [
+              "m07",
+              1
+            ],
+            [
+              "m08",
+              5
+            ],
+            [
+              "m09",
+              4
+            ]
+          ],
+          "weight": [
+            [
+              0.15,
+              2
+            ],
+            [
+              0.3,
+              7
+            ],
+            [
+              0.6,
+              1
+            ],
+            [
+              0.75,
+              4
+            ],
+            [
+              0.9,
+              7
+            ],
+            [
+              1.05,
+              4
+            ],
+            [
+              1.2,
+              3
+            ],
+            [
+              1.5,
+              2
+            ]
+          ],
+          "spec": [
+            [
+              "s0",
+              3
+            ],
+            [
+              "s2",
+              3
+            ]
+          ]
+        },
+        "facetsStats": {
+          "weight": {
+            "min": 0.15,
+            "max": 1.5,
+            "avg": 0.77,
+            "sum": 23.1
+          }
+        }
+      }
+    },
+    {
+      "name": "a refinement on top of a query: each facet counts its own base set",
+      "comment": "model is disjunctive, so it is counted over every 'common' record while weight and spec are counted over the refined result.",
+      "state": {
+        "query": "common",
+        "refinements": {
+          "model": [
+            "m08"
+          ]
+        }
+      },
+      "expect": {
+        "nbHits": 5,
+        "facets": {
+          "model": [
+            [
+              "m00",
+              2
+            ],
+            [
+              "m01",
+              7
+            ],
+            [
+              "m02",
+              8
+            ],
+            [
+              "m04",
+              3
+            ],
+            [
+              "m05",
+              4
+            ],
+            [
+              "m06",
+              5
+            ],
+            [
+              "m07",
+              1
+            ],
+            [
+              "m08",
+              5
+            ],
+            [
+              "m09",
+              4
+            ]
+          ],
+          "weight": [
+            [
+              0.3,
+              1
+            ],
+            [
+              0.75,
+              2
+            ],
+            [
+              0.9,
+              1
+            ],
+            [
+              1.05,
+              1
+            ]
+          ],
+          "spec": []
+        },
+        "facetsStats": {
+          "weight": {
+            "min": 0.3,
+            "max": 1.05,
+            "avg": 0.7499999999999999,
+            "sum": 3.7499999999999996
+          }
+        }
+      }
+    },
+    {
+      "name": "a refinement with no query: the refined facet still counts every record",
+      "comment": "The model facet's base set is every record \u2014 the length route \u2014 while the others count the refined result.",
+      "state": {
+        "refinements": {
+          "model": [
+            "m07"
+          ]
+        }
+      },
+      "expect": {
+        "nbHits": 6,
+        "facets": {
+          "model": [
+            [
+              "m00",
+              5
+            ],
+            [
+              "m01",
+              14
+            ],
+            [
+              "m02",
+              9
+            ],
+            [
+              "m03",
+              4
+            ],
+            [
+              "m04",
+              6
+            ],
+            [
+              "m05",
+              8
+            ],
+            [
+              "m06",
+              11
+            ],
+            [
+              "m07",
+              6
+            ],
+            [
+              "m08",
+              8
+            ],
+            [
+              "m09",
+              9
+            ]
+          ],
+          "weight": [
+            [
+              0.15,
+              1
+            ],
+            [
+              0.6,
+              3
+            ],
+            [
+              1.2,
+              1
+            ],
+            [
+              1.5,
+              1
+            ]
+          ],
+          "spec": []
+        },
+        "facetsStats": {
+          "weight": {
+            "min": 0.15,
+            "max": 1.5,
+            "avg": 0.7749999999999999,
+            "sum": 4.6499999999999995
+          }
+        }
+      }
+    }
+  ]
+}

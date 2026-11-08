@@ -2,6 +2,7 @@
 
 namespace justinholtweb\caffeine\search;
 
+use Closure;
 use InvalidArgumentException;
 
 /**
@@ -19,8 +20,12 @@ class ArtifactDecoder
      * @param array<string, mixed>|null $payload The payload document, when it was sharded out.
      * @param int $version From the manifest — shard documents deliberately do not carry it, so
      *                     that byte-identical rebuilds hash to the same filename.
+     * @param array<string, mixed>|null $lookup The server's lookup document, read instead of the
+     *                     payload document when payloads are loaded on demand.
+     * @param (Closure(list<int>, Artifact): array<int, array<string, mixed>>)|null $payloadLoader Loads
+     *                     them, when `$lookup` is given.
      */
-    public function decode(array $index, ?array $payload = null, int $version = 0): Artifact
+    public function decode(array $index, ?array $payload = null, int $version = 0, ?array $lookup = null, ?Closure $payloadLoader = null): Artifact
     {
         $format = (int)($index['format'] ?? 0);
 
@@ -32,7 +37,8 @@ class ArtifactDecoder
             ));
         }
 
-        $payload ??= $index;
+        $lazy = $payload === null && $lookup !== null && $payloadLoader !== null;
+        $payload ??= $lazy ? $lookup : $index;
         $recordCount = (int)($index['nbRecords'] ?? 0);
 
         $facets = [];
@@ -52,10 +58,8 @@ class ArtifactDecoder
                     (string)($facet['postings'] ?? ''),
                     (string)($facet['postingLengths'] ?? ''),
                 ),
-                'records' => $this->decodeLists(
-                    (string)($facet['records'] ?? ''),
-                    (string)($facet['recordLengths'] ?? ''),
-                ),
+                // `records`, the reverse map, is left on the wire for the browser. This side
+                // counts from postings — see `Artifact::$facets`.
             ];
         }
 
@@ -65,22 +69,25 @@ class ArtifactDecoder
             $sortings[$name] = Varint::decode((string)$order);
         }
 
+        // Unpacked first: PHP accepts named arguments after an unpacked array, not before one.
         return new Artifact(
-            index: (string)($index['index'] ?? ''),
-            version: $version,
-            objectIds: array_values((array)($payload['objectIds'] ?? [])),
-            payloads: array_values((array)($payload['payloads'] ?? [])),
-            facets: $facets,
-            sortings: $sortings,
-            tokens: array_values((array)($index['tokens'] ?? [])),
-            tokenPostings: $this->decodeTokenPostings(
+            ...$this->decodeTokenPostings(
                 (string)($index['tokenIds'] ?? ''),
                 (string)($index['tokenWeights'] ?? ''),
                 (string)($index['tokenLengths'] ?? ''),
             ),
+            index: (string)($index['index'] ?? ''),
+            version: $version,
+            objectIds: array_values((array)($payload['objectIds'] ?? [])),
+            payloads: $lazy ? [] : array_values((array)($payload['payloads'] ?? [])),
+            facets: $facets,
+            sortings: $sortings,
+            tokens: array_values((array)($index['tokens'] ?? [])),
             sortableValues: (array)($index['sortableValues'] ?? []),
             stopwords: array_values((array)($index['stopwords'] ?? [])),
             geo: (array)($index['geo'] ?? []),
+            payloadHashes: $lazy ? (string)($lookup['payloadHashes'] ?? '') : '',
+            payloadLoader: $lazy ? $payloadLoader : null,
         );
     }
 
@@ -130,33 +137,44 @@ class ArtifactDecoder
     }
 
     /**
-     * @return list<list<array{0: int, 1: float}>>
+     * Token postings into the flat lists `Artifact` holds: ids undeltaed per token, weights
+     * unscaled, and an offset where each token starts.
+     *
+     * @return array{tokenIds: list<int>, tokenWeights: list<float>, tokenOffsets: list<int>}
      */
     private function decodeTokenPostings(string $ids, string $weights, string $lengths): array
     {
         $idValues = Varint::decode($ids);
         $weightValues = Varint::decode($weights);
-        $counts = Varint::decode($lengths);
-
-        $postings = [];
+        $offsets = [0];
         $offset = 0;
 
-        foreach ($counts as $count) {
-            $list = [];
+        foreach (Varint::decode($lengths) as $count) {
             $running = 0;
+            $end = $offset + $count;
 
-            for ($i = 0; $i < $count; $i++) {
-                $running += $idValues[$offset] ?? 0;
+            if ($end > count($idValues) || $end > count($weightValues)) {
+                throw new InvalidArgumentException('Artifact token postings are shorter than their lengths claim.');
+            }
+
+            // In place: the deltas become ids and the scaled weights become weights, without a
+            // second pair of multi-million-entry lists alongside.
+            for (; $offset < $end; $offset++) {
+                $running += $idValues[$offset];
+                $idValues[$offset] = $running;
                 // Cast, because PHP's `/` hands back an int when the division comes out even,
                 // and a weight of int(1) where the compiler produced float(1.0) would fail the
                 // strict round-trip assertion for a reason that has nothing to do with the codec.
-                $list[] = [$running, (float)($weightValues[$offset] / ArtifactEncoder::WEIGHT_SCALE)];
-                $offset++;
+                $weightValues[$offset] = (float)($weightValues[$offset] / ArtifactEncoder::WEIGHT_SCALE);
             }
 
-            $postings[] = $list;
+            $offsets[] = $offset;
         }
 
-        return $postings;
+        return [
+            'tokenIds' => array_slice($idValues, 0, $offset),
+            'tokenWeights' => array_slice($weightValues, 0, $offset),
+            'tokenOffsets' => $offsets,
+        ];
     }
 }

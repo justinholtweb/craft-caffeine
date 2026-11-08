@@ -51,7 +51,7 @@ class Publisher extends Component
      * a version number is spent. A rebuild that changed nothing should leave the store exactly
      * as it found it, including the pointer's timestamp.
      *
-     * @return array{documents: array<string, array{name: string, contents: string, checksum: string, bytes: int}>, checksum: string, bytes: int, nbRecords: int}
+     * @return array{documents: array<string, array{name: string, contents: string, checksum: string, bytes: int}>, lookup: array{name: string, contents: string, checksum: string, bytes: int}|null, checksum: string, bytes: int, nbRecords: int}
      */
     public function prepare(IndexDefinition $index, Artifact $artifact): array
     {
@@ -63,6 +63,11 @@ class Publisher extends Component
         $documents = $index->shardPayload
             ? ['index' => $encoded['index'], 'payload' => $encoded['payload']]
             : ['index' => array_merge($encoded['index'], $encoded['payload'])];
+
+        // Server-only, and only worth having when the payload travels on its own: it is what
+        // lets a server render read the index shard and skip the payload shard (see
+        // `ArtifactEncoder::encodeLookup()`). Never compressed, because no browser fetches it.
+        $lookupDocument = $index->shardPayload ? (new ArtifactEncoder())->encodeLookup($artifact) : null;
 
         $prepared = [];
         $bytes = 0;
@@ -81,12 +86,34 @@ class Publisher extends Component
             $bytes += strlen($contents);
         }
 
+        $lookup = null;
+
+        if ($lookupDocument !== null) {
+            $contents = $this->serialize($lookupDocument);
+            $checksum = substr(hash('sha256', $contents), 0, self::HASH_LENGTH);
+
+            $lookup = [
+                'name' => "{$checksum}.lookup.json",
+                'contents' => $contents,
+                'checksum' => $checksum,
+                'bytes' => strlen($contents),
+            ];
+        }
+
+        $checksums = array_map(fn(array $d) => $d['checksum'], $prepared);
+
+        if ($lookup !== null) {
+            $checksums[] = $lookup['checksum'];
+        }
+
         return [
             'documents' => $prepared,
-            // The identity of the whole artifact, not of either shard: two builds match only
+            'lookup' => $lookup,
+            // The identity of the whole artifact, not of any one shard: two builds match only
             // when every shard matches. This is what the ledger compares to decide a rebuild
-            // produced nothing new.
-            'checksum' => hash('sha256', implode('|', array_map(fn(array $d) => $d['checksum'], $prepared))),
+            // produced nothing new. The lookup is in it so that an artifact published before
+            // lookups existed is republished with one, rather than found unchanged forever.
+            'checksum' => hash('sha256', implode('|', $checksums)),
             'bytes' => $bytes,
             'nbRecords' => $artifact->recordCount(),
         ];
@@ -95,7 +122,7 @@ class Publisher extends Component
     /**
      * Writes a prepared artifact and swings the pointer at it.
      *
-     * @param array{documents: array<string, array{name: string, contents: string, checksum: string, bytes: int}>, checksum: string, bytes: int, nbRecords: int} $prepared
+     * @param array{documents: array<string, array{name: string, contents: string, checksum: string, bytes: int}>, lookup?: array{name: string, contents: string, checksum: string, bytes: int}|null, checksum: string, bytes: int, nbRecords: int} $prepared
      * @return array{checksum: string, version: int, files: list<string>, bytes: int, manifest: array<string, mixed>, reused: bool}
      */
     public function commit(IndexDefinition $index, array $prepared, int $version): array
@@ -138,6 +165,24 @@ class Publisher extends Component
             ];
         }
 
+        $lookup = null;
+
+        if (($prepared['lookup'] ?? null) !== null) {
+            $path = $this->path($index, $prepared['lookup']['name']);
+
+            if (!$store->exists($path)) {
+                $store->write($path, $prepared['lookup']['contents']);
+                $written++;
+            }
+
+            $files[] = $path;
+            $lookup = [
+                'file' => $prepared['lookup']['name'],
+                'bytes' => $prepared['lookup']['bytes'],
+                'checksum' => $prepared['lookup']['checksum'],
+            ];
+        }
+
         $manifest = [
             'format' => ArtifactEncoder::FORMAT,
             'index' => $index->handle,
@@ -150,6 +195,11 @@ class Publisher extends Component
             'hitsPerPage' => $index->hitsPerPage,
             'shards' => $shards,
         ];
+
+        // Beside `shards` rather than in it: the browser fetches every shard it is given.
+        if ($lookup !== null) {
+            $manifest['lookup'] = $lookup;
+        }
 
         // Last, and only now. Every shard it names is on disk, so a publish interrupted before
         // this point leaves unreferenced files that `prune()` collects — never a live pointer to

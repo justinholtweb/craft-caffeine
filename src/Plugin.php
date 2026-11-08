@@ -12,6 +12,7 @@ use craft\services\Gc;
 use craft\services\UserPermissions;
 use craft\web\UrlManager;
 use justinholtweb\caffeine\models\Settings;
+use justinholtweb\caffeine\services\ArtifactCache;
 use justinholtweb\caffeine\services\Artifacts;
 use justinholtweb\caffeine\services\AutoUpdate;
 use justinholtweb\caffeine\services\Builder;
@@ -31,6 +32,7 @@ use yii\base\Event;
  *
  * @property-read Indexes $indexes
  * @property-read Artifacts $artifacts
+ * @property-read ArtifactCache $artifactCache
  * @property-read AutoUpdate $autoUpdate
  * @property-read Publisher $publisher
  * @property-read Sources $sources
@@ -78,6 +80,7 @@ class Plugin extends BasePlugin
                 'builder' => Builder::class,
                 'extractors' => Extractors::class,
                 'artifacts' => Artifacts::class,
+                'artifactCache' => ArtifactCache::class,
                 'autoUpdate' => AutoUpdate::class,
                 'publisher' => Publisher::class,
                 'search' => Search::class,

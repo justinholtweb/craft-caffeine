@@ -5,6 +5,54 @@ All notable changes to Caffeine are documented here.
 Caffeine follows [semantic versioning](https://semver.org). The major version tracks Craft, so
 5.x supports Craft 5 — the same convention the rest of the family uses.
 
+## 5.3.0 — 2026-10-25
+
+Server-side performance for large catalogues on the `htmx` transport, from the load test in
+[#5](https://github.com/justinholtweb/craft-caffeine/issues/5). Measured on a catalogue of that
+shape — 37,272 products, 134 facets, descriptions — decoding the artifact on each request went from
+2.1 s and 967 MB to 0.5 s and 217 MB, or to nothing with the new OPcache setting, and an unrefined
+listing from 155 ms to 17 ms. `tests/bench/heavy-catalogue.php` reproduces the numbers.
+
+### Added
+
+- *Keep artifacts in OPcache* (`cacheArtifacts`), off by default. The decoded artifact is written
+  once per publish as a PHP file that OPcache holds in shared memory, so a request reads it
+  without reading or decoding anything. It needs OPcache memory for the whole artifact — about
+  180 MB for the catalogue above — and Caffeine checks that OPcache actually holds the file,
+  logging a warning and decoding as before when it does not. See "Large catalogues" in
+  `docs/TWIG.md`.
+- With `shardPayload` on, a server render no longer reads the payload shard. Publishing writes a
+  small server-only lookup file beside the shards (object ids and a hash of each payload), and
+  the server loads the payloads for the page of hits it renders from the records table in one
+  query. A record rebuilt or removed since the publish fails its hash check and is served from
+  the payload shard, so the server still shows exactly what was published. For the catalogue
+  above that is 179 MB per request instead of 217 MB, and the payloads stay out of OPcache when
+  *Keep artifacts in OPcache* is on. See §5.1 of `docs/ARTIFACT.md`.
+- `Builder::EVENT_DEFINE_SOURCE_QUERY`, fired with the query a build loads elements with, so an
+  index can eager-load the variants and relations its mapping reads. See `docs/EXTENDING.md`.
+- `caffeine/index/build --all --workers=N` splits a full build across N processes by element
+  id. Records are pruned once, after every worker finishes, and not at all if one fails.
+- A "Large catalogues" section in `docs/TWIG.md`, including when to give each product type its own
+  index plus one index for site-wide search.
+
+### Changed
+
+- The server no longer holds each facet's record → values map. Decoded, it was one PHP array per
+  record per facet, most of the memory on a catalogue with many facets. Token postings are held as
+  flat lists for the same reason. `Artifact::$tokenPostings` is replaced by `$tokenIds`,
+  `$tokenWeights` and `$tokenOffsets`, with `tokenPostings(int $token)` and `records(string $facet)`
+  to rebuild the old shapes. `toArray()` still returns the old shape.
+- Facets are counted from their postings rather than by walking every record in the base set once
+  per facet, so a facet that only one product type carries costs a query in proportion to the
+  products carrying it. A facet with no refinement of its own now reuses the result as its base
+  set instead of recomputing it. Both engines, with a new conformance fixture covering each route
+  a count can take. Facet stats are now summed in value order in both engines (QUERY_SPEC §3.3).
+- The artifact format is unchanged, and a browser still running the previous runtime keeps
+  working. A sharded index gets its lookup file on its next publish (its checksum now includes
+  the lookup, so that publish is not skipped as unchanged); until then the server reads the
+  payload shard as before. Run `caffeine/artifact/publish` to get it straight away.
+- `caffeine/index/build --all` shows a real ETA instead of a nonsense one.
+
 ## 5.2.0 — 2026-10-20
 
 ### Added

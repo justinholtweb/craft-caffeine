@@ -19,6 +19,9 @@ class Engine
     /** The one sorting that cannot be precomputed: the point it measures from is the visitor's. */
     public const SORT_DISTANCE = 'distance';
 
+    /** @var array<string, int> Per facet, how many (record, value) pairs its postings hold. */
+    private array $pairs = [];
+
     public function __construct(
         private readonly Artifact $artifact,
     ) {
@@ -65,10 +68,13 @@ class Engine
         $nbHits = count($ordered);
         $nbPages = (int)ceil($nbHits / $hitsPerPage);
         $page = $nbPages > 0 ? min($state->page, $nbPages - 1) : 0;
-        $slice = array_slice($ordered, $page * $hitsPerPage, $hitsPerPage);
+        $slice = array_values(array_slice($ordered, $page * $hitsPerPage, $hitsPerPage));
+        // One call for the whole page: on the server, payloads can be loaded on demand, and a
+        // page's worth is one query rather than one per hit.
+        $payloads = $this->artifact->payloadsFor($slice);
 
         return [
-            'hits' => array_map($this->hit(...), $slice),
+            'hits' => array_map(fn(int $id) => $this->hit($id, $payloads[$id] ?? []), $slice),
             'nbHits' => $nbHits,
             'page' => $page,
             'nbPages' => $nbPages,
@@ -149,9 +155,11 @@ class Engine
         }
 
         $weights = [];
+        $ids = $this->artifact->tokenIds;
+        $tokenWeights = $this->artifact->tokenWeights;
 
-        foreach ($this->artifact->tokenPostings[$index] ?? [] as [$id, $weight]) {
-            $weights[$id] = (float)$weight;
+        for ($i = $this->artifact->tokenOffsets[$index], $end = $this->artifact->tokenOffsets[$index + 1]; $i < $end; $i++) {
+            $weights[$ids[$i]] = $tokenWeights[$i];
         }
 
         return $weights;
@@ -184,13 +192,18 @@ class Engine
             }
         }
 
+        $ids = $this->artifact->tokenIds;
+        $tokenWeights = $this->artifact->tokenWeights;
+        $offsets = $this->artifact->tokenOffsets;
+
         for ($i = $low; $i < $count; $i++) {
-            if (!str_starts_with($tokens[$i], $prefix)) {
+            if (!str_starts_with((string)$tokens[$i], $prefix)) {
                 break;
             }
 
-            foreach ($this->artifact->tokenPostings[$i] ?? [] as [$id, $weight]) {
-                $weight = (float)$weight;
+            for ($p = $offsets[$i], $end = $offsets[$i + 1]; $p < $end; $p++) {
+                $id = $ids[$p];
+                $weight = $tokenWeights[$p];
 
                 if (!isset($weights[$id]) || $weight > $weights[$id]) {
                     $weights[$id] = $weight;
@@ -424,21 +437,15 @@ class Engine
             // refinements left out, so "Globex (12)" still shows the count the visitor would
             // get by adding it. A conjunctive facet counts against everything, including
             // itself, because each tick is meant to narrow.
-            $base = $disjunctive
+            //
+            // A facet with no refinement of its own has nothing to leave out, so its base set is
+            // the result itself — which matters with a hundred facets and one of them refined.
+            $base = $disjunctive && array_key_exists($key, $filters)
                 ? $this->intersectAll($candidates, $filters, $key)
                 : $result;
 
-            $counts = [];
             $values = $facet['values'];
-            $records = $facet['records'];
-
-            // Walking the base set and reading each record's values, rather than walking every
-            // value and intersecting its postings: the base set is nearly always the smaller.
-            foreach ($base as $id => $_) {
-                foreach ($records[$id] ?? [] as $valueIndex) {
-                    $counts[$valueIndex] = ($counts[$valueIndex] ?? 0) + 1;
-                }
-            }
+            $counts = $this->countValues($key, $facet['postings'], $base);
 
             $buckets = $this->buildBuckets($state, $key, $facet, $counts);
 
@@ -468,6 +475,111 @@ class Engine
         }
 
         return [$facets, $caffeine, $stats];
+    }
+
+    /**
+     * §3.3 — how many records in the base set carry each value, keyed by value index in
+     * dictionary order. Values no record in the base set carries are left out.
+     *
+     * Always from the postings, by whichever route touches less. Walking the base set and
+     * reading each record's values — the obvious way — costs the whole base set for *every*
+     * facet, which on an unrefined listing with a hundred per-type facets is every record a
+     * hundred times over. Instead:
+     *
+     * - the base set is every record: a value's count is its postings' length;
+     * - the base set is small next to the facet: look each of its ids up in each value's
+     *   postings, by binary search;
+     * - otherwise: scan the postings, testing each id against the base set, so each (record,
+     *   value) pair in the facet is looked at once.
+     *
+     * The order of the result matters as well as the counts: facet stats sum floats in it, and
+     * the JavaScript engine sums in the same order (QUERY_SPEC §3.3).
+     *
+     * @param list<list<int>> $postings
+     * @param array<int, true> $base
+     * @return array<int, int>
+     */
+    private function countValues(string $key, array $postings, array $base): array
+    {
+        $size = count($base);
+        $counts = [];
+
+        if ($size === 0) {
+            return [];
+        }
+
+        if ($size === $this->artifact->recordCount()) {
+            foreach ($postings as $valueIndex => $ids) {
+                if ($ids !== []) {
+                    $counts[$valueIndex] = count($ids);
+                }
+            }
+
+            return $counts;
+        }
+
+        $pairs = $this->pairs[$key] ??= array_sum(array_map('count', $postings));
+        $valueCount = count($postings);
+
+        if ($valueCount > 0 && $size * $valueCount * log($pairs / $valueCount + 2, 2) < $pairs) {
+            $sorted = array_keys($base);
+            sort($sorted, SORT_NUMERIC);
+
+            foreach ($postings as $valueIndex => $ids) {
+                $count = 0;
+                $from = 0;
+                $length = count($ids);
+
+                foreach ($sorted as $id) {
+                    // The first position at or after `$id`. The base ids ascend, so each search
+                    // starts where the last one stopped.
+                    $low = $from;
+                    $high = $length;
+
+                    while ($low < $high) {
+                        $mid = ($low + $high) >> 1;
+
+                        if ($ids[$mid] < $id) {
+                            $low = $mid + 1;
+                        } else {
+                            $high = $mid;
+                        }
+                    }
+
+                    if ($low === $length) {
+                        break;
+                    }
+
+                    if ($ids[$low] === $id) {
+                        $count++;
+                    }
+
+                    $from = $low;
+                }
+
+                if ($count > 0) {
+                    $counts[$valueIndex] = $count;
+                }
+            }
+
+            return $counts;
+        }
+
+        foreach ($postings as $valueIndex => $ids) {
+            $count = 0;
+
+            foreach ($ids as $id) {
+                if (isset($base[$id])) {
+                    $count++;
+                }
+            }
+
+            if ($count > 0) {
+                $counts[$valueIndex] = $count;
+            }
+        }
+
+        return $counts;
     }
 
     /**
@@ -750,11 +862,11 @@ class Engine
     }
 
     /**
+     * @param array<string, mixed> $payload
      * @return array<string, mixed>
      */
-    private function hit(int $id): array
+    private function hit(int $id, array $payload): array
     {
-        $payload = $this->artifact->payloads[$id] ?? [];
         $payload['objectID'] = $this->artifact->objectIds[$id];
 
         return $payload;

@@ -41,10 +41,10 @@ class Compiler
         $valueIndexes = [];
         $facetValues = [];
         $facetPostings = [];
-        $facetRecords = [];
 
-        $tokenIndexes = [];
-        $tokenPostings = [];
+        // token → ids / weights, kept apart for the same reason the artifact keeps them apart.
+        $tokenIds = [];
+        $tokenWeights = [];
 
         foreach ($index->facets() as $facet) {
             if ($facet->facetType === AttributeDefinition::FACET_GEO) {
@@ -54,7 +54,6 @@ class Compiler
             $valueIndexes[$facet->key] = [];
             $facetValues[$facet->key] = [];
             $facetPostings[$facet->key] = [];
-            $facetRecords[$facet->key] = [];
         }
 
         foreach ($index->attributes as $attribute) {
@@ -119,8 +118,6 @@ class Compiler
                     $values = $this->expandHierarchy($values, $facet->hierarchySeparator);
                 }
 
-                $indexes = [];
-
                 foreach ($values as $value) {
                     $lookup = $this->lookupKey($value);
 
@@ -142,27 +139,13 @@ class Compiler
                     if ($last !== $id) {
                         $facetPostings[$key][$valueIndex][] = $id;
                     }
-
-                    $indexes[] = $valueIndex;
                 }
-
-                // Sorted as well as deduplicated, so this list delta-encodes too. Counting
-                // walks it without caring about order, so this costs nothing and halves the
-                // bytes the reverse map takes up.
-                $indexes = array_values(array_unique($indexes));
-                sort($indexes, SORT_NUMERIC);
-
-                $facetRecords[$key][$id] = $indexes;
             }
 
             foreach ((array)$record['tokens'] as $token => $weight) {
                 $token = (string)$token;
-
-                if (!isset($tokenIndexes[$token])) {
-                    $tokenIndexes[$token] = true;
-                }
-
-                $tokenPostings[$token][] = [$id, round((float)$weight, self::WEIGHT_PRECISION)];
+                $tokenIds[$token][] = $id;
+                $tokenWeights[$token][] = round((float)$weight, self::WEIGHT_PRECISION);
             }
 
             $id++;
@@ -170,13 +153,17 @@ class Compiler
 
         // Tokens are sorted so a prefix match is a binary search followed by a walk — the
         // reason the browser needs no search library (QUERY_SPEC §3.1).
-        $tokens = array_keys($tokenIndexes);
+        $tokens = array_keys($tokenIds);
         sort($tokens, SORT_STRING);
 
-        $orderedPostings = [];
+        $flatIds = [];
+        $flatWeights = [];
+        $offsets = [0];
 
         foreach ($tokens as $token) {
-            $orderedPostings[] = $tokenPostings[$token];
+            array_push($flatIds, ...$tokenIds[$token]);
+            array_push($flatWeights, ...$tokenWeights[$token]);
+            $offsets[] = count($flatIds);
         }
 
         $facets = [];
@@ -192,7 +179,6 @@ class Compiler
                 'maxValues' => $facet->maxValuesPerFacet ?: $index->maxValuesPerFacet,
                 'values' => $facetValues[$key],
                 'postings' => $facetPostings[$key],
-                'records' => $facetRecords[$key],
             ];
         }
 
@@ -204,12 +190,14 @@ class Compiler
             facets: $facets,
             sortings: $this->buildSortings($index, $objectIds, $sortableValues),
             tokens: $tokens,
-            tokenPostings: $orderedPostings,
+            tokenIds: $flatIds,
+            tokenWeights: $flatWeights,
             sortableValues: $sortableValues,
             // Normalised through the tokeniser, so the list the engines match against is in the
             // same shape as the tokens they are matching.
             stopwords: array_keys(TokenizerService::stopwords($index)),
             geo: $geo,
+            tokenOffsets: $offsets,
         );
     }
 

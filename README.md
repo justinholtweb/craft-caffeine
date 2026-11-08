@@ -78,25 +78,54 @@ than seven characters.
 
 ### Query latency
 
-Median, over the same artifact, for six representative queries.
+Median, over the same artifact, for six representative queries. Re-measured for 5.3.0, which
+changed how facets are counted.
 
 | | 1,000 | 10,000 | 100,000 |
 | --- | ---: | ---: | ---: |
-| Unrefined listing (PHP / JS) | 1.4 / 0.7 ms | 8.1 / 3.5 ms | 128 / 33 ms |
-| One refinement | 0.4 / 0.2 ms | 2.3 / 1.8 ms | 38 / 18 ms |
-| Two facets and a range | 0.1 / 0.1 ms | 0.8 / 1.1 ms | 8 / 14 ms |
-| Text query | 0.2 / 0.1 ms | 1.4 / 1.1 ms | 18 / 14 ms |
-| Sorted, page 21 | 1.3 / 0.5 ms | 9.6 / 3.7 ms | 133 / 40 ms |
-| Browser decode, once on load | 5 ms | 23 ms | 165 ms |
+| Unrefined listing (PHP / JS) | 1.1 / 0.3 ms | 1.3 / 1.1 ms | 3.8 / 9.0 ms |
+| One refinement | 0.4 / 0.2 ms | 2.5 / 1.3 ms | 14 / 14 ms |
+| Two facets and a range | 0.2 / 0.1 ms | 1.2 / 1.1 ms | 13 / 16 ms |
+| Text query | 0.3 / 0.1 ms | 2.6 / 1.2 ms | 24 / 16 ms |
+| Sorted, page 21 | 1.1 / 0.3 ms | 1.3 / 0.9 ms | 5.7 / 8.5 ms |
+| Browser decode, once on load | 7 ms | 30 ms | 212 ms |
 
-**How to read this.** Narrowing is nearly free — the more refined the query, the less work either
-engine does. The expensive case is the *unrefined* listing, because it touches every record.
+**How to read this.** An unrefined or merely sorted listing is cheap: every count is the length of
+a postings list and every order is precomputed. The work is in narrowing — a text query, or
+refinements that leave a large part of the catalogue — and even that stays in the tens of
+milliseconds at 100,000 records.
 
-Which is what sets the transport budget: the `client` transport is comfortable to roughly 50,000
-records, where the artifact is a few hundred kilobytes and decode is under 100 ms. Past that the
-artifact is megabytes and the browser is doing too much work on load, so use the `htmx` transport
-and let the server answer. At 100,000 records a server-side query is 8–130 ms — fine behind a page
-cache, and the honest ceiling for this design without the memory-mapped endpoint transport.
+The `client` transport is comfortable to roughly 50,000 records, where the artifact is a few
+hundred kilobytes and decode is under 100 ms. Past that the artifact is megabytes and the browser
+is doing too much work on load, so use the `htmx` transport and let the server answer.
+
+### A heavier catalogue
+
+The numbers above have six facets and short titles. `tests/bench/heavy-catalogue.php` builds the
+shape reported in [#5](https://github.com/justinholtweb/craft-caffeine/issues/5): 37,272 products
+in eight types, 134 facets (sixteen of them per type, carried only by that type) and a sixty-word
+description each. Server side, same machine, same day:
+
+| | 5.2.0 | 5.3.0 | 5.3.0, artifact in OPcache |
+| --- | ---: | ---: | ---: |
+| Decoding the artifact, per request | 2,084 ms | 532 ms | 0 ms |
+| Memory that costs the request | 967 MB | 217 MB | 0 MB |
+| Unrefined listing | 155 ms | 17 ms | 20 ms |
+| One facet value | 40 ms | 11 ms | 11 ms |
+| Two facets and a range | 29 ms | 8 ms | 7 ms |
+| Text query | 54 ms | 39 ms | 32 ms |
+| Sorted, page 21 | 190 ms | 19 ms | 19 ms |
+
+With the `htmx` transport every refinement is a request, so the decode row was being paid on every
+click. *Keep artifacts in OPcache* removes it, at the cost of about 180 MB of OPcache memory for
+this catalogue; see "Large catalogues" in `docs/TWIG.md`. With `shardPayload` on, the server also
+stops reading the payload shard and loads only the page of hits it renders, which takes the
+memory row from 217 MB to 179 MB (the decode time barely moves: the payload is the cheap part to
+decode).
+
+Builds: an index can eager-load what its mapping reads (`Builder::EVENT_DEFINE_SOURCE_QUERY`, see
+`docs/EXTENDING.md`), and `caffeine/index/build --all --workers=4` splits a full build across
+processes.
 
 ---
 
@@ -133,7 +162,7 @@ queue job rebuilds and republishes. A `resave/entries` over 5,000 entries collap
 | | |
 | --- | --- |
 | `caffeine/index/status` | Record counts, and what is stale. |
-| `caffeine/index/build [handle] [--all]` | Map content into records. |
+| `caffeine/index/build [handle] [--all] [--workers=N]` | Map content into records. `--workers` splits a full build across N processes. |
 | `caffeine/index/preview <handle> <id>` | What Caffeine would build for one element. |
 | `caffeine/index/prune-orphans` | Clean up after deleted indexes, and remove published files nothing references. |
 | `caffeine/artifact/publish [handle] [--force]` | Compile and publish. |

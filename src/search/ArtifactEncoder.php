@@ -37,6 +37,9 @@ class ArtifactEncoder
     /** Weights are stored as integers; `Compiler::WEIGHT_PRECISION` is the matching rounding. */
     public const WEIGHT_SCALE = 1000;
 
+    /** Hex characters of each record's hash in the lookup document. */
+    public const PAYLOAD_HASH_LENGTH = 8;
+
     /**
      * @return array{index: array<string, mixed>, payload: array<string, mixed>}
      */
@@ -59,16 +62,10 @@ class ArtifactEncoder
         foreach ($artifact->facets as $key => $facet) {
             [$postings, $postingLengths] = $this->encodeLists($facet['postings'], true);
 
-            // The reverse map is dense by construction — the compiler writes an entry for every
-            // record — but it is read back by position, so it is rebuilt by position here rather
-            // than trusted to have kept its keys in order through a decode.
-            $records = [];
-
-            for ($id = 0; $id < $recordCount; $id++) {
-                $records[] = (array)($facet['records'][$id] ?? []);
-            }
-
-            [$recordIndexes, $recordLengths] = $this->encodeLists($records, true);
+            // The reverse map is only on the wire: the browser counts by walking it, while the PHP
+            // side counts from postings and never holds it. Rebuilt from the postings here,
+            // dense and in id order, which is how it is read back.
+            [$recordIndexes, $recordLengths] = $this->encodeLists($artifact->records($key), true);
 
             $facets[$key] = [
                 'type' => $facet['type'],
@@ -92,7 +89,7 @@ class ArtifactEncoder
             $sortings[$name] = Varint::encode($order);
         }
 
-        [$tokenIds, $tokenWeights, $tokenLengths] = $this->encodeTokenPostings($artifact->tokenPostings);
+        [$tokenIds, $tokenWeights, $tokenLengths] = $this->encodeTokenPostings($artifact);
 
         return [
             'format' => self::FORMAT,
@@ -122,6 +119,47 @@ class ArtifactEncoder
             'objectIds' => $artifact->objectIds,
             'payloads' => $artifact->payloads,
         ];
+    }
+
+    /**
+     * The server's lookup document: object ids and a hash of each record's payload, nothing a
+     * browser needs.
+     *
+     * With the payload sharded out, a server render reads the index shard and this, and loads
+     * the payloads for one page of hits from the records they were compiled from. The hash is
+     * what makes that exact rather than nearly so: a record rebuilt since the publish no longer
+     * matches its hash, and that hit is answered from the payload shard instead, so the server
+     * never shows a card the published artifact does not hold.
+     *
+     * @return array<string, mixed>
+     */
+    public function encodeLookup(Artifact $artifact): array
+    {
+        $hashes = '';
+
+        foreach ($artifact->payloads as $payload) {
+            $hashes .= self::payloadHash($payload);
+        }
+
+        return [
+            'format' => self::FORMAT,
+            'index' => $artifact->index,
+            'nbRecords' => $artifact->recordCount(),
+            'objectIds' => $artifact->objectIds,
+            'payloadHashes' => $hashes,
+        ];
+    }
+
+    /**
+     * A payload's fingerprint, as the lookup document carries it.
+     *
+     * @param array<string, mixed> $payload
+     */
+    public static function payloadHash(array $payload): string
+    {
+        $json = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR);
+
+        return substr(hash('xxh3', $json), 0, self::PAYLOAD_HASH_LENGTH);
     }
 
     /**
@@ -165,26 +203,25 @@ class ArtifactEncoder
     }
 
     /**
-     * @param list<list<array{0: int, 1: float}>> $tokenPostings
      * @return array{0: string, 1: string, 2: string}
      */
-    private function encodeTokenPostings(array $tokenPostings): array
+    private function encodeTokenPostings(Artifact $artifact): array
     {
         $ids = [];
         $weights = [];
         $lengths = [];
+        $offsets = $artifact->tokenOffsets;
 
-        foreach ($tokenPostings as $postings) {
-            $postings = array_values((array)$postings);
-            $lengths[] = count($postings);
+        for ($token = 0, $count = count($artifact->tokens); $token < $count; $token++) {
+            $lengths[] = $offsets[$token + 1] - $offsets[$token];
             $previous = 0;
 
-            foreach ($postings as $posting) {
-                $id = (int)$posting[0];
+            for ($i = $offsets[$token]; $i < $offsets[$token + 1]; $i++) {
+                $id = $artifact->tokenIds[$i];
                 $ids[] = $id - $previous;
                 $previous = $id;
 
-                $weights[] = (int)round((float)$posting[1] * self::WEIGHT_SCALE);
+                $weights[] = (int)round($artifact->tokenWeights[$i] * self::WEIGHT_SCALE);
             }
         }
 

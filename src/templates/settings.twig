@@ -64,6 +64,14 @@
     on: settings.precompress,
   }) }}
 
+  {{ forms.lightswitchField({
+    label: "Keep artifacts in OPcache"|t('caffeine'),
+    instructions: "Decode each published artifact once and keep it in OPcache, rather than decoding it on every request. Worth it for a large index on the htmx transport, and only if OPcache has room for the whole artifact — a 37,000-product catalogue needed about 180 MB. Caffeine checks, and logs a warning and decodes as before when it does not fit."|t('caffeine'),
+    id: 'cacheArtifacts',
+    name: 'settings[cacheArtifacts]',
+    on: settings.cacheArtifacts,
+  }) }}
+
   {{ forms.selectField({
     label: "Log level"|t('caffeine'),
     id: 'logLevel',

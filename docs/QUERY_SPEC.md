@@ -134,6 +134,13 @@ For each facet `f` for which counts are requested:
 
 Then `count(f, v)` is the number of records in `base_f` carrying value `v`.
 
+How an engine finds it is not specified, and the two engines take different routes depending on
+the size of `base_f` — `|postings(f, v)|` outright when `base_f` is every record, otherwise by
+scanning postings, looking records up in them, or walking the record → values map. The routes
+must agree exactly; `tests/Conformance/counting.json` drives each of them. What *is* specified is
+that facet stats (§5) are summed over values in **dictionary order**: the sum is floating point,
+and two engines summing in different orders can disagree in the last bit.
+
 The asymmetry is not an inconsistency; it is what makes each kind of facet behave the way a
 visitor expects. Having ticked "Acme" in a disjunctive brand facet, the visitor still needs to
 see "Globex (12)" — the count of what they would get *by adding it*. Excluding a facet's own

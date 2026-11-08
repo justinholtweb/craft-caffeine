@@ -50,6 +50,12 @@ class Settings extends Model
      */
     public bool $serveThroughPhp = false;
 
+    /**
+     * Keep decoded artifacts in OPcache between requests. See `ArtifactCache` for when this pays
+     * and what it costs; off unless OPcache has the memory to hold a whole artifact.
+     */
+    public bool $cacheArtifacts = false;
+
     public string $logLevel = LogLevel::WARNING;
 
     protected function defineRules(): array

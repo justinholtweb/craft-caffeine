@@ -22,6 +22,7 @@ export class Engine {
   constructor(artifact) {
     this.artifact = artifact
     this.recordCount = artifact.objectIds.length
+    this.pairs = new Map()
   }
 
   /**
@@ -309,17 +310,11 @@ export class Engine {
       // The whole point of §3.3: a disjunctive facet is counted with its own refinements left
       // out, so "Globex (12)" still shows what the visitor would get by adding it. A
       // conjunctive facet counts against everything, because each tick is meant to narrow.
-      const base = disjunctive ? this.intersectAll(candidates, filters, key) : result
+      // A facet with no refinement of its own has nothing to leave out, so its base set is the
+      // result itself — which matters with a hundred facets and one of them refined.
+      const base = disjunctive && filters.has(key) ? this.intersectAll(candidates, filters, key) : result
 
-      const counts = new Map()
-
-      // Walking the base set and reading each record's values, rather than walking every value
-      // and intersecting its postings: the base set is nearly always the smaller.
-      for (const id of base) {
-        for (const valueIndex of facet.records[id] || []) {
-          counts.set(valueIndex, (counts.get(valueIndex) || 0) + 1)
-        }
-      }
+      const counts = this.countValues(key, facet, base)
 
       const buckets = this.buildBuckets(state, key, facet, counts)
       const flat = {}
@@ -510,6 +505,54 @@ export class Engine {
     return set
   }
 
+  /**
+   * §3.3 — how many records in the base set carry each value, as a Map of value index → count.
+   *
+   * The PHP engine's `countValues()` explains why counting goes by the postings rather than
+   * always walking the base set. This side also has the reverse map — the PHP side does not
+   * hold it — and walking it is the cheapest route whenever the base set is smaller than the
+   * facet's postings: it touches only the base set's own values. So:
+   *
+   * - the base set is every record: a value's count is its postings' length;
+   * - the base set is smaller than the facet's postings: walk the reverse map;
+   * - otherwise: scan the postings, testing each id against the base set.
+   *
+   * The Map's order depends on the route, so `facetStats()` reads it in dictionary order.
+   */
+  countValues(key, facet, base) {
+    const counts = new Map()
+    const size = base.size
+    const postings = facet.postings
+
+    if (size === 0) return counts
+
+    if (size === this.recordCount) {
+      postings.forEach((ids, valueIndex) => {
+        if (ids.length > 0) counts.set(valueIndex, ids.length)
+      })
+      return counts
+    }
+
+    if (!this.pairs.has(key)) this.pairs.set(key, postings.reduce((sum, ids) => sum + ids.length, 0))
+
+    if (facet.records && size < this.pairs.get(key)) {
+      for (const id of base) {
+        for (const valueIndex of facet.records[id] || []) {
+          counts.set(valueIndex, (counts.get(valueIndex) || 0) + 1)
+        }
+      }
+      return counts
+    }
+
+    postings.forEach((ids, valueIndex) => {
+      let count = 0
+      for (const id of ids) if (base.has(id)) count++
+      if (count > 0) counts.set(valueIndex, count)
+    })
+
+    return counts
+  }
+
   hit(id) {
     return { ...this.artifact.payloads[id], objectID: this.artifact.objectIds[id] }
   }
@@ -525,7 +568,10 @@ function facetStats(values, counts) {
   let sum = 0
   let n = 0
 
-  for (const [index, count] of counts) {
+  // Dictionary order, whatever order the counts were found in: the sum is floating point, and
+  // the PHP engine sums in this order (QUERY_SPEC §3.3).
+  for (const index of Array.from(counts.keys()).sort((a, b) => a - b)) {
+    const count = counts.get(index)
     const value = values[index]
     if (typeof value !== 'number') continue
 

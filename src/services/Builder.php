@@ -5,8 +5,12 @@ namespace justinholtweb\caffeine\services;
 use Craft;
 use craft\base\Component;
 use craft\base\ElementInterface;
+use craft\elements\db\ElementQueryInterface;
+use justinholtweb\caffeine\events\DefineSourceQueryEvent;
 use justinholtweb\caffeine\models\IndexDefinition;
+use justinholtweb\caffeine\models\SourceDefinition;
 use justinholtweb\caffeine\Plugin;
+use justinholtweb\caffeine\sources\SourceInterface;
 use Throwable;
 
 /**
@@ -18,25 +22,43 @@ use Throwable;
  */
 class Builder extends Component
 {
+    /**
+     * @event DefineSourceQueryEvent Fired before a build loads elements to map, so a handler can
+     * eager-load what mapping reads. See `DefineSourceQueryEvent`.
+     */
+    public const EVENT_DEFINE_SOURCE_QUERY = 'defineSourceQuery';
+
     /** Elements per batch. Also the eager-loading unit, so it wants to be a real page's worth. */
     private const BATCH_SIZE = 100;
 
     /**
      * Rebuilds every record for an index.
      *
+     * `$range` and `$prune` are for a parallel build, where each worker takes one slice of the
+     * element ids and the parent prunes once every slice is done. A worker that pruned would
+     * delete every record outside its own slice.
+     *
      * @param callable(int, int): void|null $progress Called with (done, total).
-     * @return array{records: int, pruned: int, errors: list<string>}
+     * @param array{0: int, 1: int|null}|null $range Element ids from and to, inclusive, with a
+     *                                                null upper bound for no upper bound.
+     * @return array{records: int, pruned: int, errors: list<string>, seen: list<int>}
      */
-    public function buildAll(IndexDefinition $index, ?callable $progress = null): array
+    public function buildAll(IndexDefinition $index, ?callable $progress = null, ?array $range = null, bool $prune = true): array
     {
         $records = 0;
         $errors = [];
         $seenElementIds = [];
-        $total = $this->countElements($index);
+        $total = $this->countElements($index, $range);
 
         foreach ($this->siteIds($index) as $siteId) {
             foreach (Plugin::getInstance()->sources->resolve($index) as ['source' => $source, 'definition' => $definition]) {
                 $query = $source->query($definition, $siteId);
+
+                if ($range !== null) {
+                    $this->applyRange($query, $range);
+                }
+
+                $this->defineQuery($index, $source, $definition, $siteId, $query);
 
                 foreach ($query->batch(self::BATCH_SIZE) as $elements) {
                     foreach ($elements as $element) {
@@ -62,11 +84,37 @@ class Builder extends Component
             }
         }
 
+        $seen = array_map('intval', array_keys($seenElementIds));
+
         // Anything not seen this pass no longer qualifies — moved section, disabled, deleted.
         // Without this an index only ever grows.
-        $pruned = Plugin::getInstance()->records->pruneMissing($index->uid, array_map('intval', array_keys($seenElementIds)));
+        $pruned = $prune ? Plugin::getInstance()->records->pruneMissing($index->uid, $seen) : 0;
 
-        return ['records' => $records, 'pruned' => $pruned, 'errors' => $errors];
+        return ['records' => $records, 'pruned' => $pruned, 'errors' => $errors, 'seen' => $seen];
+    }
+
+    /**
+     * Every element id a full build would visit, ascending and distinct across sites and
+     * sources: what a parallel build divides between its workers.
+     *
+     * @return list<int>
+     */
+    public function elementIds(IndexDefinition $index): array
+    {
+        $ids = [];
+
+        foreach ($this->siteIds($index) as $siteId) {
+            foreach (Plugin::getInstance()->sources->resolve($index) as ['source' => $source, 'definition' => $definition]) {
+                foreach ($source->query($definition, $siteId)->ids() as $id) {
+                    $ids[(int)$id] = true;
+                }
+            }
+        }
+
+        $ids = array_keys($ids);
+        sort($ids);
+
+        return $ids;
     }
 
     /**
@@ -167,6 +215,7 @@ class Builder extends Component
             // able to see an element that has just been disabled, precisely so it can notice
             // and remove it. `covers()` re-applies the status check per element.
             $query->status(null);
+            $this->defineQuery($index, $source, $definition, $siteId, $query);
 
             foreach ($query->all() as $element) {
                 $elements[$element->id . '-' . $element->siteId] = $element;
@@ -214,16 +263,50 @@ class Builder extends Component
         );
     }
 
-    public function countElements(IndexDefinition $index): int
+    /**
+     * @param array{0: int, 1: int|null}|null $range See `buildAll()`.
+     */
+    public function countElements(IndexDefinition $index, ?array $range = null): int
     {
         $total = 0;
 
         foreach ($this->siteIds($index) as $siteId) {
             foreach (Plugin::getInstance()->sources->resolve($index) as ['source' => $source, 'definition' => $definition]) {
-                $total += (int)$source->query($definition, $siteId)->count();
+                $query = $source->query($definition, $siteId);
+
+                if ($range !== null) {
+                    $this->applyRange($query, $range);
+                }
+
+                $total += (int)$query->count();
             }
         }
 
         return $total;
+    }
+
+    /**
+     * @param array{0: int, 1: int|null} $range
+     */
+    private function applyRange(ElementQueryInterface $query, array $range): void
+    {
+        $query->id($range[1] === null
+            ? '>= ' . (int)$range[0]
+            : ['and', '>= ' . (int)$range[0], '<= ' . (int)$range[1]]);
+    }
+
+    private function defineQuery(IndexDefinition $index, SourceInterface $source, SourceDefinition $definition, int $siteId, ElementQueryInterface $query): void
+    {
+        if (!$this->hasEventHandlers(self::EVENT_DEFINE_SOURCE_QUERY)) {
+            return;
+        }
+
+        $this->trigger(self::EVENT_DEFINE_SOURCE_QUERY, new DefineSourceQueryEvent([
+            'index' => $index,
+            'source' => $source,
+            'definition' => $definition,
+            'siteId' => $siteId,
+            'query' => $query,
+        ]));
     }
 }

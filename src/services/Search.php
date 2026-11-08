@@ -28,9 +28,7 @@ class Search extends Component
      *
      * Decoding a large artifact is not free, and a page with two indexes, or a fragment request
      * that re-renders a template touching the same index twice, would otherwise pay for it more
-     * than once. Caching *across* requests is Phase 5's problem, together with the endpoint
-     * transport that exists precisely so a 100,000-record artifact never has to be decoded here
-     * at all.
+     * than once. Across requests, `ArtifactCache` keeps it in OPcache when that is turned on.
      */
     private array $artifacts = [];
 
@@ -270,7 +268,6 @@ class Search extends Component
                 'maxValues' => $facet->maxValuesPerFacet ?: $index->maxValuesPerFacet,
                 'values' => [],
                 'postings' => [],
-                'records' => [],
             ];
         }
 
@@ -282,7 +279,6 @@ class Search extends Component
             facets: $facets,
             sortings: [],
             tokens: [],
-            tokenPostings: [],
         );
     }
 

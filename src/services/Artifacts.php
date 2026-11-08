@@ -3,6 +3,7 @@
 namespace justinholtweb\caffeine\services;
 
 use Craft;
+use Closure;
 use craft\base\Component;
 use craft\db\Query;
 use craft\helpers\Db;
@@ -13,6 +14,7 @@ use justinholtweb\caffeine\models\IndexDefinition;
 use justinholtweb\caffeine\Plugin;
 use justinholtweb\caffeine\search\Artifact;
 use justinholtweb\caffeine\search\ArtifactDecoder;
+use justinholtweb\caffeine\search\ArtifactEncoder;
 use justinholtweb\caffeine\search\Compiler;
 use RuntimeException;
 use Throwable;
@@ -177,34 +179,177 @@ class Artifacts extends Component
             return null;
         }
 
-        $store = $publisher->store();
+        // With the payload sharded out and a lookup beside it, the payload shard is never read
+        // here unless a hit needs it: a page's payloads come from the records instead.
+        $lazy = isset($manifest['shards']['payload']['file'], $manifest['lookup']['file']);
+        $loader = $lazy ? $this->payloadLoader($index, $manifest) : null;
+
+        $cache = Plugin::getInstance()->artifactCache;
+        $cached = $cache->get($index, $manifest, $loader);
+
+        if ($cached !== null) {
+            return $cached;
+        }
+
         $documents = [];
 
-        foreach (['index', 'payload'] as $kind) {
-            $file = $manifest['shards'][$kind]['file'] ?? null;
+        foreach ($lazy ? ['index', 'lookup'] : ['index', 'payload'] as $kind) {
+            $file = $kind === 'lookup' ? $manifest['lookup']['file'] : ($manifest['shards'][$kind]['file'] ?? null);
 
             if ($file === null) {
                 continue;
             }
 
-            $contents = $store->read($publisher->path($index, $file));
+            $document = $this->readDocument($index, (string)$file);
 
-            if ($contents === null) {
+            if ($document === null) {
                 return null;
             }
 
-            $documents[$kind] = Json::decode($contents);
+            $documents[$kind] = $document;
         }
 
         if (!isset($documents['index'])) {
             return null;
         }
 
-        return (new ArtifactDecoder())->decode(
+        $artifact = (new ArtifactDecoder())->decode(
             $documents['index'],
             $documents['payload'] ?? null,
             (int)($manifest['version'] ?? 0),
+            $documents['lookup'] ?? null,
+            $loader,
         );
+
+        unset($documents);
+        $cache->put($index, $manifest, $artifact);
+
+        return $artifact;
+    }
+
+    /**
+     * Loads a page's payloads from the records they were compiled from.
+     *
+     * A record's payload is used only when it still hashes to what was published; anything
+     * rebuilt or removed since then is answered from the payload shard instead, decoded at
+     * most once per request. So a hit is always the published one, and the shard is only read
+     * in the window between a record changing and the next publish, and only by a page that
+     * shows that record.
+     *
+     * @param array<string, mixed> $manifest
+     * @return Closure(list<int>, Artifact): array<int, array<string, mixed>>
+     */
+    private function payloadLoader(IndexDefinition $index, array $manifest): Closure
+    {
+        /** @var list<array<string, mixed>>|null $shard */
+        $shard = null;
+
+        return function(array $ids, Artifact $artifact) use ($index, $manifest, &$shard): array {
+            $wanted = [];
+
+            foreach ($ids as $id) {
+                $objectId = $artifact->objectIds[$id] ?? null;
+
+                if ($objectId !== null) {
+                    $wanted[(string)$objectId] = $id;
+                }
+            }
+
+            $payloads = $this->recordPayloads($index, $artifact, $wanted);
+            $missing = array_diff_key(array_flip($ids), $payloads);
+
+            if ($missing === []) {
+                return $payloads;
+            }
+
+            if ($shard === null) {
+                $document = $this->readDocument($index, (string)$manifest['shards']['payload']['file']);
+                $shard = array_values((array)($document['payloads'] ?? []));
+
+                if ($document === null) {
+                    Craft::warning(
+                        sprintf('Caffeine could not read the payload shard for “%s”; some hits are shown without their content.', $index->handle),
+                        Plugin::LOG_CATEGORY,
+                    );
+                }
+            }
+
+            foreach (array_keys($missing) as $id) {
+                $payloads[$id] = $shard[$id] ?? [];
+            }
+
+            return $payloads;
+        };
+    }
+
+    /**
+     * Payloads from the records table, for the records whose content still matches what was
+     * published.
+     *
+     * Looked up by element id, which the records table indexes, and matched on object id after:
+     * a record's object id is `<elementId>-<siteId>` (see `Mapper::objectId()`), and anything
+     * else simply falls through to the shard.
+     *
+     * @param array<string, int> $wanted objectId → internal id
+     * @return array<int, array<string, mixed>> internal id → payload
+     */
+    private function recordPayloads(IndexDefinition $index, Artifact $artifact, array $wanted): array
+    {
+        $elementIds = [];
+
+        foreach (array_keys($wanted) as $objectId) {
+            if (preg_match('/^(\d+)-\d+$/', (string)$objectId, $m) === 1) {
+                $elementIds[(int)$m[1]] = true;
+            }
+        }
+
+        if ($elementIds === []) {
+            return [];
+        }
+
+        $rows = (new Query())
+            ->select(['objectId', 'content'])
+            ->from(Install::TABLE_RECORDS)
+            ->where(['indexUid' => $index->uid, 'elementId' => array_keys($elementIds)])
+            ->all();
+
+        $payloads = [];
+
+        foreach ($rows as $row) {
+            $id = $wanted[(string)$row['objectId']] ?? null;
+
+            if ($id === null || $row['content'] === null) {
+                continue;
+            }
+
+            // Decoded exactly the way `Records::stream()` hands content to the compiler, so an
+            // unchanged record produces the very array that was published, and the same hash.
+            $content = Json::decodeIfJson($row['content']) ?: [];
+            $payload = (array)($content['payload'] ?? []);
+
+            if (ArtifactEncoder::payloadHash($payload) === $artifact->payloadHash($id)) {
+                $payloads[$id] = $payload;
+            }
+        }
+
+        return $payloads;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function readDocument(IndexDefinition $index, string $file): ?array
+    {
+        $publisher = Plugin::getInstance()->publisher;
+        $contents = $publisher->store()->read($publisher->path($index, $file));
+
+        if ($contents === null) {
+            return null;
+        }
+
+        $document = Json::decode($contents);
+
+        return is_array($document) ? $document : null;
     }
 
     /**
@@ -472,9 +617,15 @@ class Artifacts extends Component
 
             // Whatever the live pointer names is kept even if the ledger has lost track of it: a
             // restored database can be older than the pointer, and that pointer is being served.
-            foreach ($publisher->pointer($index)['shards'] ?? [] as $shard) {
+            $pointer = $publisher->pointer($index);
+
+            foreach ($pointer['shards'] ?? [] as $shard) {
                 $path = $publisher->path($index, (string)($shard['file'] ?? ''));
                 $keep[$path] = $keep["{$path}.gz"] = $keep["{$path}.br"] = true;
+            }
+
+            if (isset($pointer['lookup']['file'])) {
+                $keep[$publisher->path($index, (string)$pointer['lookup']['file'])] = true;
             }
 
             $deleted = [];

@@ -266,6 +266,71 @@ accident.
 
 ---
 
+## 5a. Large catalogues
+
+With `htmx`, every refinement is a request, and every request needs the decoded artifact. Two
+things decide how far that goes.
+
+**Keep the artifact in OPcache.** Turn on *Keep artifacts in OPcache* in the settings (or
+`'cacheArtifacts' => true` in `config/caffeine.php`). The first request after a publish decodes as
+usual and writes the decoded artifact out as a PHP file; OPcache compiles it into shared memory,
+and from then on a request reads it there, without reading or decoding anything. For a
+37,000-product catalogue with 134 facets that took a request from about 0.5 s and 217 MB to
+nothing measurable.
+
+It only works if OPcache has room. That catalogue needed about 180 MB of
+`opcache.memory_consumption` and 34 MB of `opcache.interned_strings_buffer`, on top of what Craft
+itself uses, and a publish adds the new artifact before OPcache reclaims the old one, so allow for
+two. Caffeine checks that OPcache actually holds the file and logs a warning and decodes as before
+when it does not. Each publish also costs one compile — about a second and a half at that size —
+in the first request to reach each web server, and OPcache only reclaims superseded copies when it
+restarts, so on a site that publishes many times an hour, expect it to restart more often.
+
+`tests/bench/heavy-catalogue.php` measures all of this for a catalogue of any size.
+
+**Shard the payload.** With `shardPayload` on, a server render reads the index shard and a small
+lookup file, and never the payload shard: the page's payloads come from Caffeine's records table,
+one query for the 24 or so hits it shows, checked against what was published (see §5.1 of
+`docs/ARTIFACT.md`). For the catalogue above that took what a request holds from 217 MB to
+179 MB, and with OPcache on, it keeps the payloads out of OPcache too. It saves memory more than
+time, since the payload is the cheap part to decode. The browser is unaffected; it fetches the
+payload shard as before.
+
+**One index per product type, plus one for search.** A listing for one product type only needs
+that type's records and facets, and a site-wide search only needs a few facets every type shares.
+On Pro you can give each type its own index, with its own facets, and add one slim index over every
+type — title, description, brand, category, price — for the search page:
+
+```twig
+{# One listing template for every type: each type's index is named after it. #}
+{% caffeine productType.handle as search %}
+  …
+{% endcaffeine %}
+
+{# The search page. #}
+{% caffeine 'siteSearch' as search %}
+  …
+{% endcaffeine %}
+```
+
+Each product is then built into two indexes, so builds take longer, but each listing's artifact
+holds only its own type. A shared index is still fine where the types are few or similar: a
+facet that only one type carries costs a query in proportion to the products that carry it, not
+to the whole catalogue.
+
+**Faster builds.** Two things, both outside the request path:
+
+- Eager-load what your attribute paths read: variants, related entries, categories. Without it,
+  mapping queries for each relation of each product one at a time. See
+  `Builder::EVENT_DEFINE_SOURCE_QUERY` in `docs/EXTENDING.md`.
+- Split a full build across processes with `php craft caffeine/index/build products --all
+  --workers=4`. Each worker builds a contiguous range of element ids; records are pruned once,
+  after every worker has finished, and not at all if one of them failed. Each worker boots
+  Craft and holds its own memory, and all of them write to the same database, so more workers
+  than the database has spare cores stops helping.
+
+---
+
 ## 6. Cached pages
 
 Three separate problems, answered separately.

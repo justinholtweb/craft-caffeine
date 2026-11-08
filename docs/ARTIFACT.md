@@ -20,6 +20,7 @@ A published index is three kinds of file in one directory:
   current.json                        the pointer     mutable, tiny, never cached
   {checksum}.index.json               the query data  immutable, cache forever
   {checksum}.payload.json             the card data   immutable, cache forever  (when sharded)
+  {checksum}.lookup.json              server only     immutable                 (when sharded)
   *.gz, *.br                          precompressed sidecars
 ```
 
@@ -58,7 +59,8 @@ every cached page would point at a file that no longer existed.
   "shards": {
     "index":   { "file": "61e883951a2c606a.index.json",   "bytes": 1145104, "checksum": "61e883951a2c606a", "url": "…" },
     "payload": { "file": "a8fc90e9569f5bf3.payload.json", "bytes": 1272093, "checksum": "a8fc90e9569f5bf3", "url": "…" }
-  }
+  },
+  "lookup": { "file": "3c0e41d7b9f2a816.lookup.json", "bytes": 61210, "checksum": "3c0e41d7b9f2a816" }
 }
 ```
 
@@ -66,9 +68,10 @@ every cached page would point at a file that no longer existed.
 | --- | --- |
 | `format` | Layout version. A decoder refuses anything it does not recognise rather than guessing. |
 | `version` | Monotonic per index. Bookkeeping and cache-busting only — no query reads it. |
-| `checksum` | Identity of the whole artifact: the hash of its shards' hashes. Equal checksums mean equal content. |
+| `checksum` | Identity of the whole artifact: the hash of its shards' hashes, and the lookup's. Equal checksums mean equal content. |
 | `sharded` | Whether `payload` is a separate file or merged into `index`. |
 | `shards` | One entry per document. `file` is relative to the manifest's own directory. |
+| `lookup` | Sharded only: the server's lookup document (§5.1). Beside `shards`, not in it, because the browser fetches every shard it is given and has no use for this one. |
 
 **The version is deliberately not inside the shard documents.** A shard's filename is a hash of
 its bytes, so a version number in the content would make two byte-identical rebuilds hash
@@ -170,13 +173,16 @@ hash lookups on the hot path.
 | `operator` | `or` (disjunctive) or `and` (conjunctive). Drives the counting rule in QUERY_SPEC §3.3. |
 | `values` | The interning dictionary: distinct values, in first-seen order. Everything else refers to them by position. |
 | `postings` | Value index → sorted internal ids carrying it. Answers *which records have this value* — filtering. |
-| `records` | Internal id → sorted value indexes it carries. Answers *which values does this record have* — counting. |
-
-Both directions are stored. Deriving either from the other at query time costs more than the
-bytes they take up, and the two questions are asked on different paths.
+| `records` | Internal id → sorted value indexes it carries. Answers *which values does this record have* — counting. Derivable from `postings`. |
 
 `records` is dense: there is an entry for every record, empty where a record carries no value for
 that facet.
+
+Only the browser reads `records`. Walking it costs the size of the base set for *every* facet, so
+the JavaScript engine uses it only when the base set is smaller than the facet's postings, and
+otherwise counts from `postings` (QUERY_SPEC §3.3). The PHP decoder skips it and the server never
+holds it: decoded, it is one PHP array per record per facet, which for 37,000 products and 134
+facets was most of a gigabyte on every request. The PHP engine counts from `postings` alone.
 
 ### 4.2 Tokens
 
@@ -226,6 +232,33 @@ Both are parallel to internal id. `payloads` is whatever the index definition ma
 When an index has `shardPayload` off, these two keys are merged into the index document and one
 file is published. Sharding is a **publishing** decision, not a compilation one: the encoder
 always produces both documents and the publisher chooses whether they travel separately.
+
+### 5.1 The lookup document
+
+Written beside the shards when the payload is sharded, and read only by the server:
+
+```json
+{
+  "format": 1,
+  "index": "products",
+  "nbRecords": 4210,
+  "objectIds": ["101-1", "102-1"],
+  "payloadHashes": "9f2c01aa41be77d0…"
+}
+```
+
+`objectIds` is the payload document's, and `payloadHashes` is eight hex characters per record, in
+internal id order: the first eight characters of the xxh3 hash of that record's payload as JSON,
+encoded with `JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION`.
+
+A server render needs the whole index but only one page of payloads, so with a lookup it reads
+the index document and this, and loads that page's payloads from `caffeine_records`, the rows the
+artifact was compiled from. The hash keeps that exact. A row that has been rebuilt or removed
+since the publish no longer matches, and that hit is answered from the payload document instead,
+so the server never shows a card the browser's copy of the artifact does not hold.
+
+Not compressed, because no browser fetches it. It is in the artifact's checksum, so an index
+published before lookups existed gets one on its next publish.
 
 ---
 

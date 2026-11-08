@@ -479,7 +479,7 @@ class Indexes extends Component
      * What Craft's garbage collection runs, and what `caffeine/index/prune-orphans` runs for an
      * operator who wants it done now — after a deploy, or after restoring a database.
      *
-     * @return array{indexes: int, records: int, files: list<string>, busy: list<string>}
+     * @return array{indexes: int, records: int, cache: int, files: list<string>, busy: list<string>}
      */
     public function collectGarbage(): array
     {
@@ -489,6 +489,7 @@ class Indexes extends Component
         $result = [
             'indexes' => $plugin->artifacts->deleteOrphans($known),
             'records' => $plugin->records->deleteOrphans($known),
+            'cache' => $plugin->artifactCache->deleteOrphans($known),
             'files' => [],
             'busy' => [],
         ];

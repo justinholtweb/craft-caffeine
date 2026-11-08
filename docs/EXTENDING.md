@@ -199,6 +199,7 @@ wrappers over `search.facet()` and `search.toggleUrl()`, and nothing depends on 
 | `Sources::EVENT_REGISTER_SOURCES` | `services\Sources` | Add an element type. |
 | `Extractors::EVENT_REGISTER_EXTRACTORS` | `services\Extractors` | Add or override a field-type reader. |
 | `Indexes::EVENT_DEFINE_INDEX` | `services\Indexes` | Add attributes or sortings to an index as it loads. |
+| `Builder::EVENT_DEFINE_SOURCE_QUERY` | `services\Builder` | Adjust the query a build loads elements with: eager loading. |
 
 ### Facets from content: `EVENT_DEFINE_INDEX`
 
@@ -254,6 +255,39 @@ You don't need it after a deploy. Each publish records a fingerprint of the defi
 built from, your attributes included, and every dirty build compares that fingerprint with the
 current one first. So `caffeine/index/build` without `--all`, or the next automatic update,
 rebuilds every record when what your handler adds has changed.
+
+### Eager loading: `EVENT_DEFINE_SOURCE_QUERY`
+
+A build maps elements a batch of 100 at a time, and mapping reads whatever the index's paths
+name: variants, related entries and categories, field values on those. Without eager loading,
+each of those is a query per element. On a Commerce catalogue that was over a third of the build.
+Declare them on the build's query instead, and Craft loads each one once per batch:
+
+```php
+use justinholtweb\caffeine\events\DefineSourceQueryEvent;
+use justinholtweb\caffeine\services\Builder;
+use yii\base\Event;
+
+Event::on(Builder::class, Builder::EVENT_DEFINE_SOURCE_QUERY, function(DefineSourceQueryEvent $event) {
+    if ($event->index->handle === 'products') {
+        $event->query->with(['variants', 'productCategories', 'brand']);
+    }
+});
+```
+
+The event carries the `index`, the `source` and its `definition`, the `siteId`, and the `query`
+to modify in place. It fires for the queries whose elements are mapped into records, for a full
+build and for a rebuild of changed elements, and not for the ones that only count elements or
+check which still exist.
+
+Two things to get right:
+
+- **Name relations only.** Craft accepts any handle in `with()`, and a plain field named there
+  reads back as an empty set of related elements rather than as its value. The records come out
+  wrong, without an error. Compare `caffeine/index/preview` output before and after.
+- **Don't narrow the query here.** Which elements an index holds is the source definition's job.
+  A full build prunes every record its query didn't return, so a constraint added here would
+  delete records that the next incremental rebuild then puts back.
 
 ---
 
