@@ -23,12 +23,12 @@ conformance suite.
   or as pasted SVG, which is sanitised before it's drawn.
 - A Tools screen for each index, with *Update stale records*, *Rebuild everything* and *Publish
   now*, plus the record preview and query playground (Pro).
-- `caffeine:index:touch` alongside the other commands, now Artisan commands
-  (`php artisan caffeine:index:build`). The Caffeine 5 names still work as aliases.
 
 ### Changed
 
 - Requires Craft CMS 6 and PHP 8.5.
+- Console commands are Artisan commands (`php artisan caffeine:index:build`). The Caffeine 5 names
+  (`caffeine/index/build`) still work as aliases.
 - The PHP namespace is `JustinHoltWeb\Caffeine` (was `justinholtweb\caffeine`), with `Services`,
   `Models`, `Sources`, `Extractors` and `Search` capitalised.
 - Caffeine's events are Laravel events: `RegisterSources`, `RegisterExtractors`, `DefineIndex` and
