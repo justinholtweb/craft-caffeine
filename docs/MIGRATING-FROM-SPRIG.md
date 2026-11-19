@@ -160,7 +160,7 @@ intercepts links pointing back at its own path.
 1. Define the index in the control panel. Use the **record preview** on the edit screen to check
    one real element maps the way you expect — it is much faster than rebuilding and reading the
    artifact.
-2. `php craft caffeine/index/build --all` and `php craft caffeine/artifact/publish`.
+2. `php artisan caffeine:index:build --all` and `php artisan caffeine:artifact:publish` (on Craft 5: `php craft caffeine/index/build --all` and `php craft caffeine/artifact/publish`).
 3. Use the **query playground** to confirm the facets count the way the old page did.
 4. Port the template, keeping the old one alongside until the numbers match.
 5. Delete the Sprig component.

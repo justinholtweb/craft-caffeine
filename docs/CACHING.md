@@ -135,11 +135,9 @@ refined states, because the canonical page's markup does not depend on the artif
 If you are, refresh the listing after a publish:
 
 ```php
-use justinholtweb\caffeine\services\Artifacts;
-
-// In a module's init(), after Caffeine publishes:
-Craft::$app->onAfterRequest(function() {
-    // Blitz::$plugin->refreshCache->refreshCachedUrls(['https://example.com/products']);
+// In a service provider's boot(), after Caffeine publishes:
+app()->terminating(function () {
+    // Refresh the cached listing URLs with your static cache here.
 });
 ```
 

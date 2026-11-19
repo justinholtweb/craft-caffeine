@@ -388,6 +388,24 @@ class Indexes
 
                 return false;
             }
+
+            // A source type nothing provides builds nothing, silently. The likely case is a site
+            // upgraded from Craft 5 with a category or tag source, which Craft 6 doesn't have.
+            $available = app(Sources::class)->all();
+
+            foreach ($index->sources as $source) {
+                if (! isset($available[$source->type])) {
+                    $index->addError('sources', match ($source->type) {
+                        'category' => t('Craft 6 has no categories. Convert them to entries and use an Entries source instead.', category: 'caffeine'),
+                        'tag' => t('Craft 6 has no tags. Convert them to entries and use an Entries source instead.', category: 'caffeine'),
+                        default => t('“{type}” isn’t a source type available on this site.', ['type' => $source->type], category: 'caffeine'),
+                    });
+                }
+            }
+
+            if ($index->hasErrors()) {
+                return false;
+            }
         }
 
         ProjectConfig::set(

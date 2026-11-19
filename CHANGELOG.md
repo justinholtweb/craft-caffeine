@@ -5,6 +5,58 @@ All notable changes to Caffeine are documented here.
 Caffeine follows [semantic versioning](https://semver.org). The major version tracks Craft, so
 5.x supports Craft 5 — the same convention the rest of the family uses.
 
+## 6.0.0-beta.1 — Unreleased
+
+Caffeine for Craft CMS 6, rebuilt as a native Craft 6 plugin. It runs on Laravel and has no
+dependency on the Yii 2 adapter. Craft 6 is in beta, and so is this release. Update to Caffeine
+5.3.0 before upgrading Craft, and see [the upgrade guide](https://github.com/justinholtweb/craft-caffeine/blob/6.0.0/UPGRADING.md).
+
+The query engines, the artifact format and the front-end runtime are unchanged, so published
+artifacts, templates and front-end code keep working. Both engines still pass the shared
+conformance suite.
+
+### Added
+
+- A `caffeineSearch` GraphQL query (Pro), with a scope per index in each schema's permissions.
+  `hits`, `facets` and `facetsStats` use a new `CaffeineJSON` scalar.
+- Settings for the control-panel sidebar item: its label, and its icon, from Craft's icon picker
+  or as pasted SVG, which is sanitised before it's drawn.
+- A Tools screen for each index, with *Update stale records*, *Rebuild everything* and *Publish
+  now*, plus the record preview and query playground (Pro).
+- `caffeine:index:touch` alongside the other commands, now Artisan commands
+  (`php artisan caffeine:index:build`). The Caffeine 5 names still work as aliases.
+
+### Changed
+
+- Requires Craft CMS 6 and PHP 8.5.
+- The PHP namespace is `JustinHoltWeb\Caffeine` (was `justinholtweb\caffeine`), with `Services`,
+  `Models`, `Sources`, `Extractors` and `Search` capitalised.
+- Caffeine's events are Laravel events: `RegisterSources`, `RegisterExtractors`, `DefineIndex` and
+  `DefineSourceQuery` in `JustinHoltWeb\Caffeine\Events`, registered with `Event::listen()`.
+  Their payloads are unchanged.
+- The control-panel screens are rebuilt with Craft 6's UI. Plugin settings moved to the standard
+  plugin settings screen.
+- *Filesystem* is now *Filesystem disk*, the name of a Laravel disk. Craft's upgrade turns each
+  filesystem into a disk with the same name, so the setting carries over.
+- Fragment tokens are encrypted with the app key instead of signed with the security key. Tokens
+  in pages cached before the upgrade stop working; the page falls back to full page loads until it
+  is re-rendered.
+- Logs go to `storage/logs/caffeine-*.log` through a Laravel log channel.
+- Publishing, update and OPcache locks use Laravel's cache locks, with a time limit so a crashed
+  process can't hold one forever.
+- `UpdateJob` is a Craft 6 queue job; requeueing dispatches a new delayed job.
+
+### Removed
+
+- The category and tag sources. Craft 6 has no categories or tags; convert them to entries before
+  upgrading Craft, and point the index at those entries.
+- The Commerce product source is inactive until Commerce 6 is released.
+
+### Fixed
+
+- The client transport's hit template escapes single quotes and backticks, and a hit value that
+  lands in a link or image as a `javascript:`, `vbscript:` or `data:` URL is replaced with `#`.
+
 ## 5.3.0 — 2026-10-25
 
 Server-side performance for large catalogues on the `htmx` transport, from the load test in

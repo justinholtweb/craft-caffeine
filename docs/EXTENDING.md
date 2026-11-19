@@ -48,8 +48,8 @@ and a price facet that is wrong by two orders of magnitude still looks plausible
 ### Writing one
 
 ```php
-use justinholtweb\caffeine\extractors\ExtractedValue;
-use justinholtweb\caffeine\extractors\ValueExtractorInterface;
+use JustinHoltWeb\Caffeine\Extractors\ExtractedValue;
+use JustinHoltWeb\Caffeine\Extractors\ValueExtractorInterface;
 
 class RatingExtractor implements ValueExtractorInterface
 {
@@ -75,11 +75,11 @@ Register it. Yours are checked **before** the built-ins, so this is also how you
 one of them reads your field:
 
 ```php
-use justinholtweb\caffeine\events\RegisterExtractorsEvent;
-use justinholtweb\caffeine\services\Extractors;
-use yii\base\Event;
+use Illuminate\Support\Facades\Event;
+use JustinHoltWeb\Caffeine\Events\RegisterExtractors;
 
-Event::on(Extractors::class, Extractors::EVENT_REGISTER_EXTRACTORS, function(RegisterExtractorsEvent $event) {
+// In your plugin's or service provider's boot():
+Event::listen(RegisterExtractors::class, function (RegisterExtractors $event) {
     $event->extractors[] = RatingExtractor::class;
 });
 ```
@@ -92,15 +92,17 @@ build: one bad value in one record should not stop an index rebuilding.
 
 ## 2. Sources — teach it an element type
 
-A source supplies the elements an index is built from. Caffeine ships six — entries, categories,
-tags, assets, users and Commerce products — and a third-party one is configured in the control
-panel exactly like they are.
+A source supplies the elements an index is built from. Caffeine ships four — entries, assets,
+users and Commerce products (once Commerce 6 is out) — and a third-party one is configured in the
+control panel exactly like they are. Craft 6 has no categories or tags, so Caffeine 6 has no
+sources for them.
 
 ```php
-use craft\base\ElementInterface;
-use craft\elements\db\ElementQueryInterface;
-use justinholtweb\caffeine\models\SourceDefinition;
-use justinholtweb\caffeine\sources\BaseSource;
+use CraftCms\Cms\Element\Contracts\ElementInterface;
+use CraftCms\Cms\Element\Queries\Contracts\ElementQueryInterface;
+use CraftCms\Cms\Support\Facades\Plugins;
+use JustinHoltWeb\Caffeine\Models\SourceDefinition;
+use JustinHoltWeb\Caffeine\Sources\BaseSource;
 
 class SubmissionSource extends BaseSource
 {
@@ -112,7 +114,7 @@ class SubmissionSource extends BaseSource
     {
         // Unavailable sources are dropped from the registry rather than listed and broken, so
         // the CP never offers one that cannot work on this site.
-        return Craft::$app->getPlugins()->isPluginEnabled('formie');
+        return Plugins::isPluginEnabled('formie');
     }
 
     /** Shown in the CP as the handles a definition can be scoped to. */
@@ -128,7 +130,7 @@ class SubmissionSource extends BaseSource
             // Ordered by id so a build walks records in a stable order across runs. Anything
             // that changes between builds would reshuffle batches and make an interrupted build
             // hard to resume.
-            ->orderBy(['elements.id' => SORT_ASC]);
+            ->orderBy('elements.id');
 
         if ($definition->containers !== []) {
             $query->form($definition->containers);
@@ -145,7 +147,10 @@ class SubmissionSource extends BaseSource
 ```
 
 ```php
-Event::on(Sources::class, Sources::EVENT_REGISTER_SOURCES, function(RegisterSourcesEvent $event) {
+use Illuminate\Support\Facades\Event;
+use JustinHoltWeb\Caffeine\Events\RegisterSources;
+
+Event::listen(RegisterSources::class, function (RegisterSources $event) {
     $event->sources[] = SubmissionSource::class;
 });
 ```
@@ -194,14 +199,21 @@ wrappers over `search.facet()` and `search.toggleUrl()`, and nothing depends on 
 
 ## 4. Events
 
-| Event | Where | Use |
-| --- | --- | --- |
-| `Sources::EVENT_REGISTER_SOURCES` | `services\Sources` | Add an element type. |
-| `Extractors::EVENT_REGISTER_EXTRACTORS` | `services\Extractors` | Add or override a field-type reader. |
-| `Indexes::EVENT_DEFINE_INDEX` | `services\Indexes` | Add attributes or sortings to an index as it loads. |
-| `Builder::EVENT_DEFINE_SOURCE_QUERY` | `services\Builder` | Adjust the query a build loads elements with: eager loading. |
+Caffeine's events are plain Laravel events. Listen with `Event::listen()` in a service provider's
+or plugin's `boot()`.
 
-### Facets from content: `EVENT_DEFINE_INDEX`
+| Event class (`JustinHoltWeb\Caffeine\Events\…`) | Use |
+| --- | --- |
+| `RegisterSources` | Add an element type. |
+| `RegisterExtractors` | Add or override a field-type reader. |
+| `DefineIndex` | Add attributes or sortings to an index as it loads. |
+| `DefineSourceQuery` | Adjust the query a build loads elements with: eager loading. |
+
+On Caffeine 5 these were Yii events: `Sources::EVENT_REGISTER_SOURCES`,
+`Extractors::EVENT_REGISTER_EXTRACTORS`, `Indexes::EVENT_DEFINE_INDEX` and
+`Builder::EVENT_DEFINE_SOURCE_QUERY`, with `…Event` classes. The payloads are the same.
+
+### Facets from content: `DefineIndex`
 
 Every attribute in an index normally lives in project config, so adding a facet means a change in
 dev and a deploy. That's wrong for a set that editors grow in the control panel, such as product
@@ -209,12 +221,11 @@ specs or one taxonomy section where each new term should become a facet. For tho
 attributes when the index loads:
 
 ```php
-use justinholtweb\caffeine\events\DefineIndexEvent;
-use justinholtweb\caffeine\models\AttributeDefinition;
-use justinholtweb\caffeine\services\Indexes;
-use yii\base\Event;
+use Illuminate\Support\Facades\Event;
+use JustinHoltWeb\Caffeine\Events\DefineIndex;
+use JustinHoltWeb\Caffeine\Models\AttributeDefinition;
 
-Event::on(Indexes::class, Indexes::EVENT_DEFINE_INDEX, function(DefineIndexEvent $event) {
+Event::listen(DefineIndex::class, function (DefineIndex $event) {
     if ($event->index->handle !== 'products') {
         return;
     }
@@ -244,7 +255,7 @@ index is left alone. That covers a failed validation and a key the index already
 **When your set changes,** call `invalidate()` so the records are rebuilt now:
 
 ```php
-Plugin::getInstance()->indexes->invalidate('products');
+app(\JustinHoltWeb\Caffeine\Services\Indexes::class)->invalidate('products');
 ```
 
 It reloads the definitions, so your handler runs again, then marks every record dirty and
@@ -253,10 +264,10 @@ renames a spec.
 
 You don't need it after a deploy. Each publish records a fingerprint of the definition it was
 built from, your attributes included, and every dirty build compares that fingerprint with the
-current one first. So `caffeine/index/build` without `--all`, or the next automatic update,
+current one first. So `php artisan caffeine:index:build` without `--all`, or the next automatic update,
 rebuilds every record when what your handler adds has changed.
 
-### Eager loading: `EVENT_DEFINE_SOURCE_QUERY`
+### Eager loading: `DefineSourceQuery`
 
 A build maps elements a batch of 100 at a time, and mapping reads whatever the index's paths
 name: variants, related entries and categories, field values on those. Without eager loading,
@@ -264,11 +275,10 @@ each of those is a query per element. On a Commerce catalogue that was over a th
 Declare them on the build's query instead, and Craft loads each one once per batch:
 
 ```php
-use justinholtweb\caffeine\events\DefineSourceQueryEvent;
-use justinholtweb\caffeine\services\Builder;
-use yii\base\Event;
+use Illuminate\Support\Facades\Event;
+use JustinHoltWeb\Caffeine\Events\DefineSourceQuery;
 
-Event::on(Builder::class, Builder::EVENT_DEFINE_SOURCE_QUERY, function(DefineSourceQueryEvent $event) {
+Event::listen(DefineSourceQuery::class, function (DefineSourceQuery $event) {
     if ($event->index->handle === 'products') {
         $event->query->with(['variants', 'productCategories', 'brand']);
     }
@@ -284,7 +294,7 @@ Two things to get right:
 
 - **Name relations only.** Craft accepts any handle in `with()`, and a plain field named there
   reads back as an empty set of related elements rather than as its value. The records come out
-  wrong, without an error. Compare `caffeine/index/preview` output before and after.
+  wrong, without an error. Compare `php artisan caffeine:index:preview` output before and after.
 - **Don't narrow the query here.** Which elements an index holds is the source definition's job.
   A full build prunes every record its query didn't return, so a constraint added here would
   delete records that the next incremental rebuild then puts back.

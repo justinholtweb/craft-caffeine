@@ -123,53 +123,90 @@ stops reading the payload shard and loads only the page of hits it renders, whic
 memory row from 217 MB to 179 MB (the decode time barely moves: the payload is the cheap part to
 decode).
 
-Builds: an index can eager-load what its mapping reads (`Builder::EVENT_DEFINE_SOURCE_QUERY`, see
-`docs/EXTENDING.md`), and `caffeine/index/build --all --workers=4` splits a full build across
-processes.
+Builds: an index can eager-load what its mapping reads (the `DefineSourceQuery` event, see
+`docs/EXTENDING.md`), and `php artisan caffeine:index:build --all --workers=4` splits a full build
+across processes.
+
+(These measurements were taken on Caffeine 5. The engine, the artifact format and the runtime are
+unchanged in Caffeine 6.)
 
 ---
 
 ## Installation
+
+> **Caffeine 6 is in beta**, like Craft 6 itself. Test it before relying on it in production.
+> Caffeine 5 remains the stable release for Craft 5.
+
+| Caffeine | Status | Craft | PHP |
+| --- | --- | --- | --- |
+| 6.x | Beta | 6.0+ | 8.5+ |
+| 5.x | Stable | 5.3+ | 8.2+ |
+
+On Craft 6:
+
+```sh
+composer require "justinholtweb/craft-caffeine:^6.0@beta"
+php artisan craft:plugin:install caffeine
+```
+
+On Craft 5:
 
 ```sh
 composer require justinholtweb/craft-caffeine
 php craft plugin/install caffeine
 ```
 
-Requires Craft 5.3+ and PHP 8.2+.
+Upgrading a Craft 5 site? Update to Caffeine 5.3.0 first, then see [UPGRADING.md](UPGRADING.md).
 
 ### What it can index
 
-Entries, categories, tags, assets, users and Commerce products, plus anything a plugin registers.
-Field types that would otherwise index as an opaque object — links from Hyper, FreeLink or Craft's
-own Link field, Google Maps addresses, Money, colours, dropdowns — are read by **value
-extractors** that match on shape rather than class name, so a link field is a link field whatever
-produced it. Facets can be strings, hierarchies, numbers, booleans, dates or **coordinates**, the
-last filtered by distance from a point. Indexes can declare **stopwords** and **synonyms**.
+Entries, assets, users and Commerce products, plus anything a plugin registers. (Craft 6 has no
+categories or tags; on Craft 5, Caffeine 5 indexes those too.) Field types that would otherwise
+index as an opaque object — links from Hyper, FreeLink or Craft's own Link field, addresses,
+Money, colours, dropdowns — are read by **value extractors** that match on shape rather than class
+name, so a link field is a link field whatever produced it. Facets can be strings, hierarchies,
+numbers, booleans, dates or **coordinates**, the last filtered by distance from a point. Indexes
+can declare **stopwords** and **synonyms**.
 
 Then define an index in **Caffeine → Indexes**, and:
 
 ```sh
-php craft caffeine/index/build --all      # map content into records
-php craft caffeine/artifact/publish       # compile and publish the artifact
+php artisan caffeine:index:build --all      # map content into records
+php artisan caffeine:artifact:publish       # compile and publish the artifact
 ```
 
+Or use **Rebuild everything** and **Publish now** on the index's Tools screen.
+
 After that it maintains itself: element saves mark the affected records stale and a debounced
-queue job rebuilds and republishes. A `resave/entries` over 5,000 entries collapses to one job.
+queue job rebuilds and republishes. A `craft:resave:entries` over 5,000 entries collapses to one job.
 
 ### Console commands
 
+Craft 6 runs them through Artisan. The Caffeine 5 names (`caffeine/index/build` and so on) still
+work as aliases.
+
 | | |
 | --- | --- |
-| `caffeine/index/status` | Record counts, and what is stale. |
-| `caffeine/index/build [handle] [--all] [--workers=N]` | Map content into records. `--workers` splits a full build across N processes. |
-| `caffeine/index/preview <handle> <id>` | What Caffeine would build for one element. |
-| `caffeine/index/prune-orphans` | Clean up after deleted indexes, and remove published files nothing references. |
-| `caffeine/artifact/publish [handle] [--force]` | Compile and publish. |
-| `caffeine/artifact/status` | What is live, and whether it is behind the CMS. |
-| `caffeine/artifact/verify <handle>` | Check the published artifact against a fresh compile. |
-| `caffeine/artifact/versions <handle>` | Recent versions. |
-| `caffeine/artifact/prune [handle]` | Retire old versions. |
+| `caffeine:index:status` | Record counts, and what is stale. |
+| `caffeine:index:build [handle] [--all] [--workers=N]` | Map content into records. `--workers` splits a full build across N processes. |
+| `caffeine:index:preview <handle> <id>` | What Caffeine would build for one element. |
+| `caffeine:index:touch <handle>` | Mark every record stale. |
+| `caffeine:index:prune-orphans` | Clean up after deleted indexes, and remove published files nothing references. |
+| `caffeine:artifact:publish [handle] [--force]` | Compile and publish. |
+| `caffeine:artifact:status` | What is live, and whether it is behind the CMS. |
+| `caffeine:artifact:verify <handle>` | Check the published artifact against a fresh compile. |
+| `caffeine:artifact:versions <handle>` | Recent versions. |
+| `caffeine:artifact:prune [handle]` | Retire old versions. |
+
+### Settings
+
+**Settings → Plugins → Caffeine**, or `config/craft/caffeine.php` (`config/caffeine.php` on
+Craft 5). Artifacts publish into the web root by default; name a disk from `config/filesystems.php`
+to publish to S3 or a CDN instead.
+
+**The sidebar item** can be renamed and given another icon: pick one from Craft's icon picker, or
+paste an SVG, which is sanitised before it's drawn. Craft's own Settings → Control Panel
+Navigation can do the same for any item, and an override made there takes precedence.
 
 ---
 
@@ -188,6 +225,39 @@ Typesense, Meilisearch or Algolia later without rewriting its front end.
 
 ---
 
+## GraphQL (Craft 6, Pro)
+
+`caffeineSearch` runs the same engine against the same published artifact as the Twig tags and the
+JSON endpoint, for headless front ends. Give a schema access to an index under **Caffeine indexes**
+in its permissions; a schema only sees the query when it can search at least one index.
+
+```graphql
+{
+  caffeineSearch(
+    index: "products"
+    query: "espresso"
+    refinements: { brand: ["Acme"] }
+    ranges: { price: { min: 10, max: 50 } }
+    sortBy: "price_asc"
+    page: 0
+    hitsPerPage: 24
+  ) {
+    nbHits
+    nbPages
+    page
+    hits
+    facets
+    facetsStats
+    version
+  }
+}
+```
+
+`hits`, `facets` and `facetsStats` are `CaffeineJSON` values shaped by the index — the same shape
+the `algolia-json` transport returns. Pages are zero-based, as in Algolia.
+
+---
+
 ## Documentation
 
 | | |
@@ -198,11 +268,13 @@ Typesense, Meilisearch or Algolia later without rewriting its front end.
 | [`docs/CACHING.md`](docs/CACHING.md) | Serving artifacts, and the Blitz recipe. |
 | [`docs/QUERY_SPEC.md`](docs/QUERY_SPEC.md) | What a query means. Authoritative for both engines. |
 | [`docs/ARTIFACT.md`](docs/ARTIFACT.md) | The wire format and how publishing works. |
+| [`UPGRADING.md`](UPGRADING.md) | Moving a site from Caffeine 5 on Craft 5 to Caffeine 6 on Craft 6. |
 
 ## Editions
 
 **Lite** is free: one index, entries only. **Pro** is $149, $119 to renew: unlimited indexes, every
-element type, all three transports.
+element type, all three transports, the record preview and query playground, and on Craft 6 the
+GraphQL query.
 
 ## License
 

@@ -272,7 +272,7 @@ With `htmx`, every refinement is a request, and every request needs the decoded 
 things decide how far that goes.
 
 **Keep the artifact in OPcache.** Turn on *Keep artifacts in OPcache* in the settings (or
-`'cacheArtifacts' => true` in `config/caffeine.php`). The first request after a publish decodes as
+`'cacheArtifacts' => true` in `config/craft/caffeine.php`; `config/caffeine.php` on Craft 5). The first request after a publish decodes as
 usual and writes the decoded artifact out as a PHP file; OPcache compiles it into shared memory,
 and from then on a request reads it there, without reading or decoding anything. For a
 37,000-product catalogue with 134 facets that took a request from about 0.5 s and 217 MB to
@@ -322,8 +322,8 @@ to the whole catalogue.
 
 - Eager-load what your attribute paths read: variants, related entries, categories. Without it,
   mapping queries for each relation of each product one at a time. See
-  `Builder::EVENT_DEFINE_SOURCE_QUERY` in `docs/EXTENDING.md`.
-- Split a full build across processes with `php craft caffeine/index/build products --all
+  the `DefineSourceQuery` event in `docs/EXTENDING.md`.
+- Split a full build across processes with `php artisan caffeine:index:build products --all
   --workers=4`. Each worker builds a contiguous range of element ids; records are pruned once,
   after every worker has finished, and not at all if one of them failed. Each worker boots
   Craft and holds its own memory, and all of them write to the same database, so more workers
