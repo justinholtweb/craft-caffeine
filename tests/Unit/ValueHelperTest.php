@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use justinholtweb\caffeine\helpers\ValueHelper;
-use justinholtweb\caffeine\models\AttributeDefinition;
+use JustinHoltWeb\Caffeine\Helpers\ValueHelper;
+use JustinHoltWeb\Caffeine\Models\AttributeDefinition;
 
 describe('flatten', function() {
     it('flattens nested arrays', function() {

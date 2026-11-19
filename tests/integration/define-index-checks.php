@@ -11,10 +11,10 @@ require '/var/www/html/vendor/autoload.php';
 define('CRAFT_BASE_PATH', '/var/www/html');
 $app = require '/var/www/html/vendor/craftcms/cms/bootstrap/console.php';
 
-use justinholtweb\caffeine\events\DefineIndexEvent;
-use justinholtweb\caffeine\models\AttributeDefinition;
-use justinholtweb\caffeine\Plugin;
-use justinholtweb\caffeine\services\Indexes;
+use JustinHoltWeb\Caffeine\Events\DefineIndexEvent;
+use JustinHoltWeb\Caffeine\Models\AttributeDefinition;
+use JustinHoltWeb\Caffeine\Plugin;
+use JustinHoltWeb\Caffeine\Services\Indexes;
 use yii\base\Event;
 
 $failures = 0;

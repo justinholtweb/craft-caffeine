@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-use justinholtweb\caffeine\models\AttributeDefinition;
-use justinholtweb\caffeine\models\IndexDefinition;
-use justinholtweb\caffeine\models\SortingDefinition;
+use JustinHoltWeb\Caffeine\Models\AttributeDefinition;
+use JustinHoltWeb\Caffeine\Models\IndexDefinition;
+use JustinHoltWeb\Caffeine\Models\SortingDefinition;
 
 /**
  * Attributes and sortings an `EVENT_DEFINE_INDEX` handler adds.

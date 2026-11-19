@@ -2,7 +2,7 @@
     "name": "justinholtweb/craft-caffeine",
     "description": "Instant faceted search and filtering for Craft — model an index in the control panel, and Caffeine keeps a self-contained JSON search artifact up to date and served, so refinements resolve in milliseconds without an element query.",
     "type": "craft-plugin",
-    "version": "5.3.0",
+    "version": "6.0.0-beta.1",
     "keywords": [
         "craft",
         "cms",
@@ -19,7 +19,7 @@
         "sprig"
     ],
     "license": "proprietary",
-    "minimum-stability": "stable",
+    "minimum-stability": "beta",
     "prefer-stable": true,
     "authors": [
         {
@@ -33,55 +33,59 @@
         "source": "https://github.com/justinholtweb/craft-caffeine"
     },
     "require": {
-        "php": "^8.2",
+        "php": "^8.5",
         "ext-json": "*",
         "ext-mbstring": "*",
-        "craftcms/cms": "^5.3.0"
+        "craftcms/cms": "^6.0.0-beta.1"
     },
     "require-dev": {
-        "craftcms/ecs": "dev-main",
-        "craftcms/phpstan": "dev-main",
-        "pestphp/pest": "^3.5",
-        "phpstan/phpstan": "^1.12 || ^2.2"
+        "larastan/larastan": "^3.13",
+        "laravel/pint": "^1.22",
+        "orchestra/testbench": "^11.0",
+        "pestphp/pest": "^5.0",
+        "pestphp/pest-plugin-laravel": "^5.0",
+        "phpstan/phpstan": "^2.1"
     },
     "autoload": {
         "psr-4": {
-            "justinholtweb\\caffeine\\": "src/"
+            "JustinHoltWeb\\Caffeine\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "justinholtweb\\caffeine\\tests\\": "tests/"
+            "JustinHoltWeb\\Caffeine\\Tests\\": "tests/"
         }
     },
     "scripts": {
         "test": "pest",
-        "phpstan": "phpstan analyse",
-        "ecs": "ecs check --ansi",
-        "ecs-fix": "ecs check --fix --ansi",
+        "phpstan": "phpstan analyse --memory-limit=1G",
         "conformance": [
             "@php vendor/bin/pest --group=conformance",
             "node tests/Conformance/run.mjs"
-        ]
+        ],
+        "check-cs": "pint --test",
+        "fix-cs": "pint"
     },
     "scripts-descriptions": {
         "conformance": "Runs the shared fixture suite against both query engines. The PHP pass compiles the artifacts the JavaScript pass consumes, so the order matters."
     },
     "config": {
         "allow-plugins": {
-            "yiisoft/yii2-composer": true,
             "craftcms/plugin-installer": true,
-            "craftcms/generator": true,
             "pestphp/pest-plugin": true
-        }
+        },
+        "platform": {
+            "php": "8.5"
+        },
+        "sort-packages": true
     },
     "extra": {
         "name": "Caffeine",
         "handle": "caffeine",
         "developer": "Justin Holt",
         "developerUrl": "https://justinholt.com",
-        "documentationUrl": "https://github.com/justinholtweb/craft-caffeine/blob/main/README.md",
-        "changelogUrl": "https://raw.githubusercontent.com/justinholtweb/craft-caffeine/main/CHANGELOG.md",
-        "class": "justinholtweb\\caffeine\\Plugin"
+        "documentationUrl": "https://github.com/justinholtweb/craft-caffeine/blob/6.0.0/README.md",
+        "changelogUrl": "https://raw.githubusercontent.com/justinholtweb/craft-caffeine/6.0.0/CHANGELOG.md",
+        "class": "JustinHoltWeb\\Caffeine\\Plugin"
     }
 }

@@ -12,9 +12,9 @@ define('CRAFT_BASE_PATH', '/var/www/html');
 $app = require '/var/www/html/vendor/craftcms/cms/bootstrap/console.php';
 
 use craft\web\View;
-use justinholtweb\caffeine\Plugin;
-use justinholtweb\caffeine\search\QueryState;
-use justinholtweb\caffeine\search\UrlState;
+use JustinHoltWeb\Caffeine\Plugin;
+use JustinHoltWeb\Caffeine\Search\QueryState;
+use JustinHoltWeb\Caffeine\Search\UrlState;
 
 $failures = 0;
 

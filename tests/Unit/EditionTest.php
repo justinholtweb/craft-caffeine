@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-use justinholtweb\caffeine\models\AttributeDefinition;
-use justinholtweb\caffeine\models\Edition;
-use justinholtweb\caffeine\models\IndexDefinition;
-use justinholtweb\caffeine\models\SortingDefinition;
+use JustinHoltWeb\Caffeine\Models\AttributeDefinition;
+use JustinHoltWeb\Caffeine\Models\Edition;
+use JustinHoltWeb\Caffeine\Models\IndexDefinition;
+use JustinHoltWeb\Caffeine\Models\SortingDefinition;
 
 /**
  * The Lite/Pro boundary, in one place and testable without an application.

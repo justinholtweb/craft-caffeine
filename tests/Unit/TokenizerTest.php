@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-use justinholtweb\caffeine\models\AttributeDefinition;
-use justinholtweb\caffeine\models\IndexDefinition;
-use justinholtweb\caffeine\models\MappedRecord;
-use justinholtweb\caffeine\services\Tokenizer;
+use JustinHoltWeb\Caffeine\Models\AttributeDefinition;
+use JustinHoltWeb\Caffeine\Models\IndexDefinition;
+use JustinHoltWeb\Caffeine\Models\MappedRecord;
+use JustinHoltWeb\Caffeine\Services\Tokenizer;
 
 beforeEach(function() {
     $this->tokenizer = new Tokenizer();

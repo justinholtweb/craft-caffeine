@@ -10,12 +10,12 @@ require '/var/www/html/vendor/autoload.php';
 define('CRAFT_BASE_PATH', '/var/www/html');
 $app = require '/var/www/html/vendor/craftcms/cms/bootstrap/console.php';
 
-use justinholtweb\caffeine\models\AttributeDefinition;
-use justinholtweb\caffeine\models\Edition;
-use justinholtweb\caffeine\models\IndexDefinition;
-use justinholtweb\caffeine\models\SortingDefinition;
-use justinholtweb\caffeine\models\SourceDefinition;
-use justinholtweb\caffeine\Plugin;
+use JustinHoltWeb\Caffeine\Models\AttributeDefinition;
+use JustinHoltWeb\Caffeine\Models\Edition;
+use JustinHoltWeb\Caffeine\Models\IndexDefinition;
+use JustinHoltWeb\Caffeine\Models\SortingDefinition;
+use JustinHoltWeb\Caffeine\Models\SourceDefinition;
+use JustinHoltWeb\Caffeine\Plugin;
 
 $failures = 0;
 

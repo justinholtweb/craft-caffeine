@@ -10,12 +10,12 @@ $app = require '/var/www/html/vendor/craftcms/cms/bootstrap/console.php';
 
 use craft\db\Query;
 use craft\helpers\Json;
-use justinholtweb\caffeine\events\DefineSourceQueryEvent;
-use justinholtweb\caffeine\migrations\Install;
-use justinholtweb\caffeine\Plugin;
-use justinholtweb\caffeine\search\Engine;
-use justinholtweb\caffeine\search\QueryState;
-use justinholtweb\caffeine\services\Builder;
+use JustinHoltWeb\Caffeine\Events\DefineSourceQueryEvent;
+use JustinHoltWeb\Caffeine\Migrations\Install;
+use JustinHoltWeb\Caffeine\Plugin;
+use JustinHoltWeb\Caffeine\Search\Engine;
+use JustinHoltWeb\Caffeine\Search\QueryState;
+use JustinHoltWeb\Caffeine\Services\Builder;
 use yii\base\Event;
 
 $failures = 0;

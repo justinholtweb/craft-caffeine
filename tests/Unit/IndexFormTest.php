@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-use justinholtweb\caffeine\models\AttributeDefinition;
-use justinholtweb\caffeine\models\IndexDefinition;
-use justinholtweb\caffeine\models\SortingDefinition;
-use justinholtweb\caffeine\models\SourceDefinition;
+use JustinHoltWeb\Caffeine\Models\AttributeDefinition;
+use JustinHoltWeb\Caffeine\Models\IndexDefinition;
+use JustinHoltWeb\Caffeine\Models\SortingDefinition;
+use JustinHoltWeb\Caffeine\Models\SourceDefinition;
 
 /**
  * The control panel's form payload, turned back into a definition.

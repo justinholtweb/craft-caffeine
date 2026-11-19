@@ -11,10 +11,10 @@ use craft\elements\Asset;
 use craft\elements\Category;
 use craft\elements\Entry;
 use craft\elements\User;
-use justinholtweb\caffeine\models\AttributeDefinition;
-use justinholtweb\caffeine\models\IndexDefinition;
-use justinholtweb\caffeine\models\SourceDefinition;
-use justinholtweb\caffeine\Plugin;
+use JustinHoltWeb\Caffeine\Models\AttributeDefinition;
+use JustinHoltWeb\Caffeine\Models\IndexDefinition;
+use JustinHoltWeb\Caffeine\Models\SourceDefinition;
+use JustinHoltWeb\Caffeine\Plugin;
 
 $failures = 0;
 

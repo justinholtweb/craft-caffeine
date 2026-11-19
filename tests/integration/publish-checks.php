@@ -11,10 +11,10 @@ require '/var/www/html/vendor/autoload.php';
 define('CRAFT_BASE_PATH', '/var/www/html');
 $app = require '/var/www/html/vendor/craftcms/cms/bootstrap/console.php';
 
-use justinholtweb\caffeine\models\AttributeDefinition;
-use justinholtweb\caffeine\models\IndexDefinition;
-use justinholtweb\caffeine\models\SourceDefinition;
-use justinholtweb\caffeine\Plugin;
+use JustinHoltWeb\Caffeine\Models\AttributeDefinition;
+use JustinHoltWeb\Caffeine\Models\IndexDefinition;
+use JustinHoltWeb\Caffeine\Models\SourceDefinition;
+use JustinHoltWeb\Caffeine\Plugin;
 
 $plugin = Plugin::getInstance();
 $index = $plugin->indexes->getByHandle('products');
@@ -172,7 +172,7 @@ $plugin->builder->buildAll($remote);
 $plugin->artifacts->publish($remote);
 
 $recordCount = fn(array $where) => (int)(new \craft\db\Query())
-    ->from(\justinholtweb\caffeine\migrations\Install::TABLE_RECORDS)
+    ->from(\JustinHoltWeb\Caffeine\Migrations\Install::TABLE_RECORDS)
     ->where(['indexUid' => $remote->uid] + $where)
     ->count();
 
@@ -182,10 +182,10 @@ foreach ($plugin->publisher->pointer($remote)['shards'] as $shard) {
     $remoteFiles[] = $plugin->publisher->path($remote, $shard['file']);
 }
 
-$remotePath = \justinholtweb\caffeine\services\Indexes::CONFIG_PATH . '.' . $remote->uid;
+$remotePath = \JustinHoltWeb\Caffeine\Services\Indexes::CONFIG_PATH . '.' . $remote->uid;
 
 Craft::$app->getDb()->createCommand()
-    ->update(\justinholtweb\caffeine\migrations\Install::TABLE_RECORDS, ['dirty' => false], ['indexUid' => $remote->uid])
+    ->update(\JustinHoltWeb\Caffeine\Migrations\Install::TABLE_RECORDS, ['dirty' => false], ['indexUid' => $remote->uid])
     ->execute();
 
 Craft::$app->getProjectConfig()->trigger(\craft\services\ProjectConfig::EVENT_UPDATE_ITEM, new \craft\events\ConfigEvent([

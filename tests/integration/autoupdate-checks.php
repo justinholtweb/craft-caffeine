@@ -11,7 +11,7 @@ define('CRAFT_BASE_PATH', '/var/www/html');
 $app = require '/var/www/html/vendor/craftcms/cms/bootstrap/console.php';
 
 use craft\elements\Entry;
-use justinholtweb\caffeine\Plugin;
+use JustinHoltWeb\Caffeine\Plugin;
 
 $failures = 0;
 
@@ -141,7 +141,7 @@ $versionBefore = (int)($plugin->artifacts->live($index->uid)['version'] ?? 0);
 $plugin->builder->buildAll($index);
 $elements->saveElement($entries[0]);
 
-$job = new justinholtweb\caffeine\queue\jobs\UpdateJob(['indexUid' => $index->uid]);
+$job = new JustinHoltWeb\Caffeine\Jobs\UpdateJob(['indexUid' => $index->uid]);
 $job->execute($queue);
 
 check('the dirty rows are gone', $plugin->records->countFor($index->uid, true) === 0,

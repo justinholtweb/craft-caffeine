@@ -10,8 +10,8 @@
 import { readFileSync, existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { decodeArtifact } from '../../src/web/assets/runtime/src/decode.js'
-import { Engine } from '../../src/web/assets/runtime/src/engine.js'
+import { decodeArtifact } from '../../resources/js/runtime/decode.js'
+import { Engine } from '../../resources/js/runtime/engine.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const count = Number(process.argv[2] || 10000)

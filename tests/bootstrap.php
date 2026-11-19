@@ -17,10 +17,21 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
-// Yii2 is not autoloadable on its own — Yii.php registers the class map, the DI container and
-// the `Yii` alias. Craft normally does this during its bootstrap; the definition models extend
-// craft\base\Model, so their validators need it.
-require_once __DIR__ . '/../vendor/yiisoft/yii2/Yii.php';
 
 ini_set('date.timezone', 'UTC');
 date_default_timezone_set('UTC');
+
+/*
+ * The definition models validate through Laravel's validator (Craft 6 components do). The unit
+ * suite doesn't boot Craft, so give the container just enough to build one.
+ */
+$container = new Illuminate\Container\Container();
+Illuminate\Container\Container::setInstance($container);
+$translator = new Illuminate\Translation\Translator(new Illuminate\Translation\ArrayLoader(), 'en');
+$container->instance('translator', $translator);
+$container->instance(
+    Illuminate\Contracts\Validation\Factory::class,
+    new Illuminate\Validation\Factory($translator, $container),
+);
+$container->alias(Illuminate\Contracts\Validation\Factory::class, 'validator');
+$container->instance('events', new Illuminate\Events\Dispatcher($container));

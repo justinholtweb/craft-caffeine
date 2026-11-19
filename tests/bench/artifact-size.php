@@ -15,8 +15,8 @@ require __DIR__ . '/../../vendor/autoload.php';
 
 require __DIR__ . '/fixture.php';
 
-use justinholtweb\caffeine\search\ArtifactEncoder;
-use justinholtweb\caffeine\search\Compiler;
+use JustinHoltWeb\Caffeine\Search\ArtifactEncoder;
+use JustinHoltWeb\Caffeine\Search\Compiler;
 
 $count = (int)($argv[1] ?? 10000);
 

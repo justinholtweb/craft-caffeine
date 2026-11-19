@@ -1,6 +1,6 @@
 <?php
 
-namespace justinholtweb\caffeine;
+namespace JustinHoltWeb\Caffeine;
 
 use Craft;
 use craft\base\Plugin as BasePlugin;
@@ -11,20 +11,20 @@ use craft\log\MonologTarget;
 use craft\services\Gc;
 use craft\services\UserPermissions;
 use craft\web\UrlManager;
-use justinholtweb\caffeine\models\Settings;
-use justinholtweb\caffeine\services\ArtifactCache;
-use justinholtweb\caffeine\services\Artifacts;
-use justinholtweb\caffeine\services\AutoUpdate;
-use justinholtweb\caffeine\services\Builder;
-use justinholtweb\caffeine\services\Extractors;
-use justinholtweb\caffeine\services\Indexes;
-use justinholtweb\caffeine\services\Mapper;
-use justinholtweb\caffeine\services\Publisher;
-use justinholtweb\caffeine\services\Records;
-use justinholtweb\caffeine\services\Search;
-use justinholtweb\caffeine\services\Sources;
-use justinholtweb\caffeine\services\Tokenizer;
-use justinholtweb\caffeine\web\twig\Extension;
+use JustinHoltWeb\Caffeine\Models\Settings;
+use JustinHoltWeb\Caffeine\Services\ArtifactCache;
+use JustinHoltWeb\Caffeine\Services\Artifacts;
+use JustinHoltWeb\Caffeine\Services\AutoUpdate;
+use JustinHoltWeb\Caffeine\Services\Builder;
+use JustinHoltWeb\Caffeine\Services\Extractors;
+use JustinHoltWeb\Caffeine\Services\Indexes;
+use JustinHoltWeb\Caffeine\Services\Mapper;
+use JustinHoltWeb\Caffeine\Services\Publisher;
+use JustinHoltWeb\Caffeine\Services\Records;
+use JustinHoltWeb\Caffeine\Services\Search;
+use JustinHoltWeb\Caffeine\Services\Sources;
+use JustinHoltWeb\Caffeine\Services\Tokenizer;
+use JustinHoltWeb\Caffeine\Twig\Extension;
 use yii\base\Event;
 
 /**

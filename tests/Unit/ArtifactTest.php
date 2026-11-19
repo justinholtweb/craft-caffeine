@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-use justinholtweb\caffeine\search\Artifact;
-use justinholtweb\caffeine\search\ArtifactDecoder;
-use justinholtweb\caffeine\search\ArtifactEncoder;
+use JustinHoltWeb\Caffeine\Search\Artifact;
+use JustinHoltWeb\Caffeine\Search\ArtifactDecoder;
+use JustinHoltWeb\Caffeine\Search\ArtifactEncoder;
 
 /**
  * The PHP side holds less than the shared structure: no facet reverse map, and token postings as
@@ -181,9 +181,9 @@ it('answers a search with the same hits whether payloads are held or loaded', fu
     $eager = Artifact::fromArray(caffeineSharedArtifact());
 
     foreach ([[], ['query' => 'saw'], ['refinements' => ['tags' => ['sale']]], ['hitsPerPage' => 1, 'page' => 2]] as $state) {
-        $state = justinholtweb\caffeine\search\QueryState::fromArray($state);
-        $a = (new justinholtweb\caffeine\search\Engine($eager))->search($state);
-        $b = (new justinholtweb\caffeine\search\Engine($lazy))->search($state);
+        $state = JustinHoltWeb\Caffeine\Search\QueryState::fromArray($state);
+        $a = (new JustinHoltWeb\Caffeine\Search\Engine($eager))->search($state);
+        $b = (new JustinHoltWeb\Caffeine\Search\Engine($lazy))->search($state);
         unset($a['processingTimeMS'], $b['processingTimeMS']);
 
         expect($b)->toBe($a);

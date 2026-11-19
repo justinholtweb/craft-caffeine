@@ -14,10 +14,10 @@
 require __DIR__ . '/../../vendor/autoload.php';
 require __DIR__ . '/fixture.php';
 
-use justinholtweb\caffeine\search\ArtifactEncoder;
-use justinholtweb\caffeine\search\Compiler;
-use justinholtweb\caffeine\search\Engine;
-use justinholtweb\caffeine\search\QueryState;
+use JustinHoltWeb\Caffeine\Search\ArtifactEncoder;
+use JustinHoltWeb\Caffeine\Search\Compiler;
+use JustinHoltWeb\Caffeine\Search\Engine;
+use JustinHoltWeb\Caffeine\Search\QueryState;
 
 $count = (int)($argv[1] ?? 10000);
 $iterations = (int)($argv[2] ?? 20);

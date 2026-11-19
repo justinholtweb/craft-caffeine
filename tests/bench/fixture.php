@@ -9,9 +9,9 @@
  * actually needs. Seeded, so two runs measure the same data.
  */
 
-use justinholtweb\caffeine\models\IndexDefinition;
-use justinholtweb\caffeine\models\MappedRecord;
-use justinholtweb\caffeine\services\Tokenizer;
+use JustinHoltWeb\Caffeine\Models\IndexDefinition;
+use JustinHoltWeb\Caffeine\Models\MappedRecord;
+use JustinHoltWeb\Caffeine\Services\Tokenizer;
 
 /**
  * @return array{0: IndexDefinition, 1: list<array<string, mixed>>}

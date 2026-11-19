@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-use justinholtweb\caffeine\models\IndexDefinition;
-use justinholtweb\caffeine\models\MappedRecord;
-use justinholtweb\caffeine\search\ArtifactDecoder;
-use justinholtweb\caffeine\search\ArtifactEncoder;
-use justinholtweb\caffeine\search\Compiler;
-use justinholtweb\caffeine\search\Engine;
-use justinholtweb\caffeine\search\QueryState;
-use justinholtweb\caffeine\search\FacetValue;
-use justinholtweb\caffeine\search\UrlState;
-use justinholtweb\caffeine\search\Varint;
-use justinholtweb\caffeine\services\Tokenizer;
+use JustinHoltWeb\Caffeine\Models\IndexDefinition;
+use JustinHoltWeb\Caffeine\Models\MappedRecord;
+use JustinHoltWeb\Caffeine\Search\ArtifactDecoder;
+use JustinHoltWeb\Caffeine\Search\ArtifactEncoder;
+use JustinHoltWeb\Caffeine\Search\Compiler;
+use JustinHoltWeb\Caffeine\Search\Engine;
+use JustinHoltWeb\Caffeine\Search\QueryState;
+use JustinHoltWeb\Caffeine\Search\FacetValue;
+use JustinHoltWeb\Caffeine\Search\UrlState;
+use JustinHoltWeb\Caffeine\Search\Varint;
+use JustinHoltWeb\Caffeine\Services\Tokenizer;
 
 /**
  * The PHP half of the conformance suite.
@@ -127,7 +127,7 @@ foreach ($fixtures as $path) {
         describe("conformance: {$fixture['name']}", function() use ($fixture) {
             foreach ($fixture['cases'] as $case) {
                 it('tokenises ' . var_export($case['input'], true), function() use ($case) {
-                    expect(\justinholtweb\caffeine\search\Tokenizer::tokenize($case['input']))
+                    expect(\JustinHoltWeb\Caffeine\Search\Tokenizer::tokenize($case['input']))
                         ->toBe($case['expect']);
                 });
             }

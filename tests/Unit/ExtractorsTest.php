@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-use justinholtweb\caffeine\extractors\AddressExtractor;
-use justinholtweb\caffeine\extractors\CollectionExtractor;
-use justinholtweb\caffeine\extractors\ColorExtractor;
-use justinholtweb\caffeine\extractors\ExtractedValue;
-use justinholtweb\caffeine\extractors\LinkExtractor;
-use justinholtweb\caffeine\extractors\MoneyExtractor;
-use justinholtweb\caffeine\extractors\OptionExtractor;
-use justinholtweb\caffeine\helpers\ValueHelper;
+use JustinHoltWeb\Caffeine\Extractors\AddressExtractor;
+use JustinHoltWeb\Caffeine\Extractors\CollectionExtractor;
+use JustinHoltWeb\Caffeine\Extractors\ColorExtractor;
+use JustinHoltWeb\Caffeine\Extractors\ExtractedValue;
+use JustinHoltWeb\Caffeine\Extractors\LinkExtractor;
+use JustinHoltWeb\Caffeine\Extractors\MoneyExtractor;
+use JustinHoltWeb\Caffeine\Extractors\OptionExtractor;
+use JustinHoltWeb\Caffeine\Helpers\ValueHelper;
 
 /**
  * The built-in extractors match on shape rather than class name, so these stubs are the honest

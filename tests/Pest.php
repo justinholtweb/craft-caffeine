@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-use justinholtweb\caffeine\models\AttributeDefinition;
-use justinholtweb\caffeine\models\IndexDefinition;
-use justinholtweb\caffeine\models\MappedRecord;
-use justinholtweb\caffeine\search\Artifact;
-use justinholtweb\caffeine\search\ArtifactEncoder;
-use justinholtweb\caffeine\services\Tokenizer;
+use JustinHoltWeb\Caffeine\Models\AttributeDefinition;
+use JustinHoltWeb\Caffeine\Models\IndexDefinition;
+use JustinHoltWeb\Caffeine\Models\MappedRecord;
+use JustinHoltWeb\Caffeine\Search\Artifact;
+use JustinHoltWeb\Caffeine\Search\ArtifactEncoder;
+use JustinHoltWeb\Caffeine\Services\Tokenizer;
 
 /*
  |--------------------------------------------------------------------------

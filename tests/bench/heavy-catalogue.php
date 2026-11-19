@@ -21,15 +21,15 @@
 
 require __DIR__ . '/../../vendor/autoload.php';
 
-use justinholtweb\caffeine\models\IndexDefinition;
-use justinholtweb\caffeine\models\MappedRecord;
-use justinholtweb\caffeine\search\Artifact;
-use justinholtweb\caffeine\search\ArtifactDecoder;
-use justinholtweb\caffeine\search\ArtifactEncoder;
-use justinholtweb\caffeine\search\Compiler;
-use justinholtweb\caffeine\search\Engine;
-use justinholtweb\caffeine\search\QueryState;
-use justinholtweb\caffeine\services\Tokenizer;
+use JustinHoltWeb\Caffeine\Models\IndexDefinition;
+use JustinHoltWeb\Caffeine\Models\MappedRecord;
+use JustinHoltWeb\Caffeine\Search\Artifact;
+use JustinHoltWeb\Caffeine\Search\ArtifactDecoder;
+use JustinHoltWeb\Caffeine\Search\ArtifactEncoder;
+use JustinHoltWeb\Caffeine\Search\Compiler;
+use JustinHoltWeb\Caffeine\Search\Engine;
+use JustinHoltWeb\Caffeine\Search\QueryState;
+use JustinHoltWeb\Caffeine\Services\Tokenizer;
 
 $count = (int)($argv[1] ?? 37272);
 $types = 8;

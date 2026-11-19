@@ -10,7 +10,7 @@ require '/var/www/html/vendor/autoload.php';
 define('CRAFT_BASE_PATH', '/var/www/html');
 $app = require '/var/www/html/vendor/craftcms/cms/bootstrap/console.php';
 
-use justinholtweb\caffeine\Plugin;
+use JustinHoltWeb\Caffeine\Plugin;
 
 $failures = 0;
 
@@ -94,8 +94,8 @@ try {
     check('carry the version from the pointer', $cached?->version === (int)$manifest['version']);
     check('and cost the request next to no memory', $cost < 64 * 1024, round($cost / 1024) . ' KB');
 
-    $engine = new \justinholtweb\caffeine\search\Engine($cached);
-    $result = $engine->search(\justinholtweb\caffeine\search\QueryState::fromArray([]), 24);
+    $engine = new \JustinHoltWeb\Caffeine\Search\Engine($cached);
+    $result = $engine->search(\JustinHoltWeb\Caffeine\Search\QueryState::fromArray([]), 24);
 
     check('and can be queried', $result['nbHits'] === $plain->recordCount());
 
@@ -125,7 +125,7 @@ try {
     if ($index->shardPayload) {
         $served = $plugin->artifacts->published($index);
         $fresh = $plugin->artifacts->compile($index, $served->version);
-        $hits = fn($a) => (new \justinholtweb\caffeine\search\Engine($a))->search(new \justinholtweb\caffeine\search\QueryState(), 100)['hits'];
+        $hits = fn($a) => (new \JustinHoltWeb\Caffeine\Search\Engine($a))->search(new \JustinHoltWeb\Caffeine\Search\QueryState(), 100)['hits'];
 
         check('and still serves every hit’s payload from there', $hits($served) === $hits($fresh) && $hits($fresh) !== []);
         check('but not without a way to load them', $cache->get($index, $newManifest) === null);

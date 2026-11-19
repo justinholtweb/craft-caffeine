@@ -14,12 +14,12 @@
 import { readFileSync, existsSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { Engine } from '../../src/web/assets/runtime/src/engine.js'
-import { tokenize } from '../../src/web/assets/runtime/src/tokenizer.js'
-import * as varint from '../../src/web/assets/runtime/src/varint.js'
-import { decodeArtifact } from '../../src/web/assets/runtime/src/decode.js'
-import * as urlstate from '../../src/web/assets/runtime/src/url.js'
-import { toKey, fromKey } from '../../src/web/assets/runtime/src/facet-value.js'
+import { Engine } from '../../resources/js/runtime/engine.js'
+import { tokenize } from '../../resources/js/runtime/tokenizer.js'
+import * as varint from '../../resources/js/runtime/varint.js'
+import { decodeArtifact } from '../../resources/js/runtime/decode.js'
+import * as urlstate from '../../resources/js/runtime/url.js'
+import { toKey, fromKey } from '../../resources/js/runtime/facet-value.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const buildDir = join(here, 'build')
