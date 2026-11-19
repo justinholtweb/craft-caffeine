@@ -88,7 +88,7 @@ class ProductSource extends BaseSource
 
     public function covers(SourceDefinition $definition, ElementInterface $element): bool
     {
-        if (!$element instanceof (self::PRODUCT)) {
+        if (! $element instanceof (self::PRODUCT)) {
             return false;
         }
 
@@ -99,7 +99,7 @@ class ProductSource extends BaseSource
                 return false;
             }
 
-            if (!in_array($handle, $definition->containers, true)) {
+            if (! in_array($handle, $definition->containers, true)) {
                 return false;
             }
         }

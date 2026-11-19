@@ -27,7 +27,7 @@ class IndexTouchCommand extends Command
 
     public function handle(Indexes $indexes, Records $records): int
     {
-        $handle = (string)$this->argument('handle');
+        $handle = (string) $this->argument('handle');
         $index = $indexes->getByHandle($handle);
 
         if ($index === null) {

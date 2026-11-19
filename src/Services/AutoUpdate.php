@@ -56,21 +56,21 @@ class AutoUpdate
         // so this one listener also covers what Craft 5 needed `EVENT_AFTER_PROPAGATE_ELEMENT`
         // for: a record is per element *per site*, and a save that reaches four sites has to mark
         // four rows rather than one.
-        Event::listen(ElementSaved::class, fn(ElementSaved $event) => $this->elementSaved($event->element));
-        Event::listen(ElementRestored::class, fn(ElementRestored $event) => $this->elementSaved($event->element));
+        Event::listen(ElementSaved::class, fn (ElementSaved $event) => $this->elementSaved($event->element));
+        Event::listen(ElementRestored::class, fn (ElementRestored $event) => $this->elementSaved($event->element));
 
         // The URL is payload on almost every index, so a slug change that did not mark the record
         // would leave every link in the results pointing at the old address.
-        Event::listen(ElementSlugAndUriUpdated::class, fn(ElementSlugAndUriUpdated $event) => $this->elementSaved($event->element));
+        Event::listen(ElementSlugAndUriUpdated::class, fn (ElementSlugAndUriUpdated $event) => $this->elementSaved($event->element));
 
-        Event::listen(ElementDeleted::class, fn(ElementDeleted $event) => $this->elementDeleted($event->element));
-        Event::listen(ElementMovedInStructure::class, fn(ElementMovedInStructure $event) => $this->elementSaved($event->element));
+        Event::listen(ElementDeleted::class, fn (ElementDeleted $event) => $this->elementDeleted($event->element));
+        Event::listen(ElementMovedInStructure::class, fn (ElementMovedInStructure $event) => $this->elementSaved($event->element));
 
         // Replayed once when a bulk operation finishes, and only if these events happened during
         // it. The per-element listeners above still mark rows dirty as they go; this is purely
         // about scheduling the work once instead of once per element.
         foreach ([ElementSaved::class, ElementDeleted::class, ElementRestored::class] as $event) {
-            BulkOps::defer($event, function() {
+            BulkOps::defer($event, function () {
                 $this->scheduleDirty();
             });
         }
@@ -81,7 +81,7 @@ class AutoUpdate
      */
     public function elementSaved(ElementInterface $element): void
     {
-        if (!$this->enabled() || !$this->indexable($element)) {
+        if (! $this->enabled() || ! $this->indexable($element)) {
             return;
         }
 
@@ -91,21 +91,21 @@ class AutoUpdate
 
         try {
             foreach ($indexes->allowed() as $index) {
-                if (!app(Sources::class)->covers($index, $element)) {
+                if (! app(Sources::class)->covers($index, $element)) {
                     continue;
                 }
 
-                $records->touchElement($index->uid, (int)$element->id, [(int)$element->siteId]);
+                $records->touchElement($index->uid, (int) $element->id, [(int) $element->siteId]);
                 $touched[$index->uid] = $index;
             }
 
             // Separately, and regardless of coverage: this element may be *read by* records in
             // indexes it is not itself part of. A Matrix block or a related category never has a
             // record of its own and always arrives here through this branch.
-            $dependents = $records->indexUidsDependingOn([(int)$element->id]);
+            $dependents = $records->indexUidsDependingOn([(int) $element->id]);
 
             if ($dependents !== []) {
-                $records->markDirtyByDependency([(int)$element->id]);
+                $records->markDirtyByDependency([(int) $element->id]);
 
                 foreach ($dependents as $uid) {
                     $index = $indexes->getByUid($uid);
@@ -130,7 +130,7 @@ class AutoUpdate
 
     public function elementDeleted(ElementInterface $element): void
     {
-        if (!$this->enabled() || !$this->indexable($element)) {
+        if (! $this->enabled() || ! $this->indexable($element)) {
             return;
         }
 
@@ -140,12 +140,12 @@ class AutoUpdate
 
         try {
             foreach ($indexes->allowed() as $index) {
-                if ($records->markDeleted($index->uid, [(int)$element->id]) > 0) {
+                if ($records->markDeleted($index->uid, [(int) $element->id]) > 0) {
                     $touched[$index->uid] = $index;
                 }
             }
 
-            foreach ($records->indexUidsDependingOn([(int)$element->id]) as $uid) {
+            foreach ($records->indexUidsDependingOn([(int) $element->id]) as $uid) {
                 $index = $indexes->getByUid($uid);
 
                 if ($index !== null) {
@@ -153,7 +153,7 @@ class AutoUpdate
                 }
             }
 
-            $records->markDirtyByDependency([(int)$element->id]);
+            $records->markDirtyByDependency([(int) $element->id]);
         } catch (Throwable $e) {
             Log::channel('caffeine')->error(
                 sprintf('Caffeine could not mark element %d deleted: %s', $element->id, $e->getMessage()),
@@ -190,7 +190,7 @@ class AutoUpdate
     }
 
     /**
-     * @param array<string, IndexDefinition> $indexes
+     * @param  array<string, IndexDefinition>  $indexes
      */
     public function scheduleAll(array $indexes): void
     {
@@ -210,7 +210,7 @@ class AutoUpdate
      * `scheduleAll()` behind the same guard as the marking: with the queue off, scheduling runs
      * the build inline, and a build that throws must not take the editor's save down with it.
      *
-     * @param array<string, IndexDefinition> $indexes
+     * @param  array<string, IndexDefinition>  $indexes
      */
     private function scheduleAllSafely(array $indexes, ElementInterface $element): void
     {
@@ -234,7 +234,7 @@ class AutoUpdate
      */
     public function schedule(IndexDefinition $index, ?int $delay = null): bool
     {
-        $key = self::PENDING_PREFIX . $index->uid;
+        $key = self::PENDING_PREFIX.$index->uid;
         $delay ??= max(0, $index->publishDebounce);
 
         // `add()` writes only when the key is absent, so two requests saving at once cannot both
@@ -243,11 +243,11 @@ class AutoUpdate
         //
         // The marker outlives the delay by a margin. If the queue never runs the job, it expires
         // and the next save schedules again rather than the index staying wedged forever.
-        if (!Cache::add($key, true, $delay + self::PENDING_GRACE)) {
+        if (! Cache::add($key, true, $delay + self::PENDING_GRACE)) {
             return false;
         }
 
-        if (!Plugin::getInstance()->getSettings()->useQueue) {
+        if (! Plugin::getInstance()->getSettings()->useQueue) {
             // Synchronous, for tests and for sites running without a queue runner. The marker is
             // cleared by the job itself.
             UpdateJob::dispatchSync($index->uid);
@@ -262,12 +262,12 @@ class AutoUpdate
 
     public function clearPending(string $indexUid): void
     {
-        Cache::forget(self::PENDING_PREFIX . $indexUid);
+        Cache::forget(self::PENDING_PREFIX.$indexUid);
     }
 
     public function isPending(string $indexUid): bool
     {
-        return Cache::has(self::PENDING_PREFIX . $indexUid);
+        return Cache::has(self::PENDING_PREFIX.$indexUid);
     }
 
     private function enabled(): bool
@@ -289,6 +289,6 @@ class AutoUpdate
 
         // Craft 6 fires `ElementSaved` for drafts and revisions too — and for the nested entries
         // inside them, which is what `isDraftOrRevision()` adds over asking the element alone.
-        return !ElementHelper::isDraftOrRevision($element);
+        return ! ElementHelper::isDraftOrRevision($element);
     }
 }

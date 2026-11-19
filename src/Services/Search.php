@@ -52,7 +52,7 @@ class Search
     /**
      * Builds the context a `{% caffeine %}` block exposes.
      *
-     * @param array{state?: QueryState|array<string, mixed>|null, path?: string, prefix?: string, params?: array<string, mixed>, filters?: array<string, mixed>} $options
+     * @param  array{state?: QueryState|array<string, mixed>|null, path?: string, prefix?: string, params?: array<string, mixed>, filters?: array<string, mixed>}  $options
      */
     public function context(string $handle, array $options = []): SearchContext
     {
@@ -63,7 +63,7 @@ class Search
             throw new InvalidArgumentException("No Caffeine index with the handle “{$handle}”.");
         }
 
-        if (!$indexes->isAllowed($index)) {
+        if (! $indexes->isAllowed($index)) {
             throw new InvalidArgumentException(
                 "The Caffeine index “{$handle}” is not available on this edition. Upgrade to Pro to use more than one index."
             );
@@ -73,12 +73,12 @@ class Search
         $index = $indexes->forEdition($index);
 
         $artifact = $this->artifact($index);
-        $prefix = (string)($options['prefix'] ?? '');
-        $path = (string)($options['path'] ?? $this->currentPath());
+        $prefix = (string) ($options['prefix'] ?? '');
+        $path = (string) ($options['path'] ?? $this->currentPath());
 
         // Cloned, so filling in the filters never reaches a state object the caller passed in.
         $state = clone $this->resolveState($index, $artifact, $options, $prefix);
-        $state->filters = $this->resolveFilters($artifact, (array)($options['filters'] ?? []));
+        $state->filters = $this->resolveFilters($artifact, (array) ($options['filters'] ?? []));
 
         $result = (new Engine($artifact))->search($state, $index->hitsPerPage);
 
@@ -158,7 +158,7 @@ class Search
      * runtime posted. Otherwise it comes from the query string, which is what a plain page load
      * and a no-JavaScript facet click both look like.
      *
-     * @param array<string, mixed> $options
+     * @param  array<string, mixed>  $options
      */
     public function resolveState(IndexDefinition $index, Artifact $artifact, array $options, string $prefix = ''): QueryState
     {
@@ -174,7 +174,7 @@ class Search
 
         $params = $options['params'] ?? $this->requestParams();
 
-        return UrlState::parse((array)$params, $artifact->facets, [
+        return UrlState::parse((array) $params, $artifact->facets, [
             'prefix' => $prefix,
             'defaultSort' => $index->defaultSorting()->name,
         ]);
@@ -187,7 +187,7 @@ class Search
      * re-renders the same template, which passes the same filters again, so there is nothing in
      * the query string a visitor could edit to strip them.
      *
-     * @param array<string, mixed> $filters facet key → value or list of values
+     * @param  array<string, mixed>  $filters  facet key → value or list of values
      * @return array<string, list<string|bool|float>>
      */
     private function resolveFilters(Artifact $artifact, array $filters): array
@@ -201,14 +201,14 @@ class Search
                 continue;
             }
 
-            foreach ((array)$values as $value) {
+            foreach ((array) $values as $value) {
                 if ($value === null || $value === '') {
                     continue;
                 }
 
                 // Through the key and back, so `'10'` and `10` both land on whatever the artifact
                 // actually stores — the engine compares strictly.
-                $resolved[(string)$key][] = FacetValue::fromKey(FacetValue::toKey($value), $facet['values']);
+                $resolved[(string) $key][] = FacetValue::fromKey(FacetValue::toKey($value), $facet['values']);
             }
         }
 
@@ -229,7 +229,7 @@ class Search
             return [];
         }
 
-        return (array)request()->query();
+        return (array) request()->query();
     }
 
     /**
@@ -288,6 +288,6 @@ class Search
 
     private function contextKey(string $handle, string $prefix): string
     {
-        return $prefix . '|' . $handle;
+        return $prefix.'|'.$handle;
     }
 }

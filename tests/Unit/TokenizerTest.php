@@ -7,46 +7,46 @@ use JustinHoltWeb\Caffeine\Models\IndexDefinition;
 use JustinHoltWeb\Caffeine\Models\MappedRecord;
 use JustinHoltWeb\Caffeine\Services\Tokenizer;
 
-beforeEach(function() {
-    $this->tokenizer = new Tokenizer();
+beforeEach(function () {
+    $this->tokenizer = new Tokenizer;
 });
 
-describe('tokenize', function() {
-    it('lowercases and splits on punctuation', function() {
+describe('tokenize', function () {
+    it('lowercases and splits on punctuation', function () {
         expect($this->tokenizer->tokenize('Hello, World!'))->toBe(['hello', 'world']);
     });
 
-    it('folds diacritics so accented text matches unaccented queries', function() {
+    it('folds diacritics so accented text matches unaccented queries', function () {
         expect($this->tokenizer->tokenize('Café Crème'))->toBe(['cafe', 'creme']);
     });
 
-    it('drops single characters', function() {
+    it('drops single characters', function () {
         expect($this->tokenizer->tokenize('a bb ccc'))->toBe(['bb', 'ccc']);
     });
 
-    it('drops absurdly long tokens', function() {
+    it('drops absurdly long tokens', function () {
         $long = str_repeat('x', Tokenizer::MAX_LENGTH + 1);
 
         expect($this->tokenizer->tokenize("ok {$long}"))->toBe(['ok']);
     });
 
-    it('strips markup rather than tokenising tag names', function() {
+    it('strips markup rather than tokenising tag names', function () {
         expect($this->tokenizer->tokenize('<p>hello</p>'))->toBe(['hello']);
     });
 
-    it('decodes entities', function() {
+    it('decodes entities', function () {
         expect($this->tokenizer->tokenize('caf&eacute;'))->toBe(['cafe']);
     });
 
-    it('keeps numbers', function() {
+    it('keeps numbers', function () {
         expect($this->tokenizer->tokenize('model 42'))->toBe(['model', '42']);
     });
 
-    it('leaves scripts with no case or accents alone', function() {
+    it('leaves scripts with no case or accents alone', function () {
         expect($this->tokenizer->tokenize('日本語 テスト'))->toBe(['日本語', 'テスト']);
     });
 
-    it('tokenises a query exactly as it tokenises a document', function() {
+    it('tokenises a query exactly as it tokenises a document', function () {
         // The one rule the JS side has to reimplement. If these ever diverge, a query for
         // "Café" stops matching a document containing "café" and nothing else fails loudly.
         $text = 'Café, Crème & 42';
@@ -55,8 +55,8 @@ describe('tokenize', function() {
     });
 });
 
-describe('tokenizeRecord', function() {
-    it('sums weights across attributes, so a term in two fields outranks one in a single field', function() {
+describe('tokenizeRecord', function () {
+    it('sums weights across attributes, so a term in two fields outranks one in a single field', function () {
         $index = new IndexDefinition([
             'handle' => 'test',
             'name' => 'Test',
@@ -86,7 +86,7 @@ describe('tokenizeRecord', function() {
             ->and($tokens['good'])->toBe(1.0);
     });
 
-    it('returns tokens in sorted order, so identical content builds byte-identical output', function() {
+    it('returns tokens in sorted order, so identical content builds byte-identical output', function () {
         $index = new IndexDefinition([
             'handle' => 'test',
             'name' => 'Test',
@@ -104,7 +104,7 @@ describe('tokenizeRecord', function() {
         expect($keys)->toBe(['apple', 'mango', 'zebra']);
     });
 
-    it('ignores attributes without the searchable role', function() {
+    it('ignores attributes without the searchable role', function () {
         $index = new IndexDefinition([
             'handle' => 'test',
             'name' => 'Test',

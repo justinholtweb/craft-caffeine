@@ -3,16 +3,14 @@
 declare(strict_types=1);
 
 use JustinHoltWeb\Caffeine\Models\IndexDefinition;
-use JustinHoltWeb\Caffeine\Models\MappedRecord;
 use JustinHoltWeb\Caffeine\Search\ArtifactDecoder;
 use JustinHoltWeb\Caffeine\Search\ArtifactEncoder;
 use JustinHoltWeb\Caffeine\Search\Compiler;
 use JustinHoltWeb\Caffeine\Search\Engine;
-use JustinHoltWeb\Caffeine\Search\QueryState;
 use JustinHoltWeb\Caffeine\Search\FacetValue;
+use JustinHoltWeb\Caffeine\Search\QueryState;
 use JustinHoltWeb\Caffeine\Search\UrlState;
 use JustinHoltWeb\Caffeine\Search\Varint;
-use JustinHoltWeb\Caffeine\Services\Tokenizer;
 
 /**
  * The PHP half of the conformance suite.
@@ -27,16 +25,15 @@ use JustinHoltWeb\Caffeine\Services\Tokenizer;
  * happens in PHP — and means the JS engine is tested against a real artifact rather than a
  * hand-written one.
  */
-
-$fixtures = glob(__DIR__ . '/*.json') ?: [];
+$fixtures = glob(__DIR__.'/*.json') ?: [];
 
 foreach ($fixtures as $path) {
     $fixture = json_decode(file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
 
     if (($fixture['type'] ?? null) === 'facetvalue') {
-        describe("conformance: {$fixture['name']}", function() use ($fixture) {
+        describe("conformance: {$fixture['name']}", function () use ($fixture) {
             foreach ($fixture['cases'] as $case) {
-                it('projects ' . var_export($case['value'], true), function() use ($case) {
+                it('projects '.var_export($case['value'], true), function () use ($case) {
                     expect(FacetValue::toKey($case['value']))->toBe($case['expect']);
 
                     // And back again, out of a dictionary holding exactly this value — the
@@ -50,9 +47,9 @@ foreach ($fixtures as $path) {
     }
 
     if (($fixture['type'] ?? null) === 'urlstate') {
-        describe("conformance: {$fixture['name']}", function() use ($fixture) {
+        describe("conformance: {$fixture['name']}", function () use ($fixture) {
             foreach ($fixture['cases'] as $case) {
-                it($case['name'], function() use ($fixture, $case) {
+                it($case['name'], function () use ($fixture, $case) {
                     $options = $case['options'] ?? [];
 
                     // Parse-only cases cover input shapes nothing ever encodes — the `_min`/`_max`
@@ -101,11 +98,11 @@ foreach ($fixtures as $path) {
     }
 
     if (($fixture['type'] ?? null) === 'varint') {
-        describe("conformance: {$fixture['name']}", function() use ($fixture) {
+        describe("conformance: {$fixture['name']}", function () use ($fixture) {
             foreach ($fixture['cases'] as $case) {
-                $label = $case['codec'] . ' ' . json_encode($case['values']);
+                $label = $case['codec'].' '.json_encode($case['values']);
 
-                it("encodes and decodes {$label}", function() use ($case) {
+                it("encodes and decodes {$label}", function () use ($case) {
                     $delta = $case['codec'] === 'delta';
 
                     // The encoding is what pins this implementation against the JavaScript one;
@@ -124,10 +121,10 @@ foreach ($fixtures as $path) {
     }
 
     if (($fixture['type'] ?? 'search') === 'tokens') {
-        describe("conformance: {$fixture['name']}", function() use ($fixture) {
+        describe("conformance: {$fixture['name']}", function () use ($fixture) {
             foreach ($fixture['cases'] as $case) {
-                it('tokenises ' . var_export($case['input'], true), function() use ($case) {
-                    expect(\JustinHoltWeb\Caffeine\Search\Tokenizer::tokenize($case['input']))
+                it('tokenises '.var_export($case['input'], true), function () use ($case) {
+                    expect(JustinHoltWeb\Caffeine\Search\Tokenizer::tokenize($case['input']))
                         ->toBe($case['expect']);
                 });
             }
@@ -136,20 +133,20 @@ foreach ($fixtures as $path) {
         continue;
     }
 
-    describe("conformance: {$fixture['name']}", function() use ($fixture) {
-        beforeEach(function() use ($fixture) {
+    describe("conformance: {$fixture['name']}", function () use ($fixture) {
+        beforeEach(function () use ($fixture) {
             $this->index = IndexDefinition::fromConfig('fixture-uid', $fixture['index']);
-            $this->artifact = (new Compiler())->compile($this->index, conformanceRecords($fixture, $this->index));
+            $this->artifact = (new Compiler)->compile($this->index, conformanceRecords($fixture, $this->index));
 
             conformanceWriteArtifact($fixture['name'], $this->artifact);
 
-            $encoded = (new ArtifactEncoder())->encode($this->artifact);
+            $encoded = (new ArtifactEncoder)->encode($this->artifact);
             // The version is passed in because the shard documents deliberately omit it; in
             // production it comes from the manifest the publisher writes alongside them.
-            $this->decoded = (new ArtifactDecoder())->decode($encoded['index'], $encoded['payload'], $this->artifact->version);
+            $this->decoded = (new ArtifactDecoder)->decode($encoded['index'], $encoded['payload'], $this->artifact->version);
         });
 
-        it('survives the wire format unchanged', function() {
+        it('survives the wire format unchanged', function () {
             // Identical, not merely equivalent. The server renders the first paint from a
             // compiled artifact and the browser refines against a decoded one, so anything the
             // codec rounds, reorders or retypes is a disagreement waiting to surface as the page
@@ -158,7 +155,7 @@ foreach ($fixtures as $path) {
         });
 
         foreach ($fixture['cases'] as $case) {
-            it($case['name'], function() use ($case) {
+            it($case['name'], function () use ($case) {
                 $engine = new Engine($this->artifact);
                 $result = $engine->search(
                     QueryState::fromArray($case['state']),
@@ -171,7 +168,7 @@ foreach ($fixtures as $path) {
             // The same case against an artifact that has been through the wire format. The
             // round-trip assertion above should make this redundant — and if it ever stops being
             // redundant, this is what says so.
-            it($case['name'] . ' — decoded', function() use ($case) {
+            it($case['name'].' — decoded', function () use ($case) {
                 $engine = new Engine($this->decoded);
                 $result = $engine->search(
                     QueryState::fromArray($case['state']),

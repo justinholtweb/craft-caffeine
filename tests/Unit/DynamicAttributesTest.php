@@ -12,7 +12,6 @@ use JustinHoltWeb\Caffeine\Models\SortingDefinition;
  * Two promises: they never reach project config, and they do change the fingerprint, which is
  * how a build notices that what a module adds has changed since the last publish.
  */
-
 function caffeineDynamicIndex(): IndexDefinition
 {
     return new IndexDefinition([
@@ -36,7 +35,7 @@ function caffeineMotorFacet(): AttributeDefinition
     ]);
 }
 
-it('leaves dynamic attributes and sortings out of project config', function() {
+it('leaves dynamic attributes and sortings out of project config', function () {
     $index = caffeineDynamicIndex();
     $stored = $index->toConfig();
 
@@ -46,18 +45,18 @@ it('leaves dynamic attributes and sortings out of project config', function() {
     expect($index->toConfig())->toBe($stored);
 });
 
-it('includes them when asked', function() {
+it('includes them when asked', function () {
     $index = caffeineDynamicIndex();
     $index->attributes[] = caffeineMotorFacet();
 
     expect(array_column($index->toConfig(true)['attributes'], 'key'))->toBe(['title', 'spec_motor']);
 });
 
-it('never writes the flag itself into config', function() {
+it('never writes the flag itself into config', function () {
     expect(caffeineMotorFacet()->toConfig())->not->toHaveKey('dynamic');
 });
 
-it('fingerprints the definition the build sees, module additions included', function() {
+it('fingerprints the definition the build sees, module additions included', function () {
     $index = caffeineDynamicIndex();
     $before = $index->fingerprint();
 

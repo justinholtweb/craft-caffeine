@@ -37,11 +37,11 @@ class Mapper
 
     public function map(IndexDefinition $index, ElementInterface $element): MappedRecord
     {
-        $context = new MappingContext($element, (int)$element->siteId);
+        $context = new MappingContext($element, (int) $element->siteId);
 
         $record = new MappedRecord(
-            elementId: (int)$element->id,
-            siteId: (int)$element->siteId,
+            elementId: (int) $element->id,
+            siteId: (int) $element->siteId,
             objectId: $this->objectId($element),
         );
 
@@ -92,7 +92,7 @@ class Mapper
      */
     public function objectId(ElementInterface $element): string
     {
-        return $element->id . '-' . $element->siteId;
+        return $element->id.'-'.$element->siteId;
     }
 
     /**
@@ -100,7 +100,7 @@ class Mapper
      */
     private function extract(ElementInterface $element, AttributeDefinition $attribute, MappingContext $context): mixed
     {
-        $segments = array_values(array_filter(explode('.', $attribute->path), fn($s) => $s !== ''));
+        $segments = array_values(array_filter(explode('.', $attribute->path), fn ($s) => $s !== ''));
 
         if ($segments === []) {
             return null;
@@ -145,7 +145,7 @@ class Mapper
                 continue;
             }
 
-            if (!$holder instanceof ElementInterface) {
+            if (! $holder instanceof ElementInterface) {
                 // A path can only descend through elements and extracted values. Reaching a
                 // scalar with segments still to go means the path is wrong — usually a field
                 // handle typo — and the CP's record preview is where that gets noticed.
@@ -173,7 +173,7 @@ class Mapper
     private function materialize(mixed $value, MappingContext $context, int $depth): mixed
     {
         if (is_array($value)) {
-            return array_map(fn($item) => $this->materialize($item, $context, $depth), $value);
+            return array_map(fn ($item) => $this->materialize($item, $context, $depth), $value);
         }
 
         if ($value instanceof ElementQueryInterface) {

@@ -19,7 +19,7 @@
  * (Add `-d zend_extension=opcache` where PHP does not load OPcache already.)
  */
 
-require __DIR__ . '/../../vendor/autoload.php';
+require __DIR__.'/../../vendor/autoload.php';
 
 use JustinHoltWeb\Caffeine\Models\IndexDefinition;
 use JustinHoltWeb\Caffeine\Models\MappedRecord;
@@ -31,11 +31,11 @@ use JustinHoltWeb\Caffeine\Search\Engine;
 use JustinHoltWeb\Caffeine\Search\QueryState;
 use JustinHoltWeb\Caffeine\Services\Tokenizer;
 
-$count = (int)($argv[1] ?? 37272);
+$count = (int) ($argv[1] ?? 37272);
 $types = 8;
 $perType = 16;
 
-$config = json_decode(file_get_contents(__DIR__ . '/../Conformance/products.json'), true)['index'];
+$config = json_decode(file_get_contents(__DIR__.'/../Conformance/products.json'), true)['index'];
 
 for ($t = 0; $t < $types; $t++) {
     for ($f = 0; $f < $perType; $f++) {
@@ -46,35 +46,35 @@ for ($t = 0; $t < $types; $t++) {
 $config['attributes'][] = ['key' => 'description', 'source' => 'field', 'path' => 'description', 'roles' => ['searchable']];
 
 $index = IndexDefinition::fromConfig('bench-uid', $config);
-$tokenizer = new Tokenizer();
+$tokenizer = new Tokenizer;
 
 // Seeded, and skewed so a few words are common and most are rare, the way prose is.
 mt_srand(42);
-$vocabulary = array_map(fn($i) => 'w' . base_convert((string)($i * 7919), 10, 36), range(1, 3000));
+$vocabulary = array_map(fn ($i) => 'w'.base_convert((string) ($i * 7919), 10, 36), range(1, 3000));
 $records = [];
 
 for ($i = 1; $i <= $count; $i++) {
     $type = $i % $types;
     $facets = [
-        'brand' => ['Brand ' . mt_rand(1, 400)],
-        'colour' => ['c' . mt_rand(1, 12)],
-        'tags' => ['tag-' . mt_rand(1, 50), 'tag-' . mt_rand(1, 50)],
+        'brand' => ['Brand '.mt_rand(1, 400)],
+        'colour' => ['c'.mt_rand(1, 12)],
+        'tags' => ['tag-'.mt_rand(1, 50), 'tag-'.mt_rand(1, 50)],
         'price' => [mt_rand(5, 5000)],
         'featured' => [mt_rand(0, 4) === 0],
-        'category' => ['T' . $type . ' > S' . mt_rand(1, 6)],
+        'category' => ['T'.$type.' > S'.mt_rand(1, 6)],
     ];
 
     for ($f = 0; $f < $perType; $f++) {
-        $facets["a{$type}_{$f}"] = ['v' . mt_rand(1, 3 + $f * 2)];
+        $facets["a{$type}_{$f}"] = ['v'.mt_rand(1, 3 + $f * 2)];
     }
 
     $words = [];
 
     for ($w = 0; $w < 60; $w++) {
-        $words[] = $vocabulary[(int)floor(3000 * (mt_rand() / mt_getrandmax()) ** 2) % 3000];
+        $words[] = $vocabulary[(int) floor(3000 * (mt_rand() / mt_getrandmax()) ** 2) % 3000];
     }
 
-    $title = "Product {$i} " . $vocabulary[mt_rand(0, 2999)];
+    $title = "Product {$i} ".$vocabulary[mt_rand(0, 2999)];
 
     $mapped = new MappedRecord(
         elementId: $i,
@@ -104,7 +104,7 @@ for ($i = 1; $i <= $count; $i++) {
 }
 
 $startedAt = microtime(true);
-$encoded = (new ArtifactEncoder())->encode((new Compiler())->compile($index, $records));
+$encoded = (new ArtifactEncoder)->encode((new Compiler)->compile($index, $records));
 $compileMs = (microtime(true) - $startedAt) * 1000;
 unset($records);
 
@@ -113,19 +113,19 @@ $indexJson = json_encode($encoded['index'], $flags);
 $payloadJson = json_encode($encoded['payload'], $flags);
 unset($encoded);
 // The server-only lookup a sharded publish writes beside the shards (see `Publisher`).
-$artifact = (new ArtifactDecoder())->decode(json_decode($indexJson, true), json_decode($payloadJson, true), 1);
-$lookupJson = json_encode((new ArtifactEncoder())->encodeLookup($artifact), $flags);
+$artifact = (new ArtifactDecoder)->decode(json_decode($indexJson, true), json_decode($payloadJson, true), 1);
+$lookupJson = json_encode((new ArtifactEncoder)->encodeLookup($artifact), $flags);
 $payloadsById = $artifact->payloads;
 unset($artifact);
 gc_collect_cycles();
 
 printf("Records:            %s, %d facets\n", number_format($count), $types * $perType + 6);
 printf("Compile + encode:   %.0f ms\n", $compileMs);
-printf("Shards:             index %.1f MB, payload %.1f MB, %.1f MB gzipped\n\n", strlen($indexJson) / 1e6, strlen($payloadJson) / 1e6, strlen(gzencode($indexJson . $payloadJson, 6)) / 1e6);
+printf("Shards:             index %.1f MB, payload %.1f MB, %.1f MB gzipped\n\n", strlen($indexJson) / 1e6, strlen($payloadJson) / 1e6, strlen(gzencode($indexJson.$payloadJson, 6)) / 1e6);
 
 $before = memory_get_usage();
 $startedAt = microtime(true);
-$artifact = (new ArtifactDecoder())->decode(json_decode($indexJson, true), json_decode($payloadJson, true), 1);
+$artifact = (new ArtifactDecoder)->decode(json_decode($indexJson, true), json_decode($payloadJson, true), 1);
 printf("Per request, decoding:\n");
 printf("  read and decode   %6.0f ms\n", (microtime(true) - $startedAt) * 1000);
 gc_collect_cycles();
@@ -138,12 +138,12 @@ gc_collect_cycles();
 // demand. Here they come from an array; in Craft, one query against the records table.
 $before = memory_get_usage();
 $startedAt = microtime(true);
-$artifact = (new ArtifactDecoder())->decode(
+$artifact = (new ArtifactDecoder)->decode(
     json_decode($indexJson, true),
     null,
     1,
     json_decode($lookupJson, true),
-    fn(array $ids) => array_intersect_key($payloadsById, array_flip($ids)),
+    fn (array $ids) => array_intersect_key($payloadsById, array_flip($ids)),
 );
 printf("  sharded, payloads per page of hits:\n");
 printf("    read and decode %6.0f ms\n", (microtime(true) - $startedAt) * 1000);
@@ -161,7 +161,7 @@ $queries = [
     'sorted, page 21' => ['sortBy' => 'price_asc', 'page' => 20],
 ];
 
-$run = function(Artifact $artifact) use ($queries) {
+$run = function (Artifact $artifact) use ($queries) {
     foreach ($queries as $name => $state) {
         $times = [];
 
@@ -179,18 +179,18 @@ $run = function(Artifact $artifact) use ($queries) {
 printf("Queries (median of five):\n");
 $run($artifact);
 
-if (!function_exists('opcache_compile_file') || !filter_var(ini_get('opcache.enable_cli'), FILTER_VALIDATE_BOOL)) {
+if (! function_exists('opcache_compile_file') || ! filter_var(ini_get('opcache.enable_cli'), FILTER_VALIDATE_BOOL)) {
     printf("\nOPcache is off; run with -d opcache.enable_cli=1 to measure the artifact cache.\n");
     exit(0);
 }
 
 // What `ArtifactCache` writes, minus the plumbing.
-$file = sys_get_temp_dir() . '/caffeine-heavy-catalogue.php';
+$file = sys_get_temp_dir().'/caffeine-heavy-catalogue.php';
 $handle = fopen($file, 'wb');
 fwrite($handle, "<?php return [\n");
 
 foreach (['index', 'objectIds', 'payloads', 'facets', 'sortings', 'tokens', 'tokenIds', 'tokenWeights', 'tokenOffsets', 'sortableValues', 'stopwords', 'geo'] as $key) {
-    fwrite($handle, var_export($key, true) . ' => ' . var_export($artifact->{$key}, true) . ",\n");
+    fwrite($handle, var_export($key, true).' => '.var_export($artifact->{$key}, true).",\n");
 }
 
 fwrite($handle, "];\n");

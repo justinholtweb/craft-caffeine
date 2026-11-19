@@ -3,7 +3,7 @@
 namespace JustinHoltWeb\Caffeine\Twig;
 
 use JustinHoltWeb\Caffeine\Models\SearchContext;
-use JustinHoltWeb\Caffeine\Plugin;
+use JustinHoltWeb\Caffeine\Services\Search;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFunction;
 
@@ -24,8 +24,8 @@ class Extension extends AbstractExtension
     public function getTokenParsers(): array
     {
         return [
-            new CaffeineTokenParser(),
-            new ResultsTokenParser(),
+            new CaffeineTokenParser,
+            new ResultsTokenParser,
         ];
     }
 
@@ -37,10 +37,10 @@ class Extension extends AbstractExtension
     }
 
     /**
-     * @param array<string, mixed> $options
+     * @param  array<string, mixed>  $options
      */
     public function search(string $handle, array $options = []): SearchContext
     {
-        return Plugin::getInstance()->search->context($handle, $options);
+        return app(Search::class)->context($handle, $options);
     }
 }

@@ -29,9 +29,9 @@ class Comparator
         }
 
         return match ($rankA) {
-            0 => self::compareNumbers((float)$a, (float)$b),
-            1 => strcmp((string)$a, (string)$b),
-            default => ((int)(bool)$a) <=> ((int)(bool)$b),
+            0 => self::compareNumbers((float) $a, (float) $b),
+            1 => strcmp((string) $a, (string) $b),
+            default => ((int) (bool) $a) <=> ((int) (bool) $b),
         };
     }
 
@@ -71,13 +71,14 @@ class Comparator
      * Sorts a list in place using `compare`, with a caller-supplied key extractor.
      *
      * @template T
-     * @param list<T> $values
-     * @param callable(T): mixed $key
+     *
+     * @param  list<T>  $values
+     * @param  callable(T): mixed  $key
      * @return list<T>
      */
     public static function sortBy(array $values, callable $key): array
     {
-        usort($values, fn($a, $b) => self::compare($key($a), $key($b)));
+        usort($values, fn ($a, $b) => self::compare($key($a), $key($b)));
 
         return $values;
     }

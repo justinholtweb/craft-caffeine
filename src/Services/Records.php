@@ -58,7 +58,7 @@ class Records
             'deleted' => false,
             'dateCreated' => $now,
             'dateUpdated' => $now,
-            'uid' => (string)Str::uuid(),
+            'uid' => (string) Str::uuid(),
         ]], self::UNIQUE_KEY, ['objectId', 'content', 'tokens', 'dirty', 'deleted', 'dateUpdated']);
 
         $recordId = $this->recordId($index->uid, $record->elementId, $record->siteId);
@@ -71,7 +71,7 @@ class Records
     /**
      * Writes many records in batches.
      *
-     * @param MappedRecord[] $records
+     * @param  MappedRecord[]  $records
      */
     public function saveAll(IndexDefinition $index, array $records): void
     {
@@ -92,7 +92,7 @@ class Records
      * the keys, `dirty`, and no content — closes it. `stream()` skips rows with no content, so a
      * publish landing between the stub and the build cannot serve a blank hit.
      *
-     * @param list<int> $siteIds
+     * @param  list<int>  $siteIds
      */
     public function touchElement(string $indexUid, int $elementId, array $siteIds): void
     {
@@ -103,14 +103,14 @@ class Records
                 'indexUid' => $indexUid,
                 'elementId' => $elementId,
                 'siteId' => $siteId,
-                'objectId' => $elementId . '-' . $siteId,
+                'objectId' => $elementId.'-'.$siteId,
                 'content' => null,
                 'tokens' => null,
                 'dirty' => true,
                 'deleted' => false,
                 'dateCreated' => $now,
                 'dateUpdated' => $now,
-                'uid' => (string)Str::uuid(),
+                'uid' => (string) Str::uuid(),
             ]], self::UNIQUE_KEY, [
                 // Only the flags. An existing record keeps its content until the build replaces
                 // it, so the artifact stays servable the whole time it is stale.
@@ -127,7 +127,7 @@ class Records
             ->where(['indexUid' => $indexUid, 'elementId' => $elementId, 'siteId' => $siteId])
             ->value('id');
 
-        return $id !== null ? (int)$id : null;
+        return $id !== null ? (int) $id : null;
     }
 
     /**
@@ -136,7 +136,7 @@ class Records
      * Deleted and re-inserted wholesale rather than diffed: a record's dependencies change
      * whenever its content does, the sets are small, and a diff would need a read anyway.
      *
-     * @param list<int> $elementIds
+     * @param  list<int>  $elementIds
      */
     public function saveDependencies(int $recordId, array $elementIds): void
     {
@@ -155,7 +155,7 @@ class Records
                 'elementId' => $elementId,
                 'dateCreated' => $now,
                 'dateUpdated' => $now,
-                'uid' => (string)Str::uuid(),
+                'uid' => (string) Str::uuid(),
             ];
         }
 
@@ -170,7 +170,7 @@ class Records
      * This is the query that keeps denormalised values honest, and the reason `caffeine_deps`
      * carries an index on `elementId` alone.
      *
-     * @param list<int> $elementIds
+     * @param  list<int>  $elementIds
      * @return int Rows marked.
      */
     public function markDirtyByDependency(array $elementIds): int
@@ -204,7 +204,7 @@ class Records
      * the second by index rather than by row is what keeps a save from queueing a job for every
      * index on the site.
      *
-     * @param list<int> $elementIds
+     * @param  list<int>  $elementIds
      * @return list<string>
      */
     public function indexUidsDependingOn(array $elementIds): array
@@ -213,12 +213,12 @@ class Records
             return [];
         }
 
-        return DB::table(Tables::RECORDS . ' as r')
-            ->join(Tables::DEPS . ' as d', 'd.recordId', '=', 'r.id')
+        return DB::table(Tables::RECORDS.' as r')
+            ->join(Tables::DEPS.' as d', 'd.recordId', '=', 'r.id')
             ->distinct()
             ->whereIntegerInRaw('d.elementId', $elementIds)
             ->pluck('r.indexUid')
-            ->map(fn($uid) => (string)$uid)
+            ->map(fn ($uid) => (string) $uid)
             ->all();
     }
 
@@ -238,7 +238,7 @@ class Records
      * Kept rather than deleted so the next publish knows the artifact changed and can rebuild
      * from the store alone. `purgeDeleted()` clears them once that has happened.
      *
-     * @param list<int> $elementIds
+     * @param  list<int>  $elementIds
      */
     public function markDeleted(string $indexUid, array $elementIds): int
     {
@@ -272,7 +272,7 @@ class Records
      * with nothing left pointing at them. They cost storage, and they turn up in the dependency
      * map as indexes that cannot be scheduled because they are not there.
      *
-     * @param list<string> $keepUids Uids currently defined in project config.
+     * @param  list<string>  $keepUids  Uids currently defined in project config.
      * @return int Rows removed.
      */
     public function deleteOrphans(array $keepUids): int
@@ -299,7 +299,7 @@ class Records
      * The complement of `markDeleted`: an entry that was moved to a different section is not
      * deleted, it simply stopped qualifying, and nothing would ever notice without this.
      *
-     * @param list<int> $keepElementIds
+     * @param  list<int>  $keepElementIds
      */
     public function pruneMissing(string $indexUid, array $keepElementIds): int
     {
@@ -356,18 +356,18 @@ class Records
 
             if ($after !== null) {
                 [$elementId, $siteId] = $after;
-                $query->where(fn($q) => $q
+                $query->where(fn ($q) => $q
                     ->where('elementId', '>', $elementId)
-                    ->orWhere(fn($q) => $q->where('elementId', $elementId)->where('siteId', '>', $siteId)));
+                    ->orWhere(fn ($q) => $q->where('elementId', $elementId)->where('siteId', '>', $siteId)));
             }
 
             $rows = $query->get();
 
             foreach ($rows as $row) {
                 yield [
-                    'elementId' => (int)$row->elementId,
-                    'siteId' => (int)$row->siteId,
-                    'objectId' => (string)$row->objectId,
+                    'elementId' => (int) $row->elementId,
+                    'siteId' => (int) $row->siteId,
+                    'objectId' => (string) $row->objectId,
                     'content' => Json::decodeIfJson($row->content) ?: [],
                     'tokens' => Json::decodeIfJson($row->tokens) ?: [],
                 ];
@@ -378,7 +378,7 @@ class Records
             }
 
             $last = $rows->last();
-            $after = [(int)$last->elementId, (int)$last->siteId];
+            $after = [(int) $last->elementId, (int) $last->siteId];
         }
     }
 
@@ -412,7 +412,7 @@ class Records
             ->distinct()
             ->where('dirty', true)
             ->pluck('indexUid')
-            ->map(fn($uid) => (string)$uid)
+            ->map(fn ($uid) => (string) $uid)
             ->all();
     }
 
@@ -427,6 +427,6 @@ class Records
 
     private function timestamp(): string
     {
-        return (string)Query::prepareDateForDb(now());
+        return (string) Query::prepareDateForDb(now());
     }
 }

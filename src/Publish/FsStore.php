@@ -3,6 +3,7 @@
 namespace JustinHoltWeb\Caffeine\Publish;
 
 use Illuminate\Contracts\Filesystem\Filesystem;
+use Illuminate\Filesystem\FilesystemAdapter;
 use RuntimeException;
 use Throwable;
 
@@ -20,22 +21,21 @@ use Throwable;
 class FsStore implements StoreInterface
 {
     /**
-     * @param Filesystem $disk The disk, from `Storage::disk()`.
-     * @param string $name The disk's name in `config/filesystems.php`, for messages.
+     * @param  Filesystem  $disk  The disk, from `Storage::disk()`.
+     * @param  string  $name  The disk's name in `config/filesystems.php`, for messages.
      */
     public function __construct(
         private readonly Filesystem $disk,
         private readonly string $name = 'disk',
         private readonly string $prefix = '',
-    ) {
-    }
+    ) {}
 
     public function write(string $path, string $contents): void
     {
         // Disks default to `'throw' => false`, so a failed write is a `false` rather than an
         // exception. Turned back into one: a publish that silently wrote nothing would swing the
         // pointer at a shard that is not there.
-        if (!$this->disk->put($this->path($path), $contents)) {
+        if (! $this->disk->put($this->path($path), $contents)) {
             throw new RuntimeException(sprintf('Caffeine could not write %s to the “%s” disk.', $this->path($path), $this->name));
         }
     }
@@ -85,7 +85,7 @@ class FsStore implements StoreInterface
                     $modified = null;
                 }
 
-                if ($prefix !== '' && str_starts_with($uri, $prefix . '/')) {
+                if ($prefix !== '' && str_starts_with($uri, $prefix.'/')) {
                     $uri = substr($uri, strlen($prefix) + 1);
                 }
 
@@ -103,7 +103,7 @@ class FsStore implements StoreInterface
         // Drivers without public URLs throw rather than returning null — and a disk with no `url`
         // configured is exactly the "not web-accessible" case the interface answers null for.
         try {
-            /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+            /** @var FilesystemAdapter $disk */
             $disk = $this->disk;
 
             return $disk->url($this->path($path));
@@ -121,6 +121,6 @@ class FsStore implements StoreInterface
     {
         $prefix = trim($this->prefix, '/');
 
-        return $prefix !== '' ? $prefix . '/' . ltrim($path, '/') : ltrim($path, '/');
+        return $prefix !== '' ? $prefix.'/'.ltrim($path, '/') : ltrim($path, '/');
     }
 }

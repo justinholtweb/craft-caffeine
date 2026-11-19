@@ -4,7 +4,6 @@ namespace JustinHoltWeb\Caffeine\Models;
 
 use Illuminate\Validation\Rule;
 
-
 /**
  * One key in an index's records, and what Caffeine is allowed to do with it.
  *
@@ -218,36 +217,37 @@ class AttributeDefinition extends Model
     {
         if ($this->roles === []) {
             $this->addError($attribute, 'Give the attribute at least one role, or leave it out of the index.');
+
             return;
         }
 
         foreach ($this->roles as $role) {
-            if (!in_array($role, self::ROLES, true)) {
+            if (! in_array($role, self::ROLES, true)) {
                 $this->addError($attribute, "“{$role}” is not a role Caffeine knows about.");
             }
         }
     }
 
     /**
-     * @param array<string, mixed> $config
+     * @param  array<string, mixed>  $config
      */
     public static function fromConfig(array $config): self
     {
         return new self([
-            'key' => (string)($config['key'] ?? ''),
-            'label' => isset($config['label']) ? (string)$config['label'] : null,
-            'source' => (string)($config['source'] ?? self::SOURCE_ATTRIBUTE),
-            'path' => (string)($config['path'] ?? ''),
-            'roles' => array_values(array_filter((array)($config['roles'] ?? []), 'is_string')),
-            'searchWeight' => (float)($config['searchWeight'] ?? 1.0),
-            'facetType' => (string)($config['facetType'] ?? self::FACET_STRING),
-            'facetOperator' => (string)($config['facetOperator'] ?? 'or'),
-            'facetSort' => (string)($config['facetSort'] ?? 'count'),
-            'facetValueOrder' => array_values((array)($config['facetValueOrder'] ?? [])),
-            'maxValuesPerFacet' => (int)($config['maxValuesPerFacet'] ?? 20),
-            'numericBuckets' => array_map('floatval', array_values((array)($config['numericBuckets'] ?? []))),
-            'hierarchySeparator' => (string)($config['hierarchySeparator'] ?? ' > '),
-            'transforms' => array_values(array_filter((array)($config['transforms'] ?? []), 'is_string')),
+            'key' => (string) ($config['key'] ?? ''),
+            'label' => isset($config['label']) ? (string) $config['label'] : null,
+            'source' => (string) ($config['source'] ?? self::SOURCE_ATTRIBUTE),
+            'path' => (string) ($config['path'] ?? ''),
+            'roles' => array_values(array_filter((array) ($config['roles'] ?? []), 'is_string')),
+            'searchWeight' => (float) ($config['searchWeight'] ?? 1.0),
+            'facetType' => (string) ($config['facetType'] ?? self::FACET_STRING),
+            'facetOperator' => (string) ($config['facetOperator'] ?? 'or'),
+            'facetSort' => (string) ($config['facetSort'] ?? 'count'),
+            'facetValueOrder' => array_values((array) ($config['facetValueOrder'] ?? [])),
+            'maxValuesPerFacet' => (int) ($config['maxValuesPerFacet'] ?? 20),
+            'numericBuckets' => array_map('floatval', array_values((array) ($config['numericBuckets'] ?? []))),
+            'hierarchySeparator' => (string) ($config['hierarchySeparator'] ?? ' > '),
+            'transforms' => array_values(array_filter((array) ($config['transforms'] ?? []), 'is_string')),
         ]);
     }
 

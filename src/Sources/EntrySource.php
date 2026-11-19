@@ -35,7 +35,7 @@ class EntrySource extends BaseSource
         $options = [];
 
         foreach (Sections::getAllSections() as $section) {
-            $options[(string)$section->handle] = (string)$section->name;
+            $options[(string) $section->handle] = (string) $section->name;
         }
 
         return $options;
@@ -46,7 +46,7 @@ class EntrySource extends BaseSource
         $options = [];
 
         foreach (EntryTypes::getAllEntryTypes() as $entryType) {
-            $options[(string)$entryType->handle] = (string)$entryType->name;
+            $options[(string) $entryType->handle] = (string) $entryType->name;
         }
 
         return $options;
@@ -74,7 +74,7 @@ class EntrySource extends BaseSource
 
     public function covers(SourceDefinition $definition, ElementInterface $element): bool
     {
-        if (!$element instanceof Entry) {
+        if (! $element instanceof Entry) {
             return false;
         }
 
@@ -91,7 +91,7 @@ class EntrySource extends BaseSource
             return false;
         }
 
-        if ($definition->containers !== [] && !in_array($section->handle, $definition->containers, true)) {
+        if ($definition->containers !== [] && ! in_array($section->handle, $definition->containers, true)) {
             return false;
         }
 
@@ -102,7 +102,7 @@ class EntrySource extends BaseSource
                 return false;
             }
 
-            if (!in_array($typeHandle, $definition->subTypes, true)) {
+            if (! in_array($typeHandle, $definition->subTypes, true)) {
                 return false;
             }
         }

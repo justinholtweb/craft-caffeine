@@ -39,8 +39,7 @@ class QueryState
          * @var array<string, list<string|bool|float>> facet key → values
          */
         public array $filters = [],
-    ) {
-    }
+    ) {}
 
     public function isRefined(string $facet, string|bool|float $value): bool
     {
@@ -118,63 +117,63 @@ class QueryState
     }
 
     /**
-     * @param array<string, mixed> $data
+     * @param  array<string, mixed>  $data
      */
     public static function fromArray(array $data): self
     {
         $refinements = [];
 
-        foreach ((array)($data['refinements'] ?? []) as $key => $values) {
-            $refinements[(string)$key] = array_values((array)$values);
+        foreach ((array) ($data['refinements'] ?? []) as $key => $values) {
+            $refinements[(string) $key] = array_values((array) $values);
         }
 
         $ranges = [];
 
-        foreach ((array)($data['ranges'] ?? []) as $key => $range) {
-            $range = (array)$range;
+        foreach ((array) ($data['ranges'] ?? []) as $key => $range) {
+            $range = (array) $range;
             $parsed = [];
 
             if (isset($range['min']) && $range['min'] !== '') {
-                $parsed['min'] = (float)$range['min'];
+                $parsed['min'] = (float) $range['min'];
             }
 
             if (isset($range['max']) && $range['max'] !== '') {
-                $parsed['max'] = (float)$range['max'];
+                $parsed['max'] = (float) $range['max'];
             }
 
             if ($parsed !== []) {
-                $ranges[(string)$key] = $parsed;
+                $ranges[(string) $key] = $parsed;
             }
         }
 
         $around = [];
 
-        foreach ((array)($data['around'] ?? []) as $key => $spec) {
-            $spec = (array)$spec;
+        foreach ((array) ($data['around'] ?? []) as $key => $spec) {
+            $spec = (array) $spec;
 
-            if (!isset($spec['lat'], $spec['lng']) || !is_numeric($spec['lat']) || !is_numeric($spec['lng'])) {
+            if (! isset($spec['lat'], $spec['lng']) || ! is_numeric($spec['lat']) || ! is_numeric($spec['lng'])) {
                 continue;
             }
 
-            $around[(string)$key] = [
-                'lat' => (float)$spec['lat'],
-                'lng' => (float)$spec['lng'],
-                'radius' => max(0.0, (float)($spec['radius'] ?? 0)),
+            $around[(string) $key] = [
+                'lat' => (float) $spec['lat'],
+                'lng' => (float) $spec['lng'],
+                'radius' => max(0.0, (float) ($spec['radius'] ?? 0)),
             ];
         }
 
         return new self(
-            query: (string)($data['query'] ?? ''),
+            query: (string) ($data['query'] ?? ''),
             refinements: $refinements,
             ranges: $ranges,
             around: $around,
-            sortBy: (string)($data['sortBy'] ?? 'relevance'),
-            page: max(0, (int)($data['page'] ?? 0)),
-            hitsPerPage: isset($data['hitsPerPage']) ? (int)$data['hitsPerPage'] : null,
-            facets: isset($data['facets']) ? array_values((array)$data['facets']) : null,
+            sortBy: (string) ($data['sortBy'] ?? 'relevance'),
+            page: max(0, (int) ($data['page'] ?? 0)),
+            hitsPerPage: isset($data['hitsPerPage']) ? (int) $data['hitsPerPage'] : null,
+            facets: isset($data['facets']) ? array_values((array) $data['facets']) : null,
             filters: array_map(
-                fn($values) => array_values((array)$values),
-                array_filter((array)($data['filters'] ?? []), fn($values) => (array)$values !== []),
+                fn ($values) => array_values((array) $values),
+                array_filter((array) ($data['filters'] ?? []), fn ($values) => (array) $values !== []),
             ),
         );
     }
@@ -186,7 +185,7 @@ class QueryState
     {
         return array_filter([
             'query' => $this->query,
-            'refinements' => array_filter($this->refinements, fn(array $v) => $v !== []),
+            'refinements' => array_filter($this->refinements, fn (array $v) => $v !== []),
             'ranges' => $this->ranges,
             'around' => $this->around,
             'sortBy' => $this->sortBy,
@@ -194,6 +193,6 @@ class QueryState
             'hitsPerPage' => $this->hitsPerPage,
             'facets' => $this->facets,
             'filters' => $this->filters,
-        ], fn($v) => $v !== null && $v !== '' && $v !== []);
+        ], fn ($v) => $v !== null && $v !== '' && $v !== []);
     }
 }

@@ -1,4 +1,5 @@
 <?php
+
 // Exercises the build-side and read-side changes from issue #5 against the plugin-testing
 // harness: the source query event, parallel builds, and payloads loaded per page of hits.
 //
@@ -9,7 +10,10 @@ define('CRAFT_BASE_PATH', '/var/www/html');
 $app = require '/var/www/html/vendor/craftcms/cms/bootstrap/console.php';
 
 use craft\db\Query;
+use craft\elements\Entry;
+use craft\helpers\Db;
 use craft\helpers\Json;
+use craft\helpers\StringHelper;
 use JustinHoltWeb\Caffeine\Events\DefineSourceQueryEvent;
 use JustinHoltWeb\Caffeine\Migrations\Install;
 use JustinHoltWeb\Caffeine\Plugin;
@@ -26,7 +30,7 @@ function check(string $label, bool $ok, string $detail = ''): void
 
     echo $ok ? '  ok   ' : '  FAIL ', $label, $detail !== '' ? "  ({$detail})" : '', PHP_EOL;
 
-    if (!$ok) {
+    if (! $ok) {
         $failures++;
     }
 }
@@ -34,7 +38,7 @@ function check(string $label, bool $ok, string $detail = ''): void
 /** objectId → content, for comparing two builds. */
 function snapshot(string $indexUid): array
 {
-    return (new Query())
+    return (new Query)
         ->select(['content', 'objectId'])
         ->from(Install::TABLE_RECORDS)
         ->where(['indexUid' => $indexUid, 'deleted' => false])
@@ -53,7 +57,7 @@ function queries(callable $callback): int
 
 function console(string $arguments): array
 {
-    exec('cd /var/www/html && php craft ' . $arguments . ' 2>&1', $output, $exit);
+    exec('cd /var/www/html && php craft '.$arguments.' 2>&1', $output, $exit);
 
     return [$exit, implode("\n", $output)];
 }
@@ -69,7 +73,7 @@ echo "The source query event\n";
 $calls = [];
 $eager = false;
 
-Event::on(Builder::class, Builder::EVENT_DEFINE_SOURCE_QUERY, function(DefineSourceQueryEvent $event) use (&$calls, &$eager) {
+Event::on(Builder::class, Builder::EVENT_DEFINE_SOURCE_QUERY, function (DefineSourceQueryEvent $event) use (&$calls, &$eager) {
     $calls[] = [$event->index->handle, $event->source::handle(), $event->definition->type, $event->siteId];
 
     if ($eager) {
@@ -79,13 +83,13 @@ Event::on(Builder::class, Builder::EVENT_DEFINE_SOURCE_QUERY, function(DefineSou
     }
 });
 
-$lazyQueries = queries(fn() => $plugin->builder->buildAll($news));
+$lazyQueries = queries(fn () => $plugin->builder->buildAll($news));
 // Taken after a plain build rather than before it, so a run interrupted earlier cannot leave
 // this comparing against whatever it left behind.
 $before = snapshot($news->uid);
 $siteCount = count($plugin->builder->siteIds($news));
 
-check('fires once per site and source on a full build', count($calls) === $siteCount, count($calls) . ' call(s)');
+check('fires once per site and source on a full build', count($calls) === $siteCount, count($calls).' call(s)');
 check('naming the index, source, definition and site', ($calls[0] ?? null) === ['newsArchive', 'entry', 'entry', $plugin->builder->siteIds($news)[0]]);
 
 $calls = [];
@@ -99,7 +103,7 @@ $plugin->builder->buildElements($news, $ids);
 check('fires when changed elements are rebuilt', count($calls) === $siteCount);
 
 $eager = true;
-$eagerQueries = queries(fn() => $plugin->builder->buildAll($news));
+$eagerQueries = queries(fn () => $plugin->builder->buildAll($news));
 $eager = false;
 
 check('eager loading declared there cuts the build’s queries', $eagerQueries < $lazyQueries, "{$lazyQueries} → {$eagerQueries}");
@@ -108,7 +112,7 @@ check('without changing a single record', snapshot($news->uid) === $before);
 echo "\nParallel builds\n";
 
 // A record for a real element that the index does not cover, which a full build has to prune.
-$outsider = (int)craft\elements\Entry::find()->section('testEntries')->status(null)->ids()[0];
+$outsider = (int) Entry::find()->section('testEntries')->status(null)->ids()[0];
 $strayId = "{$outsider}-1";
 Craft::$app->getDb()->createCommand()->insert(Install::TABLE_RECORDS, [
     'indexUid' => $news->uid,
@@ -119,18 +123,18 @@ Craft::$app->getDb()->createCommand()->insert(Install::TABLE_RECORDS, [
     'tokens' => '[]',
     'dirty' => false,
     'deleted' => false,
-    'dateCreated' => craft\helpers\Db::prepareDateForDb(new DateTime()),
-    'dateUpdated' => craft\helpers\Db::prepareDateForDb(new DateTime()),
-    'uid' => craft\helpers\StringHelper::UUID(),
+    'dateCreated' => Db::prepareDateForDb(new DateTime),
+    'dateUpdated' => Db::prepareDateForDb(new DateTime),
+    'uid' => StringHelper::UUID(),
 ])->execute();
 
 [$exit, $output] = console('caffeine/index/build newsArchive --all --workers=3');
 preg_match('/(\d+) records, (\d+) pruned/', $output, $m);
 
 check('a three-worker build succeeds', $exit === 0, trim(substr($output, -160)));
-check('builds every record', (int)($m[1] ?? -1) === count($before), ($m[1] ?? '?') . ' of ' . count($before));
+check('builds every record', (int) ($m[1] ?? -1) === count($before), ($m[1] ?? '?').' of '.count($before));
 check('identical to a single-process build', snapshot($news->uid) === $before);
-check('and prunes once, after every worker', (int)($m[2] ?? 0) === 1 && !isset(snapshot($news->uid)[$strayId]));
+check('and prunes once, after every worker', (int) ($m[2] ?? 0) === 1 && ! isset(snapshot($news->uid)[$strayId]));
 
 [$exit, $output] = console('caffeine/index/build newsArchive --all --workers=500');
 check('more workers than elements is fine', $exit === 0 && snapshot($news->uid) === $before);
@@ -148,7 +152,7 @@ try {
     $plugin->indexes->save($index);
     $index = $plugin->indexes->getByHandle('products');
     $plugin->artifacts->publish($index);
-    check('a merged artifact has no lookup', !isset($plugin->publisher->pointer($index)['lookup']));
+    check('a merged artifact has no lookup', ! isset($plugin->publisher->pointer($index)['lookup']));
     check('and holds its payloads', $plugin->artifacts->published($index)?->hasPayloads() === true);
 
     $index->shardPayload = true;
@@ -158,11 +162,11 @@ try {
     $manifest = $plugin->publisher->pointer($index);
     $store = $plugin->publisher->store();
 
-    check('a sharded artifact names a lookup beside its shards', isset($manifest['lookup']['file']) && !isset($manifest['shards']['lookup']));
-    check('and the lookup is written', $store->exists($plugin->publisher->path($index, (string)($manifest['lookup']['file'] ?? ''))));
+    check('a sharded artifact names a lookup beside its shards', isset($manifest['lookup']['file']) && ! isset($manifest['shards']['lookup']));
+    check('and the lookup is written', $store->exists($plugin->publisher->path($index, (string) ($manifest['lookup']['file'] ?? ''))));
     check('and listed in the ledger, so pruning can find it', in_array(
-        $plugin->publisher->path($index, (string)($manifest['lookup']['file'] ?? '')),
-        (array)Json::decode((string)$plugin->artifacts->live($index->uid)['files']),
+        $plugin->publisher->path($index, (string) ($manifest['lookup']['file'] ?? '')),
+        (array) Json::decode((string) $plugin->artifacts->live($index->uid)['files']),
         true,
     ));
     check('republishing it unchanged is a no-op', $plugin->artifacts->publish($index)['published'] === false);
@@ -173,16 +177,16 @@ try {
     check('it is read without its payloads', $artifact->hasPayloads() === false && $artifact->payloads === []);
     check('and still matches a fresh compile exactly', $artifact->toArray() === $fresh->toArray());
 
-    $hits = fn($a) => (new Engine($a))->search(new QueryState(), 100)['hits'];
-    check('a search shows the same hits as from held payloads', $hits($artifact) === $hits($fresh), count($hits($fresh)) . ' hit(s)');
+    $hits = fn ($a) => (new Engine($a))->search(new QueryState, 100)['hits'];
+    check('a search shows the same hits as from held payloads', $hits($artifact) === $hits($fresh), count($hits($fresh)).' hit(s)');
 
-    $loads = queries(fn() => $artifact->payloadsFor([0, 1, 2]));
+    $loads = queries(fn () => $artifact->payloadsFor([0, 1, 2]));
     check('a page of payloads is one query', $loads === 1, "{$loads} queries");
 
     // A record rebuilt since the publish: the server must still show what was published.
     $target = $artifact->objectIds[0];
     $published = $artifact->payloadsFor([0])[0];
-    $row = (new Query())->from(Install::TABLE_RECORDS)->where(['indexUid' => $index->uid, 'objectId' => $target])->one();
+    $row = (new Query)->from(Install::TABLE_RECORDS)->where(['indexUid' => $index->uid, 'objectId' => $target])->one();
     $content = Json::decode($row['content']);
     $content['payload']['title'] = 'Changed since the publish';
     Craft::$app->getDb()->createCommand()->update(Install::TABLE_RECORDS, ['content' => Json::encode($content)], ['id' => $row['id']])->execute();
@@ -196,7 +200,7 @@ try {
     check('and the rest still come from the records', $artifact->payloadsFor([1])[1] === $fresh->payloads[1]);
 
     $deleted = $plugin->artifacts->sweep($index) ?? [];
-    check('sweeping leaves the lookup alone', !in_array($plugin->publisher->path($index, $manifest['lookup']['file']), $deleted, true));
+    check('sweeping leaves the lookup alone', ! in_array($plugin->publisher->path($index, $manifest['lookup']['file']), $deleted, true));
 } finally {
     echo "\nRestoring\n";
 
@@ -209,7 +213,7 @@ try {
     $plugin->builder->buildAll($news);
     $plugin->artifacts->publish($news);
 
-    echo "  shardPayload back to " . var_export($originalShard, true) . ", products and newsArchive rebuilt and republished\n";
+    echo '  shardPayload back to '.var_export($originalShard, true).", products and newsArchive rebuilt and republished\n";
 }
 
 echo $failures === 0 ? "\nAll checks passed.\n" : "\n{$failures} check(s) FAILED.\n";

@@ -32,7 +32,7 @@ uses()->group('conformance')->in('Conformance');
  * An attribute definition with sensible defaults, for tests that only care about one or two
  * of its knobs.
  *
- * @param array<string, mixed> $config
+ * @param  array<string, mixed>  $config
  */
 function attribute(array $config = []): AttributeDefinition
 {
@@ -55,12 +55,12 @@ function attribute(array $config = []): AttributeDefinition
  * searchable text with the real tokeniser rather than accepting pre-baked tokens — otherwise
  * the fixtures would be testing the engine while quietly assuming the tokeniser.
  *
- * @param array<string, mixed> $fixture
+ * @param  array<string, mixed>  $fixture
  * @return list<array{elementId: int, siteId: int, objectId: string, content: array, tokens: array}>
  */
 function conformanceRecords(array $fixture, IndexDefinition $index): array
 {
-    $tokenizer = new Tokenizer();
+    $tokenizer = new Tokenizer;
     $records = [];
 
     foreach ($fixture['records'] as $i => $row) {
@@ -101,16 +101,16 @@ function conformanceRecords(array $fixture, IndexDefinition $index): array
  */
 function conformanceWriteArtifact(string $name, Artifact $artifact): void
 {
-    $dir = __DIR__ . '/Conformance/build';
+    $dir = __DIR__.'/Conformance/build';
 
-    if (!is_dir($dir)) {
+    if (! is_dir($dir)) {
         mkdir($dir, 0777, true);
     }
 
     // JSON_PRESERVE_ZERO_FRACTION for the same reason the publisher sets it: without it a
     // whole float decodes back as an int, and the two artifacts stop being comparable.
     $flags = JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION;
-    $encoded = (new ArtifactEncoder())->encode($artifact);
+    $encoded = (new ArtifactEncoder)->encode($artifact);
 
     file_put_contents("{$dir}/{$name}.artifact.json", json_encode($artifact->toArray(), $flags));
     file_put_contents(
@@ -126,8 +126,8 @@ function conformanceWriteArtifact(string $name, Artifact $artifact): void
  * pins both the counts and the ordering rules of QUERY_SPEC §3.3.1 — and keeps the real typed
  * value, so a boolean facet cannot quietly pass with the string "true".
  *
- * @param array<string, mixed> $result
- * @param array<string, mixed> $expect
+ * @param  array<string, mixed>  $result
+ * @param  array<string, mixed>  $expect
  */
 function conformanceAssert(array $result, array $expect): void
 {
@@ -144,16 +144,16 @@ function conformanceAssert(array $result, array $expect): void
     }
 
     if (array_key_exists('hits', $expect)) {
-        $actual = array_map(fn(array $hit) => $hit['objectID'], $result['hits']);
+        $actual = array_map(fn (array $hit) => $hit['objectID'], $result['hits']);
         expect($actual)->toBe($expect['hits'], 'hits');
     }
 
     foreach ($expect['facets'] ?? [] as $key => $pairs) {
         $buckets = $result['caffeineFacets'][$key]['buckets'] ?? [];
-        $actual = array_map(fn(array $b) => [$b['value'], $b['count']], $buckets);
+        $actual = array_map(fn (array $b) => [$b['value'], $b['count']], $buckets);
 
         expect($actual)->toBe(
-            array_map(fn(array $pair) => [$pair[0], $pair[1]], $pairs),
+            array_map(fn (array $pair) => [$pair[0], $pair[1]], $pairs),
             "facet {$key}",
         );
     }

@@ -2,9 +2,8 @@
 
 namespace JustinHoltWeb\Caffeine\Models;
 
-use Illuminate\Validation\Rule;
-
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 /**
  * The whole shape of one index: where its records come from, what keys they carry, how those
@@ -112,7 +111,7 @@ class IndexDefinition extends Model
      */
     public function facets(): array
     {
-        return array_values(array_filter($this->attributes, fn(AttributeDefinition $a) => $a->isFacet()));
+        return array_values(array_filter($this->attributes, fn (AttributeDefinition $a) => $a->isFacet()));
     }
 
     /**
@@ -120,7 +119,7 @@ class IndexDefinition extends Model
      */
     public function searchableAttributes(): array
     {
-        return array_values(array_filter($this->attributes, fn(AttributeDefinition $a) => $a->isSearchable()));
+        return array_values(array_filter($this->attributes, fn (AttributeDefinition $a) => $a->isSearchable()));
     }
 
     /**
@@ -128,7 +127,7 @@ class IndexDefinition extends Model
      */
     public function payloadAttributes(): array
     {
-        return array_values(array_filter($this->attributes, fn(AttributeDefinition $a) => $a->isPayload()));
+        return array_values(array_filter($this->attributes, fn (AttributeDefinition $a) => $a->isPayload()));
     }
 
     public function getAttribute(string $key): ?AttributeDefinition
@@ -194,7 +193,7 @@ class IndexDefinition extends Model
     }
 
     /**
-     * @param array<string, mixed> $config
+     * @param  array<string, mixed>  $config
      */
     /**
      * Builds a definition from the control panel's form payload.
@@ -207,41 +206,41 @@ class IndexDefinition extends Model
      * one of them on the first save. Project config and this screen would then be permanently at
      * odds, with the screen always winning.
      *
-     * @param array<string, mixed> $body
+     * @param  array<string, mixed>  $body
      */
     public static function fromForm(array $body, ?self $existing = null): self
     {
         $index = new self([
-            'uid' => (string)($body['uid'] ?? ''),
-            'handle' => trim((string)($body['handle'] ?? '')),
-            'name' => trim((string)($body['name'] ?? '')),
-            'description' => trim((string)($body['description'] ?? '')) ?: null,
-            'transport' => (string)($body['transport'] ?? self::TRANSPORT_HTMX),
-            'hitsPerPage' => (int)($body['hitsPerPage'] ?? 24),
-            'maxValuesPerFacet' => (int)($body['maxValuesPerFacet'] ?? 20),
-            'publishDebounce' => (int)($body['publishDebounce'] ?? 30),
-            'shardPayload' => (bool)($body['shardPayload'] ?? false),
+            'uid' => (string) ($body['uid'] ?? ''),
+            'handle' => trim((string) ($body['handle'] ?? '')),
+            'name' => trim((string) ($body['name'] ?? '')),
+            'description' => trim((string) ($body['description'] ?? '')) ?: null,
+            'transport' => (string) ($body['transport'] ?? self::TRANSPORT_HTMX),
+            'hitsPerPage' => (int) ($body['hitsPerPage'] ?? 24),
+            'maxValuesPerFacet' => (int) ($body['maxValuesPerFacet'] ?? 20),
+            'publishDebounce' => (int) ($body['publishDebounce'] ?? 30),
+            'shardPayload' => (bool) ($body['shardPayload'] ?? false),
             'stopwords' => self::splitList($body['stopwords'] ?? ''),
-            'synonyms' => array_values(array_filter(array_map('trim', preg_split('/\R/', (string)($body['synonyms'] ?? '')) ?: []))),
-            'enabled' => (bool)($body['enabled'] ?? true),
-            'siteIds' => array_map('intval', array_values((array)($body['siteIds'] ?? []))),
+            'synonyms' => array_values(array_filter(array_map('trim', preg_split('/\R/', (string) ($body['synonyms'] ?? '')) ?: []))),
+            'enabled' => (bool) ($body['enabled'] ?? true),
+            'siteIds' => array_map('intval', array_values((array) ($body['siteIds'] ?? []))),
         ]);
 
-        foreach (array_values((array)($body['sources'] ?? [])) as $row) {
-            if (trim((string)($row['type'] ?? '')) === '') {
+        foreach (array_values((array) ($body['sources'] ?? [])) as $row) {
+            if (trim((string) ($row['type'] ?? '')) === '') {
                 continue;
             }
 
             $index->sources[] = new SourceDefinition([
-                'type' => (string)$row['type'],
+                'type' => (string) $row['type'],
                 'containers' => self::splitList($row['containers'] ?? ''),
                 'subTypes' => self::splitList($row['subTypes'] ?? ''),
-                'status' => (string)($row['status'] ?? 'live'),
+                'status' => (string) ($row['status'] ?? 'live'),
             ]);
         }
 
-        foreach (array_values((array)($body['attributes'] ?? [])) as $row) {
-            $key = trim((string)($row['key'] ?? ''));
+        foreach (array_values((array) ($body['attributes'] ?? [])) as $row) {
+            $key = trim((string) ($row['key'] ?? ''));
 
             if ($key === '') {
                 continue;
@@ -250,27 +249,27 @@ class IndexDefinition extends Model
             $roles = [];
 
             foreach (AttributeDefinition::ROLES as $role) {
-                if (!empty($row[$role])) {
+                if (! empty($row[$role])) {
                     $roles[] = $role;
                 }
             }
 
-            $attribute = $existing?->getAttribute($key) ?? new AttributeDefinition();
+            $attribute = $existing?->getAttribute($key) ?? new AttributeDefinition;
 
             $attribute->key = $key;
-            $attribute->label = trim((string)($row['label'] ?? '')) ?: null;
-            $attribute->source = (string)($row['source'] ?? AttributeDefinition::SOURCE_ATTRIBUTE);
-            $attribute->path = trim((string)($row['path'] ?? ''));
+            $attribute->label = trim((string) ($row['label'] ?? '')) ?: null;
+            $attribute->source = (string) ($row['source'] ?? AttributeDefinition::SOURCE_ATTRIBUTE);
+            $attribute->path = trim((string) ($row['path'] ?? ''));
             $attribute->roles = $roles;
-            $attribute->searchWeight = (float)($row['searchWeight'] ?? 1.0);
-            $attribute->facetType = (string)($row['facetType'] ?? AttributeDefinition::FACET_STRING);
-            $attribute->facetOperator = (string)($row['facetOperator'] ?? 'or');
+            $attribute->searchWeight = (float) ($row['searchWeight'] ?? 1.0);
+            $attribute->facetType = (string) ($row['facetType'] ?? AttributeDefinition::FACET_STRING);
+            $attribute->facetOperator = (string) ($row['facetOperator'] ?? 'or');
 
             $index->attributes[] = $attribute;
         }
 
-        foreach (array_values((array)($body['sortings'] ?? [])) as $row) {
-            $name = trim((string)($row['name'] ?? ''));
+        foreach (array_values((array) ($body['sortings'] ?? [])) as $row) {
+            $name = trim((string) ($row['name'] ?? ''));
 
             if ($name === '') {
                 continue;
@@ -278,9 +277,9 @@ class IndexDefinition extends Model
 
             $index->sortings[] = new SortingDefinition([
                 'name' => $name,
-                'label' => trim((string)($row['label'] ?? '')) ?: null,
-                'attribute' => trim((string)($row['attribute'] ?? '')),
-                'direction' => (string)($row['direction'] ?? 'asc'),
+                'label' => trim((string) ($row['label'] ?? '')) ?: null,
+                'attribute' => trim((string) ($row['attribute'] ?? '')),
+                'direction' => (string) ($row['direction'] ?? 'asc'),
             ]);
         }
 
@@ -293,40 +292,40 @@ class IndexDefinition extends Model
     private static function splitList(mixed $value): array
     {
         if (is_array($value)) {
-            return array_values(array_filter(array_map('strval', $value), fn(string $v) => $v !== ''));
+            return array_values(array_filter(array_map('strval', $value), fn (string $v) => $v !== ''));
         }
 
-        return array_values(array_filter(array_map('trim', explode(',', (string)$value)), fn(string $v) => $v !== ''));
+        return array_values(array_filter(array_map('trim', explode(',', (string) $value)), fn (string $v) => $v !== ''));
     }
 
     public static function fromConfig(string $uid, array $config): self
     {
         return new self([
             'uid' => $uid,
-            'handle' => (string)($config['handle'] ?? $uid),
-            'name' => (string)($config['name'] ?? ''),
-            'description' => isset($config['description']) ? (string)$config['description'] : null,
+            'handle' => (string) ($config['handle'] ?? $uid),
+            'name' => (string) ($config['name'] ?? ''),
+            'description' => isset($config['description']) ? (string) $config['description'] : null,
             'sources' => array_map(
-                fn(array $row) => SourceDefinition::fromConfig($row),
-                array_values(array_filter((array)($config['sources'] ?? []), 'is_array')),
+                fn (array $row) => SourceDefinition::fromConfig($row),
+                array_values(array_filter((array) ($config['sources'] ?? []), 'is_array')),
             ),
-            'siteIds' => array_map('intval', array_values((array)($config['siteIds'] ?? []))),
+            'siteIds' => array_map('intval', array_values((array) ($config['siteIds'] ?? []))),
             'attributes' => array_map(
-                fn(array $row) => AttributeDefinition::fromConfig($row),
-                array_values(array_filter((array)($config['attributes'] ?? []), 'is_array')),
+                fn (array $row) => AttributeDefinition::fromConfig($row),
+                array_values(array_filter((array) ($config['attributes'] ?? []), 'is_array')),
             ),
             'sortings' => array_map(
-                fn(array $row) => SortingDefinition::fromConfig($row),
-                array_values(array_filter((array)($config['sortings'] ?? []), 'is_array')),
+                fn (array $row) => SortingDefinition::fromConfig($row),
+                array_values(array_filter((array) ($config['sortings'] ?? []), 'is_array')),
             ),
-            'transport' => (string)($config['transport'] ?? self::TRANSPORT_HTMX),
-            'hitsPerPage' => (int)($config['hitsPerPage'] ?? 24),
-            'maxValuesPerFacet' => (int)($config['maxValuesPerFacet'] ?? 20),
-            'publishDebounce' => (int)($config['publishDebounce'] ?? 30),
-            'stopwords' => array_values(array_filter((array)($config['stopwords'] ?? []), 'is_string')),
-            'synonyms' => array_values(array_filter((array)($config['synonyms'] ?? []), 'is_string')),
-            'shardPayload' => (bool)($config['shardPayload'] ?? false),
-            'enabled' => (bool)($config['enabled'] ?? true),
+            'transport' => (string) ($config['transport'] ?? self::TRANSPORT_HTMX),
+            'hitsPerPage' => (int) ($config['hitsPerPage'] ?? 24),
+            'maxValuesPerFacet' => (int) ($config['maxValuesPerFacet'] ?? 20),
+            'publishDebounce' => (int) ($config['publishDebounce'] ?? 30),
+            'stopwords' => array_values(array_filter((array) ($config['stopwords'] ?? []), 'is_string')),
+            'synonyms' => array_values(array_filter((array) ($config['synonyms'] ?? []), 'is_string')),
+            'shardPayload' => (bool) ($config['shardPayload'] ?? false),
+            'enabled' => (bool) ($config['enabled'] ?? true),
         ]);
     }
 
@@ -341,17 +340,17 @@ class IndexDefinition extends Model
      */
     public function toConfig(bool $includeDynamic = false): array
     {
-        $attributes = array_filter($this->attributes, fn(AttributeDefinition $a) => $includeDynamic || !$a->dynamic);
-        $sortings = array_filter($this->sortings, fn(SortingDefinition $s) => $includeDynamic || !$s->dynamic);
+        $attributes = array_filter($this->attributes, fn (AttributeDefinition $a) => $includeDynamic || ! $a->dynamic);
+        $sortings = array_filter($this->sortings, fn (SortingDefinition $s) => $includeDynamic || ! $s->dynamic);
 
         return [
             'handle' => $this->handle,
             'name' => $this->name,
             'description' => $this->description,
-            'sources' => array_map(fn(SourceDefinition $s) => $s->toConfig(), array_values($this->sources)),
+            'sources' => array_map(fn (SourceDefinition $s) => $s->toConfig(), array_values($this->sources)),
             'siteIds' => array_values($this->siteIds),
-            'attributes' => array_map(fn(AttributeDefinition $a) => $a->toConfig(), array_values($attributes)),
-            'sortings' => array_map(fn(SortingDefinition $s) => $s->toConfig(), array_values($sortings)),
+            'attributes' => array_map(fn (AttributeDefinition $a) => $a->toConfig(), array_values($attributes)),
+            'sortings' => array_map(fn (SortingDefinition $s) => $s->toConfig(), array_values($sortings)),
             'transport' => $this->transport,
             'hitsPerPage' => $this->hitsPerPage,
             'maxValuesPerFacet' => $this->maxValuesPerFacet,
@@ -372,7 +371,7 @@ class IndexDefinition extends Model
      */
     public function fingerprint(): string
     {
-        return substr(hash('sha256', (string)json_encode($this->toConfig(true))), 0, 16);
+        return substr(hash('sha256', (string) json_encode($this->toConfig(true))), 0, 16);
     }
 
     public function ensureUid(): string
@@ -422,7 +421,7 @@ class IndexDefinition extends Model
         }
 
         foreach ($this->sources as $source) {
-            if (!$source->validate()) {
+            if (! $source->validate()) {
                 $this->addError($attribute, implode(' ', $source->getFirstErrors()));
             }
         }
@@ -432,14 +431,16 @@ class IndexDefinition extends Model
     {
         if ($this->attributes === []) {
             $this->addError($attribute, 'An index needs at least one attribute.');
+
             return;
         }
 
         $seen = [];
 
         foreach ($this->attributes as $definition) {
-            if (!$definition->validate()) {
+            if (! $definition->validate()) {
                 $this->addError($attribute, implode(' ', $definition->getFirstErrors()));
+
                 continue;
             }
 
@@ -454,8 +455,9 @@ class IndexDefinition extends Model
     public function validateSortings(string $attribute): void
     {
         foreach ($this->sortings as $sorting) {
-            if (!$sorting->validate()) {
+            if (! $sorting->validate()) {
                 $this->addError($attribute, implode(' ', $sorting->getFirstErrors()));
+
                 continue;
             }
 
@@ -469,7 +471,7 @@ class IndexDefinition extends Model
 
             if ($target === null) {
                 $this->addError($attribute, "Sorting “{$sorting->name}” orders by “{$sorting->attribute}”, which is not an attribute on this index.");
-            } elseif (!$target->isSortable()) {
+            } elseif (! $target->isSortable()) {
                 $this->addError($attribute, "Sorting “{$sorting->name}” orders by “{$sorting->attribute}”, which needs the sortable role.");
             }
         }

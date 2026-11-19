@@ -1,4 +1,5 @@
 <?php
+
 // Exercises the OPcache artifact cache against the plugin-testing harness.
 //
 // OPcache is off in the harness's CLI, so it is turned on for the run. `file_update_protection`
@@ -11,6 +12,8 @@ define('CRAFT_BASE_PATH', '/var/www/html');
 $app = require '/var/www/html/vendor/craftcms/cms/bootstrap/console.php';
 
 use JustinHoltWeb\Caffeine\Plugin;
+use JustinHoltWeb\Caffeine\Search\Engine;
+use JustinHoltWeb\Caffeine\Search\QueryState;
 
 $failures = 0;
 
@@ -20,7 +23,7 @@ function check(string $label, bool $ok, string $detail = ''): void
 
     echo $ok ? '  ok   ' : '  FAIL ', $label, $detail !== '' ? "  ({$detail})" : '', PHP_EOL;
 
-    if (!$ok) {
+    if (! $ok) {
         $failures++;
     }
 }
@@ -42,7 +45,7 @@ if (($argv[1] ?? '') === '--refused') {
     exit($failures === 0 ? 0 : 1);
 }
 
-if (!filter_var(ini_get('opcache.enable_cli'), FILTER_VALIDATE_BOOL)) {
+if (! filter_var(ini_get('opcache.enable_cli'), FILTER_VALIDATE_BOOL)) {
     echo "OPcache is off for the CLI. Run with -d opcache.enable=1 -d opcache.enable_cli=1.\n";
     exit(1);
 }
@@ -71,7 +74,7 @@ try {
     $settings->cacheArtifacts = false;
     $plain = $plugin->artifacts->published($index);
 
-    check('off by default, so nothing is written', !file_exists($path));
+    check('off by default, so nothing is written', ! file_exists($path));
 
     echo "\nFirst read\n";
 
@@ -91,11 +94,11 @@ try {
 
     check('come from OPcache', $cached !== null);
     check('identical to a decode', $cached?->toArray() === $plain?->toArray());
-    check('carry the version from the pointer', $cached?->version === (int)$manifest['version']);
-    check('and cost the request next to no memory', $cost < 64 * 1024, round($cost / 1024) . ' KB');
+    check('carry the version from the pointer', $cached?->version === (int) $manifest['version']);
+    check('and cost the request next to no memory', $cost < 64 * 1024, round($cost / 1024).' KB');
 
-    $engine = new \JustinHoltWeb\Caffeine\Search\Engine($cached);
-    $result = $engine->search(\JustinHoltWeb\Caffeine\Search\QueryState::fromArray([]), 24);
+    $engine = new Engine($cached);
+    $result = $engine->search(QueryState::fromArray([]), 24);
 
     check('and can be queried', $result['nbHits'] === $plain->recordCount());
 
@@ -103,7 +106,7 @@ try {
 
     // Sharding changes the shard files without changing the records, which is the cheapest
     // way to get a genuinely different pointer.
-    $index->shardPayload = !$originalShard;
+    $index->shardPayload = ! $originalShard;
     $plugin->indexes->save($index);
     $index = $plugin->indexes->getByHandle('products');
     $plugin->artifacts->publish($index);
@@ -117,15 +120,15 @@ try {
     $plugin->artifacts->published($index);
 
     check('the next read caches it', opcache_is_script_cached($newPath));
-    check('and deletes the old file', !file_exists($path));
+    check('and deletes the old file', ! file_exists($path));
 
-    $fromCache = $cache->get($index, $newManifest, $index->shardPayload ? fn(array $ids) => [] : null);
-    check('a sharded artifact is cached without its payloads', !$index->shardPayload || ($fromCache !== null && !$fromCache->hasPayloads()));
+    $fromCache = $cache->get($index, $newManifest, $index->shardPayload ? fn (array $ids) => [] : null);
+    check('a sharded artifact is cached without its payloads', ! $index->shardPayload || ($fromCache !== null && ! $fromCache->hasPayloads()));
 
     if ($index->shardPayload) {
         $served = $plugin->artifacts->published($index);
         $fresh = $plugin->artifacts->compile($index, $served->version);
-        $hits = fn($a) => (new \JustinHoltWeb\Caffeine\Search\Engine($a))->search(new \JustinHoltWeb\Caffeine\Search\QueryState(), 100)['hits'];
+        $hits = fn ($a) => (new Engine($a))->search(new QueryState, 100)['hits'];
 
         check('and still serves every hit’s payload from there', $hits($served) === $hits($fresh) && $hits($fresh) !== []);
         check('but not without a way to load them', $cache->get($index, $newManifest) === null);
@@ -156,13 +159,13 @@ try {
 
     echo "\nOrphans\n";
 
-    $orphan = dirname($directory) . '/no-such-index-uid';
+    $orphan = dirname($directory).'/no-such-index-uid';
     mkdir($orphan, 0775, true);
     file_put_contents("{$orphan}/0123456789abcdef.php", '<?php return [];');
 
     $removed = $cache->deleteOrphans(array_keys($plugin->indexes->allByUid()));
 
-    check('the cache of a deleted index is removed', !is_dir($orphan), "{$removed} removed");
+    check('the cache of a deleted index is removed', ! is_dir($orphan), "{$removed} removed");
     check('and a live index keeps its own', is_dir($directory));
 
     echo "\nRestoring\n";
@@ -180,7 +183,7 @@ try {
         unlink($file);
     }
 
-    echo "  shardPayload back to " . var_export($originalShard, true) . "\n";
+    echo '  shardPayload back to '.var_export($originalShard, true)."\n";
 }
 
 echo $failures === 0 ? "\nAll checks passed.\n" : "\n{$failures} check(s) failed.\n";

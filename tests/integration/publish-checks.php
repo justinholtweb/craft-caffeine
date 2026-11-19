@@ -1,4 +1,5 @@
 <?php
+
 // Exercises the Phase 3 publish path against the plugin-testing harness.
 //
 // The conformance suite pins the encoder and the two decoders against each other with fixtures;
@@ -11,10 +12,15 @@ require '/var/www/html/vendor/autoload.php';
 define('CRAFT_BASE_PATH', '/var/www/html');
 $app = require '/var/www/html/vendor/craftcms/cms/bootstrap/console.php';
 
+use craft\db\Query;
+use craft\events\ConfigEvent;
+use craft\services\ProjectConfig;
+use JustinHoltWeb\Caffeine\Migrations\Install;
 use JustinHoltWeb\Caffeine\Models\AttributeDefinition;
 use JustinHoltWeb\Caffeine\Models\IndexDefinition;
 use JustinHoltWeb\Caffeine\Models\SourceDefinition;
 use JustinHoltWeb\Caffeine\Plugin;
+use JustinHoltWeb\Caffeine\Services\Indexes;
 
 $plugin = Plugin::getInstance();
 $index = $plugin->indexes->getByHandle('products');
@@ -26,11 +32,11 @@ function check(string $label, bool $ok, string $detail = ''): void
 {
     global $failures;
 
-    echo $ok ? "  ok   " : "  FAIL ", $label;
+    echo $ok ? '  ok   ' : '  FAIL ', $label;
     echo $detail !== '' ? "  ({$detail})" : '';
     echo PHP_EOL;
 
-    if (!$ok) {
+    if (! $ok) {
         $failures++;
     }
 }
@@ -70,7 +76,7 @@ echo "\nOrphan pruning\n";
 $settings->keepVersions = 1;
 
 $shardedFiles = array_map(
-    fn(array $shard) => $plugin->publisher->path($index, $shard['file']),
+    fn (array $shard) => $plugin->publisher->path($index, $shard['file']),
     $manifest['shards'],
 );
 
@@ -81,7 +87,7 @@ $index = $plugin->indexes->getByHandle('products');
 $plugin->artifacts->forget($index);
 $plugin->artifacts->publish($index);
 
-$stillThere = array_filter($shardedFiles, fn(string $file) => $store->exists($file));
+$stillThere = array_filter($shardedFiles, fn (string $file) => $store->exists($file));
 check('superseded shards are deleted', $stillThere === [], implode(', ', $stillThere));
 
 $current = $plugin->publisher->pointer($index);
@@ -140,7 +146,7 @@ check('a throwaway index publishes', $scratchManifest !== null);
 $plugin->indexes->delete($scratch);
 Craft::$app->getProjectConfig()->saveModifiedConfigData();
 
-$survivors = array_filter($scratchFiles, fn(string $file) => $store->exists($file));
+$survivors = array_filter($scratchFiles, fn (string $file) => $store->exists($file));
 check('deleting an index removes its published files', $survivors === [], implode(', ', $survivors));
 check('and its ledger rows', $plugin->artifacts->versions($scratch->uid) === []);
 
@@ -171,8 +177,8 @@ $remote = $plugin->indexes->getByHandle('remoteIndex');
 $plugin->builder->buildAll($remote);
 $plugin->artifacts->publish($remote);
 
-$recordCount = fn(array $where) => (int)(new \craft\db\Query())
-    ->from(\JustinHoltWeb\Caffeine\Migrations\Install::TABLE_RECORDS)
+$recordCount = fn (array $where) => (int) (new Query)
+    ->from(Install::TABLE_RECORDS)
     ->where(['indexUid' => $remote->uid] + $where)
     ->count();
 
@@ -182,13 +188,13 @@ foreach ($plugin->publisher->pointer($remote)['shards'] as $shard) {
     $remoteFiles[] = $plugin->publisher->path($remote, $shard['file']);
 }
 
-$remotePath = \JustinHoltWeb\Caffeine\Services\Indexes::CONFIG_PATH . '.' . $remote->uid;
+$remotePath = Indexes::CONFIG_PATH.'.'.$remote->uid;
 
 Craft::$app->getDb()->createCommand()
-    ->update(\JustinHoltWeb\Caffeine\Migrations\Install::TABLE_RECORDS, ['dirty' => false], ['indexUid' => $remote->uid])
+    ->update(Install::TABLE_RECORDS, ['dirty' => false], ['indexUid' => $remote->uid])
     ->execute();
 
-Craft::$app->getProjectConfig()->trigger(\craft\services\ProjectConfig::EVENT_UPDATE_ITEM, new \craft\events\ConfigEvent([
+Craft::$app->getProjectConfig()->trigger(ProjectConfig::EVENT_UPDATE_ITEM, new ConfigEvent([
     'path' => $remotePath,
     'oldValue' => ['handle' => 'remoteIndex'],
     'newValue' => ['handle' => 'remoteIndex', 'name' => 'Remote, changed'],
@@ -196,13 +202,13 @@ Craft::$app->getProjectConfig()->trigger(\craft\services\ProjectConfig::EVENT_UP
 
 check('a changed definition arriving by project config marks its records dirty', $recordCount(['dirty' => false]) === 0);
 
-Craft::$app->getProjectConfig()->trigger(\craft\services\ProjectConfig::EVENT_REMOVE_ITEM, new \craft\events\ConfigEvent([
+Craft::$app->getProjectConfig()->trigger(ProjectConfig::EVENT_REMOVE_ITEM, new ConfigEvent([
     'path' => $remotePath,
     'oldValue' => ['handle' => 'remoteIndex'],
     'newValue' => null,
 ]));
 
-$survivors = array_filter($remoteFiles, fn(string $file) => $store->exists($file));
+$survivors = array_filter($remoteFiles, fn (string $file) => $store->exists($file));
 check('a deletion arriving by project config removes its records', $recordCount([]) === 0);
 check('and its published files', $survivors === [], implode(', ', $survivors));
 check('and its ledger rows', $plugin->artifacts->versions($remote->uid) === []);
@@ -226,7 +232,7 @@ $staleTemp = $plugin->publisher->path($index, 'current.json.tmp.0123456789ab');
 $freshTemp = $plugin->publisher->path($index, 'current.json.tmp.ba9876543210');
 $store->write($staleTemp, '');
 $store->write($freshTemp, '');
-touch($store->describe() . '/' . $staleTemp, time() - 7200);
+touch($store->describe().'/'.$staleTemp, time() - 7200);
 
 $liveFiles = [$plugin->publisher->path($index, 'current.json')];
 
@@ -243,11 +249,11 @@ $mutex->release("caffeine:publish:{$index->uid}");
 
 $swept = $plugin->artifacts->sweep($index) ?? [];
 
-check('a content-addressed file no row lists is deleted', !$store->exists($stray) && !$store->exists("{$stray}.gz"), implode(', ', $swept));
-check('a stale temporary file is deleted', !$store->exists($staleTemp));
+check('a content-addressed file no row lists is deleted', ! $store->exists($stray) && ! $store->exists("{$stray}.gz"), implode(', ', $swept));
+check('a stale temporary file is deleted', ! $store->exists($staleTemp));
 check('a fresh one is left, since a write may still be using it', $store->exists($freshTemp));
 check('a file Caffeine did not name is left alone', $store->exists($notOurs));
-check('everything the live pointer names survives', array_filter($liveFiles, fn($f) => !$store->exists($f)) === []);
+check('everything the live pointer names survives', array_filter($liveFiles, fn ($f) => ! $store->exists($f)) === []);
 
 $store->delete($notOurs);
 $store->delete($freshTemp);
@@ -260,7 +266,7 @@ $plugin->indexes->save($index);
 $plugin->artifacts->forget($plugin->indexes->getByHandle('products'));
 $plugin->artifacts->publish($plugin->indexes->getByHandle('products'));
 
-echo "  shardPayload back to " . var_export($originalShard, true) . ", keepVersions back to {$originalKeep}\n";
+echo '  shardPayload back to '.var_export($originalShard, true).", keepVersions back to {$originalKeep}\n";
 
 echo $failures === 0 ? "\nAll checks passed.\n" : "\n{$failures} check(s) failed.\n";
 

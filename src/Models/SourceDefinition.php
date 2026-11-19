@@ -4,7 +4,6 @@ namespace JustinHoltWeb\Caffeine\Models;
 
 use Illuminate\Validation\Rule;
 
-
 /**
  * Where an index's records come from.
  *
@@ -43,15 +42,15 @@ class SourceDefinition extends Model
     public string $status = 'live';
 
     /**
-     * @param array<string, mixed> $config
+     * @param  array<string, mixed>  $config
      */
     public static function fromConfig(array $config): self
     {
         return new self([
-            'type' => (string)($config['type'] ?? 'entry'),
-            'containers' => array_values(array_filter((array)($config['containers'] ?? []), 'is_string')),
-            'subTypes' => array_values(array_filter((array)($config['subTypes'] ?? []), 'is_string')),
-            'status' => (string)($config['status'] ?? 'live'),
+            'type' => (string) ($config['type'] ?? 'entry'),
+            'containers' => array_values(array_filter((array) ($config['containers'] ?? []), 'is_string')),
+            'subTypes' => array_values(array_filter((array) ($config['subTypes'] ?? []), 'is_string')),
+            'status' => (string) ($config['status'] ?? 'live'),
         ]);
     }
 

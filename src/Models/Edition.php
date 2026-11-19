@@ -77,6 +77,15 @@ class Edition
     }
 
     /**
+     * The `caffeineSearch` GraphQL query. Pro, like the `algolia-json` transport: both serve
+     * search results as data to a front end Caffeine doesn't render.
+     */
+    public static function allowsGraphql(bool $isPro): bool
+    {
+        return $isPro;
+    }
+
+    /**
      * Everything wrong with a definition on this edition, as human-readable sentences.
      *
      * Returned rather than thrown so the control panel can show all of them at once — an
@@ -94,7 +103,7 @@ class Edition
         $facetTypes = self::facetTypes(false);
 
         foreach ($index->facets() as $facet) {
-            if (!in_array($facet->facetType, $facetTypes, true)) {
+            if (! in_array($facet->facetType, $facetTypes, true)) {
                 $problems[] = sprintf(
                     'The “%s” facet is a %s facet, which needs Pro. Lite supports %s facets.',
                     $facet->label ?: $facet->key,
@@ -104,14 +113,14 @@ class Edition
             }
         }
 
-        if (!in_array($index->transport, self::transports(false), true)) {
+        if (! in_array($index->transport, self::transports(false), true)) {
             $problems[] = sprintf(
                 'The “%s” transport needs Pro. Lite uses the fragment transport.',
                 $index->transport,
             );
         }
 
-        $named = count(array_filter($index->sortings, fn(SortingDefinition $s) => !$s->isRelevance()));
+        $named = count(array_filter($index->sortings, fn (SortingDefinition $s) => ! $s->isRelevance()));
 
         if ($named > self::LITE_MAX_SORTINGS) {
             $problems[] = sprintf(
@@ -121,7 +130,7 @@ class Edition
             );
         }
 
-        if (($index->stopwords !== [] || $index->synonyms !== []) && !self::allowsWordLists(false)) {
+        if (($index->stopwords !== [] || $index->synonyms !== []) && ! self::allowsWordLists(false)) {
             $problems[] = 'Stopwords and synonyms need Pro.';
         }
 

@@ -29,7 +29,7 @@ class Compiler
     public const WEIGHT_PRECISION = 3;
 
     /**
-     * @param iterable<array{elementId: int, siteId: int, objectId: string, content: array, tokens: array}> $records
+     * @param  iterable<array{elementId: int, siteId: int, objectId: string, content: array, tokens: array}>  $records
      */
     public function compile(IndexDefinition $index, iterable $records, int $version = 1): Artifact
     {
@@ -71,12 +71,12 @@ class Compiler
         // postings list with a single id in each.
         $facetDefinitions = array_values(array_filter(
             $index->facets(),
-            fn(AttributeDefinition $facet) => $facet->facetType !== AttributeDefinition::FACET_GEO,
+            fn (AttributeDefinition $facet) => $facet->facetType !== AttributeDefinition::FACET_GEO,
         ));
 
         $geoDefinitions = array_values(array_filter(
             $index->facets(),
-            fn(AttributeDefinition $facet) => $facet->facetType === AttributeDefinition::FACET_GEO,
+            fn (AttributeDefinition $facet) => $facet->facetType === AttributeDefinition::FACET_GEO,
         ));
 
         $geo = [];
@@ -90,11 +90,11 @@ class Compiler
 
         foreach ($records as $record) {
             $objectIds[$id] = $record['objectId'];
-            $payloads[$id] = (array)($record['content']['payload'] ?? []);
+            $payloads[$id] = (array) ($record['content']['payload'] ?? []);
 
             foreach ($sortableKeys as $key) {
                 $value = $record['content']['sortable'][$key] ?? null;
-                $sortableValues[$key][$id] = is_numeric($value) && !is_string($value) ? (float)$value : $value;
+                $sortableValues[$key][$id] = is_numeric($value) && ! is_string($value) ? (float) $value : $value;
             }
 
             foreach ($geoDefinitions as $facet) {
@@ -103,13 +103,13 @@ class Compiler
                 // Dense, so a lookup is by position like everything else. Records with no
                 // coordinates hold null and are simply never within any radius.
                 $geo[$facet->key][$id] = Geo::isValid($point)
-                    ? [(float)$point[0], (float)$point[1]]
+                    ? [(float) $point[0], (float) $point[1]]
                     : null;
             }
 
             foreach ($facetDefinitions as $facet) {
                 $key = $facet->key;
-                $values = (array)($record['content']['facets'][$key] ?? []);
+                $values = (array) ($record['content']['facets'][$key] ?? []);
 
                 if ($facet->facetType === AttributeDefinition::FACET_HIERARCHICAL) {
                     // QUERY_SPEC §4: ancestors are expanded here, at build time, so a
@@ -121,7 +121,7 @@ class Compiler
                 foreach ($values as $value) {
                     $lookup = $this->lookupKey($value);
 
-                    if (!isset($valueIndexes[$key][$lookup])) {
+                    if (! isset($valueIndexes[$key][$lookup])) {
                         $valueIndexes[$key][$lookup] = count($facetValues[$key]);
                         $facetValues[$key][] = $value;
                         $facetPostings[$key][] = [];
@@ -142,10 +142,10 @@ class Compiler
                 }
             }
 
-            foreach ((array)$record['tokens'] as $token => $weight) {
-                $token = (string)$token;
+            foreach ((array) $record['tokens'] as $token => $weight) {
+                $token = (string) $token;
                 $tokenIds[$token][] = $id;
-                $tokenWeights[$token][] = round((float)$weight, self::WEIGHT_PRECISION);
+                $tokenWeights[$token][] = round((float) $weight, self::WEIGHT_PRECISION);
             }
 
             $id++;
@@ -204,7 +204,7 @@ class Compiler
     /**
      * Expands `Home > Tools > Saws` into all three of its ancestor paths.
      *
-     * @param list<mixed> $values
+     * @param  list<mixed>  $values
      * @return list<string>
      */
     private function expandHierarchy(array $values, string $separator): array
@@ -212,7 +212,7 @@ class Compiler
         $expanded = [];
 
         foreach ($values as $value) {
-            $parts = array_map('trim', explode(trim($separator), (string)$value));
+            $parts = array_map('trim', explode(trim($separator), (string) $value));
             $path = [];
 
             foreach ($parts as $part) {
@@ -237,8 +237,8 @@ class Compiler
      * Each is the full record list ordered by the sorting's key, with nulls last and objectID
      * as the final tie-break, so it is a total order and a query can simply filter it.
      *
-     * @param list<string> $objectIds
-     * @param array<string, list<string|float|null>> $sortableValues
+     * @param  list<string>  $objectIds
+     * @param  array<string, list<string|float|null>>  $sortableValues
      * @return array<string, list<int>>
      */
     private function buildSortings(IndexDefinition $index, array $objectIds, array $sortableValues): array
@@ -251,8 +251,9 @@ class Compiler
                 // Relevance with no query is score 0 for everything, so the order is the
                 // tie-break alone.
                 $relevance = $ids;
-                usort($relevance, fn(int $a, int $b) => Comparator::compare($objectIds[$a], $objectIds[$b]));
+                usort($relevance, fn (int $a, int $b) => Comparator::compare($objectIds[$a], $objectIds[$b]));
                 $sortings[SortingDefinition::RELEVANCE] = $relevance;
+
                 continue;
             }
 
@@ -265,7 +266,7 @@ class Compiler
             $ordered = $ids;
             $descending = $sorting->isDescending();
 
-            usort($ordered, function(int $a, int $b) use ($values, $descending, $objectIds) {
+            usort($ordered, function (int $a, int $b) use ($values, $descending, $objectIds) {
                 $av = $values[$a] ?? null;
                 $bv = $values[$b] ?? null;
 
@@ -301,13 +302,13 @@ class Compiler
     private function lookupKey(mixed $value): string
     {
         if (is_bool($value)) {
-            return 'b:' . ($value ? '1' : '0');
+            return 'b:'.($value ? '1' : '0');
         }
 
         if (is_int($value) || is_float($value)) {
-            return 'n:' . $value;
+            return 'n:'.$value;
         }
 
-        return 's:' . $value;
+        return 's:'.$value;
     }
 }

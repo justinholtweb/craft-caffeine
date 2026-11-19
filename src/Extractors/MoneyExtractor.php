@@ -27,19 +27,19 @@ class MoneyExtractor implements ValueExtractorInterface
             return null;
         }
 
-        if (!is_numeric($amount)) {
+        if (! is_numeric($amount)) {
             return null;
         }
 
         $code = is_object($currency) && method_exists($currency, 'getCode')
             ? $currency->getCode()
-            : (string)$currency;
+            : (string) $currency;
 
-        $major = (float)$amount / (10 ** self::subunits($code));
+        $major = (float) $amount / (10 ** self::subunits($code));
 
         return new ExtractedValue($major, [
             'amount' => $major,
-            'minor' => (int)$amount,
+            'minor' => (int) $amount,
             'currency' => $code,
         ]);
     }

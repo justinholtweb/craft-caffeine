@@ -50,13 +50,14 @@ class IndexBuildCommand extends Command
             return self::FAILURE;
         }
 
-        $all = (bool)$this->option('all');
-        $workers = max(1, (int)$this->option('workers'));
+        $all = (bool) $this->option('all');
+        $workers = max(1, (int) $this->option('workers'));
         $failed = false;
 
         foreach ($selected as $index) {
-            if (!$indexes->isAllowed($index)) {
+            if (! $indexes->isAllowed($index)) {
                 $this->warn("Skipping “{$index->handle}” — not available on this edition.");
+
                 continue;
             }
 
@@ -70,7 +71,7 @@ class IndexBuildCommand extends Command
 
                 $result = $workers > 1
                     ? $this->buildParallel($index, $workers, $bar, $builder)
-                    : $builder->buildAll($index, function(int $done, int $total) use ($bar) {
+                    : $builder->buildAll($index, function (int $done, int $total) use ($bar) {
                         $bar->setMaxSteps(max($total, 1));
                         $bar->setProgress($done);
                     });
@@ -125,21 +126,21 @@ class IndexBuildCommand extends Command
         $workers = min($workers, count($ids));
 
         if ($workers < 2) {
-            return $builder->buildAll($index, function(int $done, int $total) use ($bar) {
+            return $builder->buildAll($index, function (int $done, int $total) use ($bar) {
                 $bar->setMaxSteps(max($total, 1));
                 $bar->setProgress($done);
             });
         }
 
-        $chunks = array_chunk($ids, (int)ceil(count($ids) / $workers));
-        $tempDir = Path::temp('caffeine-build-' . bin2hex(random_bytes(4)));
+        $chunks = array_chunk($ids, (int) ceil(count($ids) / $workers));
+        $tempDir = Path::temp('caffeine-build-'.bin2hex(random_bytes(4)));
         $slices = [];
 
         foreach ($chunks as $k => $chunk) {
             $slices[$k] = [
                 'from' => $k === 0 ? 0 : $chunk[0],
                 'to' => isset($chunks[$k + 1]) ? $chunks[$k + 1][0] - 1 : null,
-                'file' => $tempDir . DIRECTORY_SEPARATOR . "worker-{$k}.json",
+                'file' => $tempDir.DIRECTORY_SEPARATOR."worker-{$k}.json",
                 'done' => 0,
                 'total' => count($chunk),
                 'buffer' => '',
@@ -149,20 +150,20 @@ class IndexBuildCommand extends Command
         $script = $this->entryScript();
 
         try {
-            $pool = Process::pool(function(Pool $pool) use ($slices, $index, $script) {
+            $pool = Process::pool(function (Pool $pool) use ($slices, $index, $script) {
                 foreach ($slices as $k => $slice) {
-                    $pool->as((string)$k)->forever()->command([
+                    $pool->as((string) $k)->forever()->command([
                         PHP_BINARY,
                         $script,
                         'caffeine:index:build-worker',
                         $index->handle,
-                        "--range={$slice['from']}:" . ($slice['to'] ?? ''),
+                        "--range={$slice['from']}:".($slice['to'] ?? ''),
                         "--result={$slice['file']}",
                         '--no-interaction',
                         '--no-ansi',
                     ]);
                 }
-            })->start(function(string $type, string $output, int|string $key) use (&$slices) {
+            })->start(function (string $type, string $output, int|string $key) use (&$slices) {
                 if ($type !== 'out') {
                     // Worker errors go straight through, as they did when the worker shared
                     // this process's stderr.
@@ -171,7 +172,7 @@ class IndexBuildCommand extends Command
                     return;
                 }
 
-                $k = (int)$key;
+                $k = (int) $key;
                 $slices[$k]['buffer'] .= $output;
 
                 // Workers report `progress <done> <total>` lines; only the latest complete one
@@ -186,14 +187,14 @@ class IndexBuildCommand extends Command
                 $slices[$k]['buffer'] = substr($slices[$k]['buffer'], $end + 1);
 
                 if (preg_match_all('/^progress (\d+) (\d+)$/m', $lines, $m) > 0) {
-                    $slices[$k]['done'] = (int)end($m[1]);
-                    $slices[$k]['total'] = (int)end($m[2]);
+                    $slices[$k]['done'] = (int) end($m[1]);
+                    $slices[$k]['total'] = (int) end($m[2]);
                 }
             });
         } catch (Throwable $e) {
             File::deleteDirectory($tempDir);
 
-            throw new RuntimeException('Could not start a build worker: ' . $e->getMessage(), 0, $e);
+            throw new RuntimeException('Could not start a build worker: '.$e->getMessage(), 0, $e);
         }
 
         $total = count($ids);
@@ -214,25 +215,26 @@ class IndexBuildCommand extends Command
 
         foreach ($slices as $k => $slice) {
             $exit = $results->collect()->get($k)?->exitCode();
-            $result = is_file($slice['file']) ? json_decode((string)file_get_contents($slice['file']), true) : null;
+            $result = is_file($slice['file']) ? json_decode((string) file_get_contents($slice['file']), true) : null;
 
-            if (!is_array($result)) {
+            if (! is_array($result)) {
                 $complete = false;
                 $errors[] = sprintf('Worker %d of %d exited with code %d without finishing its slice.', $k + 1, count($slices), $exit ?? -1);
+
                 continue;
             }
 
-            $records += (int)$result['records'];
-            array_push($errors, ...array_values((array)$result['errors']));
+            $records += (int) $result['records'];
+            array_push($errors, ...array_values((array) $result['errors']));
 
-            foreach ((array)$result['seen'] as $id) {
-                $seen[(int)$id] = true;
+            foreach ((array) $result['seen'] as $id) {
+                $seen[(int) $id] = true;
             }
         }
 
         File::deleteDirectory($tempDir);
 
-        if (!$complete) {
+        if (! $complete) {
             $errors[] = 'Records were not pruned, because not every slice was built. Run the build again.';
 
             return ['records' => $records, 'pruned' => 0, 'errors' => $errors];
@@ -244,7 +246,7 @@ class IndexBuildCommand extends Command
     }
 
     /**
-     * @param array<int, array{done: int, total: int}> $slices
+     * @param  array<int, array{done: int, total: int}>  $slices
      */
     private function advanceParallel(ProgressBar $bar, array $slices, int $total): void
     {

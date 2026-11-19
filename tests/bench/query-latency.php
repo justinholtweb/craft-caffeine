@@ -11,28 +11,28 @@
  *   node tests/bench/query-latency.mjs 10000
  */
 
-require __DIR__ . '/../../vendor/autoload.php';
-require __DIR__ . '/fixture.php';
+require __DIR__.'/../../vendor/autoload.php';
+require __DIR__.'/fixture.php';
 
 use JustinHoltWeb\Caffeine\Search\ArtifactEncoder;
 use JustinHoltWeb\Caffeine\Search\Compiler;
 use JustinHoltWeb\Caffeine\Search\Engine;
 use JustinHoltWeb\Caffeine\Search\QueryState;
 
-$count = (int)($argv[1] ?? 10000);
-$iterations = (int)($argv[2] ?? 20);
+$count = (int) ($argv[1] ?? 10000);
+$iterations = (int) ($argv[2] ?? 20);
 
 [$index, $records] = caffeineBenchFixture($count);
 
-$artifact = (new Compiler())->compile($index, $records);
+$artifact = (new Compiler)->compile($index, $records);
 
-$dir = __DIR__ . '/build';
+$dir = __DIR__.'/build';
 
-if (!is_dir($dir)) {
+if (! is_dir($dir)) {
     mkdir($dir, 0777, true);
 }
 
-$encoded = (new ArtifactEncoder())->encode($artifact);
+$encoded = (new ArtifactEncoder)->encode($artifact);
 
 file_put_contents(
     "{$dir}/bench-{$count}.encoded.json",
@@ -65,7 +65,7 @@ foreach (caffeineBenchQueries() as $label => $state) {
         $label,
         $timings[intdiv(count($timings), 2)],
         array_sum($timings) / count($timings),
-        $timings[min(count($timings) - 1, (int)floor(count($timings) * 0.95))],
+        $timings[min(count($timings) - 1, (int) floor(count($timings) * 0.95))],
     );
 }
 

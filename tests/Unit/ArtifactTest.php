@@ -5,6 +5,8 @@ declare(strict_types=1);
 use JustinHoltWeb\Caffeine\Search\Artifact;
 use JustinHoltWeb\Caffeine\Search\ArtifactDecoder;
 use JustinHoltWeb\Caffeine\Search\ArtifactEncoder;
+use JustinHoltWeb\Caffeine\Search\Engine;
+use JustinHoltWeb\Caffeine\Search\QueryState;
 
 /**
  * The PHP side holds less than the shared structure: no facet reverse map, and token postings as
@@ -56,14 +58,14 @@ function caffeineSharedArtifact(): array
     ];
 }
 
-it('rebuilds the shared structure exactly from what it holds', function() {
+it('rebuilds the shared structure exactly from what it holds', function () {
     $shared = caffeineSharedArtifact();
     $artifact = Artifact::fromArray($shared);
 
     expect($artifact->toArray())->toBe($shared);
 });
 
-it('holds token postings flat, with an offset per token', function() {
+it('holds token postings flat, with an offset per token', function () {
     $artifact = Artifact::fromArray(caffeineSharedArtifact());
 
     expect($artifact->tokenIds)->toBe([1, 2, 0, 2]);
@@ -72,7 +74,7 @@ it('holds token postings flat, with an offset per token', function() {
     expect($artifact->tokenPostings(2))->toBe([[0, 5.0], [2, 0.5]]);
 });
 
-it('does not hold the reverse map, but can rebuild it dense and sorted', function() {
+it('does not hold the reverse map, but can rebuild it dense and sorted', function () {
     $artifact = Artifact::fromArray(caffeineSharedArtifact());
 
     expect($artifact->facets['tags'])->not->toHaveKey('records');
@@ -80,15 +82,15 @@ it('does not hold the reverse map, but can rebuild it dense and sorted', functio
     expect($artifact->records('colour'))->toBe([[0], [], [1]]);
 });
 
-it('keeps the reverse map on the wire for the browser, and decodes without it', function() {
+it('keeps the reverse map on the wire for the browser, and decodes without it', function () {
     $shared = caffeineSharedArtifact();
-    $encoded = (new ArtifactEncoder())->encode(Artifact::fromArray($shared));
+    $encoded = (new ArtifactEncoder)->encode(Artifact::fromArray($shared));
 
     expect($encoded['index']['facets']['tags'])->toHaveKey('records');
-    expect((new ArtifactDecoder())->decode($encoded['index'], $encoded['payload'], 1)->toArray())->toBe($shared);
+    expect((new ArtifactDecoder)->decode($encoded['index'], $encoded['payload'], 1)->toArray())->toBe($shared);
 });
 
-it('refuses token offsets that do not match the tokens', function() {
+it('refuses token offsets that do not match the tokens', function () {
     new Artifact(
         index: 'products',
         version: 1,
@@ -109,21 +111,21 @@ it('refuses token offsets that do not match the tokens', function() {
  * The shared artifact decoded the way the server decodes it lazily, with a loader that answers
  * from `$source` and records every call.
  *
- * @param list<array<string, mixed>> $source
- * @param list<list<int>> $calls
+ * @param  list<array<string, mixed>>  $source
+ * @param  list<list<int>>  $calls
  */
 function caffeineLazyArtifact(array $source, array &$calls): Artifact
 {
-    $encoder = new ArtifactEncoder();
+    $encoder = new ArtifactEncoder;
     $eager = Artifact::fromArray(caffeineSharedArtifact());
     $encoded = $encoder->encode($eager);
 
-    return (new ArtifactDecoder())->decode(
+    return (new ArtifactDecoder)->decode(
         $encoded['index'],
         null,
         1,
         $encoder->encodeLookup($eager),
-        function(array $ids, Artifact $artifact) use ($source, &$calls): array {
+        function (array $ids, Artifact $artifact) use ($source, &$calls): array {
             $calls[] = $ids;
 
             // Answered out of order, to pin that the artifact puts them back.
@@ -138,9 +140,9 @@ function caffeineLazyArtifact(array $source, array &$calls): Artifact
     );
 }
 
-it('writes a lookup holding object ids and one hash per payload', function() {
+it('writes a lookup holding object ids and one hash per payload', function () {
     $shared = caffeineSharedArtifact();
-    $lookup = (new ArtifactEncoder())->encodeLookup(Artifact::fromArray($shared));
+    $lookup = (new ArtifactEncoder)->encodeLookup(Artifact::fromArray($shared));
 
     expect($lookup['objectIds'])->toBe($shared['objectIds']);
     expect($lookup['payloadHashes'])->toBe(implode('', array_map(ArtifactEncoder::payloadHash(...), $shared['payloads'])));
@@ -148,14 +150,14 @@ it('writes a lookup holding object ids and one hash per payload', function() {
     expect($lookup)->not->toHaveKey('payloads');
 });
 
-it('hashes payloads by value, so a changed card no longer matches', function() {
+it('hashes payloads by value, so a changed card no longer matches', function () {
     expect(ArtifactEncoder::payloadHash(['title' => 'Saw', 'price' => 12.0]))
         ->toBe(ArtifactEncoder::payloadHash(['title' => 'Saw', 'price' => 12.0]))
         ->not->toBe(ArtifactEncoder::payloadHash(['title' => 'Saw', 'price' => 12]))
         ->not->toBe(ArtifactEncoder::payloadHash(['title' => 'Saws', 'price' => 12.0]));
 });
 
-it('decodes from the index and lookup alone, holding no payloads', function() {
+it('decodes from the index and lookup alone, holding no payloads', function () {
     $calls = [];
     $artifact = caffeineLazyArtifact(caffeineSharedArtifact()['payloads'], $calls);
 
@@ -167,7 +169,7 @@ it('decodes from the index and lookup alone, holding no payloads', function() {
     expect($calls)->toBe([]);
 });
 
-it('loads a page of payloads in one call, in the order asked for', function() {
+it('loads a page of payloads in one call, in the order asked for', function () {
     $calls = [];
     $artifact = caffeineLazyArtifact(caffeineSharedArtifact()['payloads'], $calls);
 
@@ -175,15 +177,15 @@ it('loads a page of payloads in one call, in the order asked for', function() {
     expect($calls)->toBe([[2, 0]]);
 });
 
-it('answers a search with the same hits whether payloads are held or loaded', function() {
+it('answers a search with the same hits whether payloads are held or loaded', function () {
     $calls = [];
     $lazy = caffeineLazyArtifact(caffeineSharedArtifact()['payloads'], $calls);
     $eager = Artifact::fromArray(caffeineSharedArtifact());
 
     foreach ([[], ['query' => 'saw'], ['refinements' => ['tags' => ['sale']]], ['hitsPerPage' => 1, 'page' => 2]] as $state) {
-        $state = JustinHoltWeb\Caffeine\Search\QueryState::fromArray($state);
-        $a = (new JustinHoltWeb\Caffeine\Search\Engine($eager))->search($state);
-        $b = (new JustinHoltWeb\Caffeine\Search\Engine($lazy))->search($state);
+        $state = QueryState::fromArray($state);
+        $a = (new Engine($eager))->search($state);
+        $b = (new Engine($lazy))->search($state);
         unset($a['processingTimeMS'], $b['processingTimeMS']);
 
         expect($b)->toBe($a);
@@ -194,19 +196,19 @@ it('answers a search with the same hits whether payloads are held or loaded', fu
     expect($calls[3])->toBe([2]);
 });
 
-it('still produces the shared structure, payloads included, when they load on demand', function() {
+it('still produces the shared structure, payloads included, when they load on demand', function () {
     $calls = [];
     $artifact = caffeineLazyArtifact(caffeineSharedArtifact()['payloads'], $calls);
 
     expect($artifact->toArray())->toBe(caffeineSharedArtifact());
 });
 
-it('decodes eagerly when a lookup comes without a loader', function() {
-    $encoder = new ArtifactEncoder();
+it('decodes eagerly when a lookup comes without a loader', function () {
+    $encoder = new ArtifactEncoder;
     $eager = Artifact::fromArray(caffeineSharedArtifact());
     $encoded = $encoder->encode($eager);
 
-    $artifact = (new ArtifactDecoder())->decode($encoded['index'], $encoded['payload'], 1, $encoder->encodeLookup($eager));
+    $artifact = (new ArtifactDecoder)->decode($encoded['index'], $encoded['payload'], 1, $encoder->encodeLookup($eager));
 
     expect($artifact->hasPayloads())->toBeTrue();
     expect($artifact->toArray())->toBe(caffeineSharedArtifact());

@@ -17,6 +17,7 @@ use Throwable;
 class LinkExtractor implements ValueExtractorInterface
 {
     private const URL_METHODS = ['getUrl', 'getLink'];
+
     private const TEXT_METHODS = ['getLabel', 'getText', 'getLinkText', 'getTitle'];
 
     public static function supports(object $value): bool
@@ -36,7 +37,7 @@ class LinkExtractor implements ValueExtractorInterface
 
         // `getLink()` on some models returns rendered markup rather than a URL. A link that is
         // not a string is not a link this extractor can speak for.
-        if (!is_string($url) || $url === '') {
+        if (! is_string($url) || $url === '') {
             return null;
         }
 
@@ -58,12 +59,12 @@ class LinkExtractor implements ValueExtractorInterface
     }
 
     /**
-     * @param list<string> $methods
+     * @param  list<string>  $methods
      */
     private static function call(object $value, array $methods): mixed
     {
         foreach ($methods as $method) {
-            if (!method_exists($value, $method)) {
+            if (! method_exists($value, $method)) {
                 continue;
             }
 

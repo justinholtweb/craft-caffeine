@@ -48,7 +48,7 @@ class ValueHelper
             return $unwrap ? self::flatten($value->primary, true) : [$value];
         }
 
-        if (!is_array($value)) {
+        if (! is_array($value)) {
             return [$value];
         }
 
@@ -97,7 +97,7 @@ class ValueHelper
     {
         if ($item instanceof DateTimeInterface) {
             return $attribute->isNumericFacet()
-                ? (float)$item->getTimestamp()
+                ? (float) $item->getTimestamp()
                 : $item->format('Y-m-d');
         }
 
@@ -105,7 +105,7 @@ class ValueHelper
             // An element used as a facet value is its title. Its id would be stable but
             // meaningless in a URL, and stability is already handled by the dependency map
             // marking the record dirty when the title changes.
-            $item = (string)$item->title;
+            $item = (string) $item->title;
         }
 
         if (is_bool($item)) {
@@ -123,14 +123,14 @@ class ValueHelper
         }
 
         if ($attribute->isNumericFacet()) {
-            return is_numeric($item) ? (float)$item : null;
+            return is_numeric($item) ? (float) $item : null;
         }
 
         if ($attribute->facetType === AttributeDefinition::FACET_BOOLEAN) {
-            return (bool)$item;
+            return (bool) $item;
         }
 
-        return (string)$item;
+        return (string) $item;
     }
 
     /**
@@ -148,11 +148,11 @@ class ValueHelper
         $first = $flat[0];
 
         if ($first instanceof DateTimeInterface) {
-            return (float)$first->getTimestamp();
+            return (float) $first->getTimestamp();
         }
 
         if ($first instanceof ElementInterface) {
-            $first = (string)$first->title;
+            $first = (string) $first->title;
         }
 
         if (is_bool($first)) {
@@ -167,7 +167,7 @@ class ValueHelper
             return null;
         }
 
-        return is_numeric($first) ? (float)$first : (string)$first;
+        return is_numeric($first) ? (float) $first : (string) $first;
     }
 
     /**
@@ -210,7 +210,7 @@ class ValueHelper
                 'alt' => $item->alt,
                 'width' => $item->getWidth(),
                 'height' => $item->getHeight(),
-            ], fn($v) => $v !== null);
+            ], fn ($v) => $v !== null);
         }
 
         if ($item instanceof ElementInterface) {
@@ -219,7 +219,7 @@ class ValueHelper
                 'title' => $item->title,
                 'slug' => $item->slug ?? null,
                 'url' => $item->getUrl(),
-            ], fn($v) => $v !== null);
+            ], fn ($v) => $v !== null);
         }
 
         if (is_scalar($item)) {
@@ -251,7 +251,8 @@ class ValueHelper
             }
 
             if ($item instanceof ElementInterface) {
-                $parts[] = (string)$item->title;
+                $parts[] = (string) $item->title;
+
                 continue;
             }
 
@@ -259,10 +260,10 @@ class ValueHelper
                 continue;
             }
 
-            $parts[] = is_scalar($item) ? (string)$item : self::stringify($item);
+            $parts[] = is_scalar($item) ? (string) $item : self::stringify($item);
         }
 
-        return trim(implode(' ', array_filter($parts, fn(string $p) => $p !== '')));
+        return trim(implode(' ', array_filter($parts, fn (string $p) => $p !== '')));
     }
 
     /**
@@ -282,7 +283,7 @@ class ValueHelper
                 $lng = $item->part('lng');
 
                 if (is_numeric($lat) && is_numeric($lng)) {
-                    return [(float)$lat, (float)$lng];
+                    return [(float) $lat, (float) $lng];
                 }
 
                 $item = $item->primary;
@@ -292,7 +293,7 @@ class ValueHelper
                 $pair = array_values($item);
 
                 if (is_numeric($pair[0]) && is_numeric($pair[1])) {
-                    return [(float)$pair[0], (float)$pair[1]];
+                    return [(float) $pair[0], (float) $pair[1]];
                 }
             }
 
@@ -300,7 +301,7 @@ class ValueHelper
                 $pair = array_map('trim', explode(',', $item, 2));
 
                 if (is_numeric($pair[0]) && is_numeric($pair[1])) {
-                    return [(float)$pair[0], (float)$pair[1]];
+                    return [(float) $pair[0], (float) $pair[1]];
                 }
             }
         }
@@ -315,8 +316,8 @@ class ValueHelper
      * record on every build, and it arrives from project config, which is neither a safe nor a
      * fast place for arbitrary code.
      *
-     * @param list<mixed> $values
-     * @param string[] $transforms
+     * @param  list<mixed>  $values
+     * @param  string[]  $transforms
      * @return list<mixed>
      */
     public static function applyTransforms(array $values, array $transforms): array
@@ -325,16 +326,16 @@ class ValueHelper
             [$name, $argument] = array_pad(explode(':', $transform, 2), 2, null);
 
             $values = match ($name) {
-                'trim' => array_map(fn($v) => is_string($v) ? trim($v) : $v, $values),
-                'lower' => array_map(fn($v) => is_string($v) ? mb_strtolower($v) : $v, $values),
-                'upper' => array_map(fn($v) => is_string($v) ? mb_strtoupper($v) : $v, $values),
-                'stripTags' => array_map(fn($v) => is_string($v) ? strip_tags($v) : $v, $values),
-                'slug' => array_map(fn($v) => is_string($v) ? Str::slug($v) : $v, $values),
+                'trim' => array_map(fn ($v) => is_string($v) ? trim($v) : $v, $values),
+                'lower' => array_map(fn ($v) => is_string($v) ? mb_strtolower($v) : $v, $values),
+                'upper' => array_map(fn ($v) => is_string($v) ? mb_strtoupper($v) : $v, $values),
+                'stripTags' => array_map(fn ($v) => is_string($v) ? strip_tags($v) : $v, $values),
+                'slug' => array_map(fn ($v) => is_string($v) ? Str::slug($v) : $v, $values),
                 'unique' => array_values(array_unique($values, SORT_REGULAR)),
                 'first' => array_slice($values, 0, 1),
                 'sort' => self::sorted($values),
-                'compact' => array_values(array_filter($values, fn($v) => $v !== null && $v !== '')),
-                'date' => array_map(fn($v) => $v instanceof DateTimeInterface ? $v->format($argument ?: 'Y-m-d') : $v, $values),
+                'compact' => array_values(array_filter($values, fn ($v) => $v !== null && $v !== '')),
+                'date' => array_map(fn ($v) => $v instanceof DateTimeInterface ? $v->format($argument ?: 'Y-m-d') : $v, $values),
                 default => $values,
             };
         }
@@ -344,7 +345,7 @@ class ValueHelper
     }
 
     /**
-     * @param list<mixed> $values
+     * @param  list<mixed>  $values
      * @return list<mixed>
      */
     private static function sorted(array $values): array
@@ -361,12 +362,12 @@ class ValueHelper
      */
     private static function stringify(object $value): ?string
     {
-        if (!method_exists($value, '__toString')) {
+        if (! method_exists($value, '__toString')) {
             return null;
         }
 
         try {
-            $string = (string)$value;
+            $string = (string) $value;
         } catch (Throwable) {
             return null;
         }

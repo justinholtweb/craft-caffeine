@@ -2,9 +2,8 @@
 
 namespace JustinHoltWeb\Caffeine\Models;
 
-use Illuminate\Validation\Rule;
-
 use CraftCms\Cms\Plugin\PluginSettings;
+use Illuminate\Validation\Rule;
 use Psr\Log\LogLevel;
 
 /**
@@ -18,14 +17,29 @@ use Psr\Log\LogLevel;
 class Settings extends PluginSettings
 {
     /**
-     * Handle of the Craft filesystem artifacts are published to. Empty means the local web
-     * root, which is right for most sites; naming a filesystem puts artifacts on S3 or a CDN
-     * so PHP never serves them.
+     * Name of the Laravel filesystem disk artifacts are published to (`config/filesystems.php`).
+     * Empty means the local web root, which is right for most sites; naming a disk puts
+     * artifacts on S3 or a CDN so PHP never serves them. Craft 5 called this a filesystem
+     * handle, and Craft's upgrade turns each filesystem into a disk with the same name.
+     *
+     * Nullable, like every text setting here: Laravel turns a blank field into null.
      */
-    public string $filesystemHandle = '';
+    public ?string $filesystemHandle = null;
 
-    /** Path within the filesystem (or web root) that artifacts are written under. */
-    public string $publishPath = 'caffeine';
+    /** Path within the disk (or web root) that artifacts are written under. */
+    public ?string $publishPath = 'caffeine';
+
+    /** The control-panel nav label. Empty uses the plugin name. */
+    public ?string $navLabel = null;
+
+    /**
+     * The control-panel nav icon: an icon name from Craft's icon picker (`magnifying-glass`,
+     * `mug-hot`). Empty uses Caffeine's own mug.
+     */
+    public ?string $navIcon = null;
+
+    /** Raw SVG for the nav icon. Overrides `navIcon`. Sanitised before it's drawn. */
+    public ?string $navIconSvg = null;
 
     /**
      * How many superseded artifact versions to keep. More than one, always: a visitor who
@@ -63,7 +77,11 @@ class Settings extends PluginSettings
     public function getRules(): array
     {
         return [
+            'filesystemHandle' => ['nullable', 'string'],
             'publishPath' => ['nullable', 'string', 'regex:/^[a-zA-Z0-9\-_\/]*$/'],
+            'navLabel' => ['nullable', 'string', 'max:64'],
+            'navIcon' => ['nullable', 'string', 'max:128'],
+            'navIconSvg' => ['nullable', 'string', 'max:20000', 'regex:/^\s*(<\?xml[^>]*>\s*)?<svg[\s>]/i'],
             'keepVersions' => ['integer', 'min:1', 'max:100'],
             'logLevel' => [Rule::in([
                 LogLevel::DEBUG,
@@ -82,6 +100,7 @@ class Settings extends PluginSettings
     {
         return [
             'publishPath.regex' => 'The publish path can contain only letters, numbers, hyphens, underscores and slashes.',
+            'navIconSvg.regex' => 'Paste a whole <svg> element.',
         ];
     }
 }

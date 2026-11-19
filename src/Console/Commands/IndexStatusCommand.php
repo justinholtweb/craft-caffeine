@@ -48,7 +48,7 @@ class IndexStatusCommand extends Command
                 $index->transport,
             ));
 
-            if (!$indexes->isAllowed($index)) {
+            if (! $indexes->isAllowed($index)) {
                 $this->warn('  Not available on this edition — upgrade to Pro to build it.');
             }
         }

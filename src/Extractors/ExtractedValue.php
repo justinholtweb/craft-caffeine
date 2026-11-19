@@ -16,14 +16,13 @@ namespace JustinHoltWeb\Caffeine\Extractors;
 final class ExtractedValue
 {
     /**
-     * @param mixed $primary The scalar this value stands for.
-     * @param array<string, mixed> $parts Named pieces a dotted path can descend into.
+     * @param  mixed  $primary  The scalar this value stands for.
+     * @param  array<string, mixed>  $parts  Named pieces a dotted path can descend into.
      */
     public function __construct(
         public readonly mixed $primary,
         public readonly array $parts = [],
-    ) {
-    }
+    ) {}
 
     public function part(string $name): mixed
     {

@@ -4,7 +4,6 @@ namespace JustinHoltWeb\Caffeine\Models;
 
 use Illuminate\Validation\Rule;
 
-
 /**
  * A named ordering over an index, precomputed into the artifact.
  *
@@ -46,15 +45,15 @@ class SortingDefinition extends Model
     }
 
     /**
-     * @param array<string, mixed> $config
+     * @param  array<string, mixed>  $config
      */
     public static function fromConfig(array $config): self
     {
         return new self([
-            'name' => (string)($config['name'] ?? ''),
-            'label' => isset($config['label']) ? (string)$config['label'] : null,
-            'attribute' => (string)($config['attribute'] ?? ''),
-            'direction' => (string)($config['direction'] ?? 'asc'),
+            'name' => (string) ($config['name'] ?? ''),
+            'label' => isset($config['label']) ? (string) $config['label'] : null,
+            'attribute' => (string) ($config['attribute'] ?? ''),
+            'direction' => (string) ($config['direction'] ?? 'asc'),
         ]);
     }
 
@@ -81,7 +80,7 @@ class SortingDefinition extends Model
 
     protected function checks(): void
     {
-        if (!$this->isRelevance() && $this->attribute === '') {
+        if (! $this->isRelevance() && $this->attribute === '') {
             $this->addError('attribute', 'Choose the attribute this sorting orders by.');
         }
     }

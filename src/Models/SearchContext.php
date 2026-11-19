@@ -2,14 +2,20 @@
 
 namespace JustinHoltWeb\Caffeine\Models;
 
-use Craft;
+use CraftCms\Cms\Support\Facades\I18N;
+use CraftCms\Cms\Support\Url;
+use CraftCms\Cms\View\TemplateMode;
+use Illuminate\Support\Facades\Crypt;
+use JustinHoltWeb\Caffeine\Http\Controllers\FragmentController;
 use JustinHoltWeb\Caffeine\Plugin;
 use JustinHoltWeb\Caffeine\Search\Artifact;
 use JustinHoltWeb\Caffeine\Search\FacetValue;
 use JustinHoltWeb\Caffeine\Search\QueryState;
 use JustinHoltWeb\Caffeine\Search\UrlState;
-use craft\web\View;
+use JustinHoltWeb\Caffeine\Services\Publisher;
 use Twig\Markup;
+
+use function CraftCms\Cms\t;
 
 /**
  * What `search` is inside `{% caffeine %}`.
@@ -55,8 +61,7 @@ class SearchContext
         public readonly int $version = 0,
         /** @var array<string, mixed> What the tag was given, including where it is rendering. */
         public readonly array $options = [],
-    ) {
-    }
+    ) {}
 
     // -----------------------------------------------------------------------------------------
     // Results
@@ -70,32 +75,32 @@ class SearchContext
 
     public function getNbHits(): int
     {
-        return (int)($this->result['nbHits'] ?? 0);
+        return (int) ($this->result['nbHits'] ?? 0);
     }
 
     public function getPage(): int
     {
-        return (int)($this->result['page'] ?? 0);
+        return (int) ($this->result['page'] ?? 0);
     }
 
     public function getNbPages(): int
     {
-        return (int)($this->result['nbPages'] ?? 0);
+        return (int) ($this->result['nbPages'] ?? 0);
     }
 
     public function getHitsPerPage(): int
     {
-        return (int)($this->result['hitsPerPage'] ?? $this->index->hitsPerPage);
+        return (int) ($this->result['hitsPerPage'] ?? $this->index->hitsPerPage);
     }
 
     public function getQuery(): string
     {
-        return (string)($this->result['query'] ?? '');
+        return (string) ($this->result['query'] ?? '');
     }
 
     public function getProcessingTimeMS(): int
     {
-        return (int)($this->result['processingTimeMS'] ?? 0);
+        return (int) ($this->result['processingTimeMS'] ?? 0);
     }
 
     public function getIsEmpty(): bool
@@ -219,9 +224,9 @@ class SearchContext
                     'facet' => $key,
                     'facetLabel' => $definition->label ?: $key,
                     'value' => $around,
-                    'label' => Craft::t('caffeine', 'Within {distance}', [
-                        'distance' => $this->distanceLabel((float)$around['radius']),
-                    ]),
+                    'label' => t('Within {distance}', [
+                        'distance' => $this->distanceLabel((float) $around['radius']),
+                    ], category: 'caffeine'),
                     'url' => $this->geoUrl($key),
                     'isRange' => true,
                 ];
@@ -271,7 +276,7 @@ class SearchContext
             }
         }
 
-        if (!$found) {
+        if (! $found) {
             $values[] = $value;
         }
 
@@ -287,11 +292,11 @@ class SearchContext
         $range = [];
 
         if ($min !== null && $min !== '') {
-            $range['min'] = (float)$min;
+            $range['min'] = (float) $min;
         }
 
         if ($max !== null && $max !== '') {
-            $range['max'] = (float)$max;
+            $range['max'] = (float) $max;
         }
 
         if ($range === []) {
@@ -321,7 +326,7 @@ class SearchContext
             $state->around[$facet] = [
                 'lat' => $lat,
                 'lng' => $lng,
-                'radius' => max(0.0, (float)($radius ?? 0)),
+                'radius' => max(0.0, (float) ($radius ?? 0)),
             ];
         }
 
@@ -381,7 +386,7 @@ class SearchContext
      * not carry the active refinements forward would silently clear them the moment someone
      * typed. Passing `except` leaves out the parameters the form's own fields own.
      *
-     * @param list<string> $except Unprefixed parameter names the form supplies itself.
+     * @param  list<string>  $except  Unprefixed parameter names the form supplies itself.
      * @return array<string, string>
      */
     public function params(array $except = []): array
@@ -389,12 +394,12 @@ class SearchContext
         $params = UrlState::encode($this->state, $this->urlOptions());
 
         foreach ($except as $name) {
-            unset($params[$this->prefix . $name]);
+            unset($params[$this->prefix.$name]);
 
             // A range facet's form fields are named after the facet, so excluding "price" has
             // to drop the canonical parameter too or the two would fight.
-            unset($params[$this->prefix . $name . UrlState::SUFFIX_MIN]);
-            unset($params[$this->prefix . $name . UrlState::SUFFIX_MAX]);
+            unset($params[$this->prefix.$name.UrlState::SUFFIX_MIN]);
+            unset($params[$this->prefix.$name.UrlState::SUFFIX_MAX]);
         }
 
         return $params;
@@ -438,7 +443,7 @@ class SearchContext
      */
     public function config(): array
     {
-        $publisher = Plugin::getInstance()->publisher;
+        $publisher = app(Publisher::class);
 
         return [
             'index' => $this->index->handle,
@@ -456,7 +461,7 @@ class SearchContext
             // Signed, so the endpoint will render this template and no other. Without the
             // signature an endpoint that takes a template name from the request is an arbitrary
             // template-render primitive pointed at the whole site.
-            'tokenParam' => \JustinHoltWeb\Caffeine\Http\Controllers\FragmentController::PARAM_TOKEN,
+            'tokenParam' => FragmentController::PARAM_TOKEN,
             'token' => $this->token(),
         ];
     }
@@ -464,13 +469,13 @@ class SearchContext
     /**
      * A tamper-proof description of what the fragment endpoint should re-render.
      *
-     * `hashData()` prefixes an HMAC keyed on the site's security key, so the endpoint can trust
-     * the template path it is handed. Nothing secret is inside it — it is signed, not encrypted
-     * — and it is only ever a template Caffeine was already rendering.
+     * Encrypted with the app key (authenticated encryption, so it can't be altered), so the
+     * endpoint can trust the template path it is handed. Nothing in it is secret — it is only
+     * ever a template Caffeine was already rendering — but Craft 6 has no sign-only helper.
      */
     public function token(): string
     {
-        return Craft::$app->getSecurity()->hashData(json_encode([
+        return Crypt::encryptString((string) json_encode([
             'index' => $this->index->handle,
             'prefix' => $this->prefix,
             'path' => $this->path,
@@ -484,13 +489,13 @@ class SearchContext
     {
         // The registered site route rather than an action URL, so it reads as a normal path in a
         // network panel and can be cached or routed at the edge like any other GET.
-        return \craft\helpers\UrlHelper::siteUrl('caffeine/fragment');
+        return Url::siteUrl('caffeine/fragment');
     }
 
     /** The DOM id shared by the results wrapper and everything that swaps it. */
     public function getResultsId(): string
     {
-        return 'caffeine-results-' . ($this->prefix !== '' ? $this->prefix : '') . $this->index->handle;
+        return 'caffeine-results-'.($this->prefix !== '' ? $this->prefix : '').$this->index->handle;
     }
 
     public function captureResults(string $html): void
@@ -513,7 +518,7 @@ class SearchContext
     /** Namespaced, so two indexes on one page cannot swap each other's markup. */
     public function regionId(string $name): string
     {
-        return $this->prefix . $this->index->handle . ':' . $name;
+        return $this->prefix.$this->index->handle.':'.$name;
     }
 
     public function getRenderedResults(): ?string
@@ -531,7 +536,7 @@ class SearchContext
     // -----------------------------------------------------------------------------------------
 
     /**
-     * @param array<string, mixed> $options
+     * @param  array<string, mixed>  $options
      */
     public function searchBox(array $options = []): Markup
     {
@@ -539,7 +544,7 @@ class SearchContext
     }
 
     /**
-     * @param array<string, mixed> $options
+     * @param  array<string, mixed>  $options
      */
     public function refinementList(string $facet, array $options = []): Markup
     {
@@ -547,7 +552,7 @@ class SearchContext
     }
 
     /**
-     * @param array<string, mixed> $options
+     * @param  array<string, mixed>  $options
      */
     public function hierarchicalMenu(string $facet, array $options = []): Markup
     {
@@ -560,7 +565,7 @@ class SearchContext
     }
 
     /**
-     * @param array<string, mixed> $options
+     * @param  array<string, mixed>  $options
      */
     public function rangeInput(string $facet, array $options = []): Markup
     {
@@ -571,7 +576,7 @@ class SearchContext
     }
 
     /**
-     * @param array<string, mixed> $options
+     * @param  array<string, mixed>  $options
      */
     public function currentRefinements(array $options = []): Markup
     {
@@ -579,15 +584,15 @@ class SearchContext
     }
 
     /**
-     * @param list<string>|null $sortings Names to offer, in order. Null means every one defined.
-     * @param array<string, mixed> $options
+     * @param  list<string>|null  $sortings  Names to offer, in order. Null means every one defined.
+     * @param  array<string, mixed>  $options
      */
     public function sortBy(?array $sortings = null, array $options = []): Markup
     {
         $available = [];
 
         foreach ($this->index->allSortings() as $sorting) {
-            if ($sortings !== null && !in_array($sorting->name, $sortings, true)) {
+            if ($sortings !== null && ! in_array($sorting->name, $sortings, true)) {
                 continue;
             }
 
@@ -611,7 +616,7 @@ class SearchContext
     }
 
     /**
-     * @param array<string, mixed> $options
+     * @param  array<string, mixed>  $options
      */
     public function stats(array $options = []): Markup
     {
@@ -619,11 +624,11 @@ class SearchContext
     }
 
     /**
-     * @param array<string, mixed> $options
+     * @param  array<string, mixed>  $options
      */
     public function pagination(array $options = []): Markup
     {
-        $window = max(1, (int)($options['window'] ?? 5));
+        $window = max(1, (int) ($options['window'] ?? 5));
         $page = $this->getPage();
         $last = max(0, $this->getNbPages() - 1);
 
@@ -633,7 +638,7 @@ class SearchContext
         $pages = [];
 
         for ($i = $from; $i <= $to; $i++) {
-            $pages[] = ['number' => $i, 'label' => (string)($i + 1), 'url' => $this->pageUrl($i), 'isCurrent' => $i === $page];
+            $pages[] = ['number' => $i, 'label' => (string) ($i + 1), 'url' => $this->pageUrl($i), 'isCurrent' => $i === $page];
         }
 
         return $this->widget('pagination', $options + [
@@ -652,22 +657,20 @@ class SearchContext
      * templates directory and Caffeine uses it instead — no configuration, and no need to fork
      * the widget just to change a class name.
      *
-     * @param array<string, mixed> $variables
+     * @param  array<string, mixed>  $variables
      */
     public function widget(string $name, array $variables = []): Markup
     {
-        $view = Craft::$app->getView();
-        $override = '_caffeine/' . $name;
-
         $variables += ['search' => $this, 'options' => $variables];
 
-        $html = $view->doesTemplateExist($override, View::TEMPLATE_MODE_SITE)
-            ? $view->renderTemplate($override, $variables, View::TEMPLATE_MODE_SITE)
-            : $view->renderTemplate('caffeine/_widgets/' . $name, $variables, View::TEMPLATE_MODE_CP);
+        // `_caffeine` is the plugin's site template root, and a project's own
+        // `templates/_caffeine/<name>.twig` is found before it — so overriding a widget is just
+        // a matter of creating that file.
+        $html = \CraftCms\Cms\template('_caffeine/'.$name, $variables, TemplateMode::Site);
 
         // A facet's key is part of the region name, so two refinement lists on one page are two
         // regions rather than one that overwrites the other.
-        $region = $name . (isset($variables['facet']['key']) ? ':' . $variables['facet']['key'] : '');
+        $region = $name.(isset($variables['facet']['key']) ? ':'.$variables['facet']['key'] : '');
 
         $this->captureRegion($region, $html);
 
@@ -688,7 +691,7 @@ class SearchContext
      * is what lets both engines stay ignorant of hierarchy. A menu is the one place that needs
      * the shape back, so it is rebuilt here rather than carried in the artifact.
      *
-     * @param list<array<string, mixed>> $buckets
+     * @param  list<array<string, mixed>>  $buckets
      * @return list<array<string, mixed>>
      */
     private function tree(string $facet, array $buckets): array
@@ -699,11 +702,11 @@ class SearchContext
         $depth = [];
 
         foreach ($buckets as $bucket) {
-            $parts = array_map('trim', explode($separator, (string)$bucket['value']));
-            $depth[(string)$bucket['value']] = $bucket + [
+            $parts = array_map('trim', explode($separator, (string) $bucket['value']));
+            $depth[(string) $bucket['value']] = $bucket + [
                 'depth' => count($parts) - 1,
                 'parent' => count($parts) > 1
-                    ? implode(' ' . $separator . ' ', array_slice($parts, 0, -1))
+                    ? implode(' '.$separator.' ', array_slice($parts, 0, -1))
                     : null,
                 'children' => [],
             ];
@@ -723,7 +726,7 @@ class SearchContext
     }
 
     /**
-     * @param array<string, array<string, mixed>> $nodes
+     * @param  array<string, array<string, mixed>>  $nodes
      * @return array<string, mixed>
      */
     private function branch(string $path, array $nodes): array
@@ -753,21 +756,21 @@ class SearchContext
     {
         if ($definition->facetType === AttributeDefinition::FACET_BOOLEAN) {
             return $value
-                ? Craft::t('caffeine', 'Yes')
-                : Craft::t('caffeine', 'No');
+                ? t('Yes', category: 'caffeine')
+                : t('No', category: 'caffeine');
         }
 
         if ($definition->facetType === AttributeDefinition::FACET_HIERARCHICAL) {
             // Only the leaf: a menu already shows the ancestors as the path the visitor took to
             // get there, and repeating them makes every label unreadably long.
-            $parts = explode(trim($definition->hierarchySeparator), (string)$value);
+            $parts = explode(trim($definition->hierarchySeparator), (string) $value);
 
-            return trim((string)end($parts));
+            return trim((string) end($parts));
         }
 
         if ($definition->facetType === AttributeDefinition::FACET_DATE && is_numeric($value)) {
-            return Craft::$app->getFormatter()->asDate(
-                (new \DateTime())->setTimestamp((int)$value),
+            return I18N::getFormatter()->asDate(
+                (new \DateTime)->setTimestamp((int) $value),
                 'medium',
             );
         }
@@ -778,12 +781,12 @@ class SearchContext
     private function distanceLabel(float $metres): string
     {
         return $metres >= 1000
-            ? Craft::t('caffeine', '{km} km', ['km' => FacetValue::toKey(round($metres / 1000, 1))])
-            : Craft::t('caffeine', '{m} m', ['m' => FacetValue::toKey(round($metres))]);
+            ? t('{km} km', ['km' => FacetValue::toKey(round($metres / 1000, 1))], category: 'caffeine')
+            : t('{m} m', ['m' => FacetValue::toKey(round($metres))], category: 'caffeine');
     }
 
     /**
-     * @param array{min?: float, max?: float} $range
+     * @param  array{min?: float, max?: float}  $range
      */
     private function rangeLabel(array $range): string
     {
@@ -791,11 +794,11 @@ class SearchContext
         $max = $range['max'] ?? null;
 
         if ($min !== null && $max !== null) {
-            return FacetValue::toKey($min) . ' – ' . FacetValue::toKey($max);
+            return FacetValue::toKey($min).' – '.FacetValue::toKey($max);
         }
 
         return $min !== null
-            ? Craft::t('caffeine', '{min} and up', ['min' => FacetValue::toKey($min)])
-            : Craft::t('caffeine', 'Up to {max}', ['max' => FacetValue::toKey($max)]);
+            ? t('{min} and up', ['min' => FacetValue::toKey($min)], category: 'caffeine')
+            : t('Up to {max}', ['max' => FacetValue::toKey($max)], category: 'caffeine');
     }
 }

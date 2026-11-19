@@ -1,4 +1,5 @@
 <?php
+
 // Defines two Caffeine indexes against the test site's content.
 //
 // `products` exercises the ordinary case: attributes, a string facet, a boolean facet, a date
@@ -56,8 +57,9 @@ $related = new IndexDefinition([
 ]);
 
 foreach ([$products, $related] as $index) {
-    if (!$plugin->indexes->save($index)) {
-        echo "FAILED {$index->handle}: " . json_encode($index->getErrors()) . "\n";
+    if (! $plugin->indexes->save($index)) {
+        echo "FAILED {$index->handle}: ".json_encode($index->getErrors())."\n";
+
         continue;
     }
     echo "saved {$index->handle} ({$index->uid})\n";

@@ -20,8 +20,7 @@ class LocalStore implements StoreInterface
     public function __construct(
         private readonly string $root,
         private readonly string $baseUrl,
-    ) {
-    }
+    ) {}
 
     public static function forPath(string $publishPath): self
     {
@@ -29,14 +28,14 @@ class LocalStore implements StoreInterface
         // somewhere other than Laravel's `public_path()`.
         $webroot = Aliases::get('@webroot', false);
 
-        if (!is_string($webroot) || $webroot === '') {
+        if (! is_string($webroot) || $webroot === '') {
             $webroot = public_path();
         }
 
         $publishPath = trim($publishPath, '/');
 
         return new self(
-            root: rtrim($webroot, '/') . ($publishPath !== '' ? '/' . $publishPath : ''),
+            root: rtrim($webroot, '/').($publishPath !== '' ? '/'.$publishPath : ''),
             baseUrl: Url::siteUrl($publishPath),
         );
     }
@@ -49,13 +48,13 @@ class LocalStore implements StoreInterface
 
         // Same directory as the target, so the rename stays within one filesystem — across a
         // mount boundary `rename()` degrades to copy-then-delete and stops being atomic.
-        $temporary = $full . '.tmp.' . bin2hex(random_bytes(6));
+        $temporary = $full.'.tmp.'.bin2hex(random_bytes(6));
 
         if (file_put_contents($temporary, $contents, LOCK_EX) === false) {
             throw new RuntimeException("Caffeine could not write {$temporary}.");
         }
 
-        if (!@rename($temporary, $full)) {
+        if (! @rename($temporary, $full)) {
             @unlink($temporary);
 
             throw new RuntimeException("Caffeine could not publish {$full}.");
@@ -88,7 +87,7 @@ class LocalStore implements StoreInterface
         $directory = dirname($full);
         $root = rtrim($this->root, '/');
 
-        if ($directory === $root || !str_starts_with($directory, $root . '/')) {
+        if ($directory === $root || ! str_starts_with($directory, $root.'/')) {
             return;
         }
 
@@ -103,12 +102,12 @@ class LocalStore implements StoreInterface
         $files = [];
 
         foreach (@scandir($full) ?: [] as $name) {
-            if (!is_file("{$full}/{$name}")) {
+            if (! is_file("{$full}/{$name}")) {
                 continue;
             }
 
             $mtime = @filemtime("{$full}/{$name}");
-            $files[trim($directory, '/') . '/' . $name] = $mtime === false ? null : $mtime;
+            $files[trim($directory, '/').'/'.$name] = $mtime === false ? null : $mtime;
         }
 
         return $files;
@@ -116,7 +115,7 @@ class LocalStore implements StoreInterface
 
     public function url(string $path): ?string
     {
-        return rtrim($this->baseUrl, '/') . '/' . ltrim($path, '/');
+        return rtrim($this->baseUrl, '/').'/'.ltrim($path, '/');
     }
 
     public function describe(): string
@@ -126,6 +125,6 @@ class LocalStore implements StoreInterface
 
     private function path(string $path): string
     {
-        return rtrim($this->root, '/') . '/' . ltrim($path, '/');
+        return rtrim($this->root, '/').'/'.ltrim($path, '/');
     }
 }

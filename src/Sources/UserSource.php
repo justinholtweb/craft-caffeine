@@ -41,7 +41,7 @@ class UserSource extends BaseSource
         $options = [];
 
         foreach (UserGroups::getAllGroups() as $group) {
-            $options[(string)$group->handle] = (string)$group->name;
+            $options[(string) $group->handle] = (string) $group->name;
         }
 
         return $options;
@@ -62,13 +62,13 @@ class UserSource extends BaseSource
 
     public function covers(SourceDefinition $definition, ElementInterface $element): bool
     {
-        if (!$element instanceof User) {
+        if (! $element instanceof User) {
             return false;
         }
 
         if ($definition->containers !== []) {
             try {
-                $handles = array_map(fn($group) => $group->handle, $element->getGroups());
+                $handles = array_map(fn ($group) => $group->handle, $element->getGroups());
             } catch (Throwable) {
                 return false;
             }

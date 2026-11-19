@@ -15,12 +15,9 @@ use JustinHoltWeb\Caffeine\Helpers\ValueHelper;
  * The built-in extractors match on shape rather than class name, so these stubs are the honest
  * test: if a plugin's value object looks like this, Caffeine indexes it usefully.
  */
-
 class FakeLink
 {
-    public function __construct(private string $url, private ?string $text = null, private string $type = 'entry')
-    {
-    }
+    public function __construct(private string $url, private ?string $text = null, private string $type = 'entry') {}
 
     public function getUrl(): ?string
     {
@@ -40,9 +37,7 @@ class FakeLink
 
 class FakeLinkCollection
 {
-    public function __construct(private array $links)
-    {
-    }
+    public function __construct(private array $links) {}
 
     public function all(): array
     {
@@ -57,8 +52,7 @@ class FakeAddress
         public ?float $lng = null,
         public ?string $city = null,
         public ?string $country = null,
-    ) {
-    }
+    ) {}
 
     public function __toString(): string
     {
@@ -68,9 +62,7 @@ class FakeAddress
 
 class FakeCurrency
 {
-    public function __construct(private string $code)
-    {
-    }
+    public function __construct(private string $code) {}
 
     public function getCode(): string
     {
@@ -80,9 +72,7 @@ class FakeCurrency
 
 class FakeMoney
 {
-    public function __construct(private string $minor, private FakeCurrency $currency)
-    {
-    }
+    public function __construct(private string $minor, private FakeCurrency $currency) {}
 
     public function getAmount(): string
     {
@@ -97,17 +87,13 @@ class FakeMoney
 
 class FakeOption
 {
-    public function __construct(public mixed $value, public ?string $label = null, public bool $selected = true)
-    {
-    }
+    public function __construct(public mixed $value, public ?string $label = null, public bool $selected = true) {}
 }
 
 /** A link model that also happens to carry `value` and `label`, as FreeLink's does. */
 class FakeValueLabelLink
 {
-    public function __construct(public string $value, public ?string $label = null)
-    {
-    }
+    public function __construct(public string $value, public ?string $label = null) {}
 
     public function getUrl(): ?string
     {
@@ -122,9 +108,7 @@ class FakeValueLabelLink
 
 class FakeColor
 {
-    public function __construct(private string $hex)
-    {
-    }
+    public function __construct(private string $hex) {}
 
     public function getHex(): string
     {
@@ -139,31 +123,31 @@ class FakeColor
 
 // -------------------------------------------------------------------------------------------------
 
-describe('LinkExtractor', function() {
-    it('takes the URL as the value and the text as a part', function() {
-        $extracted = (new LinkExtractor())->extract(new FakeLink('/products/saw', 'Buy a saw'));
+describe('LinkExtractor', function () {
+    it('takes the URL as the value and the text as a part', function () {
+        $extracted = (new LinkExtractor)->extract(new FakeLink('/products/saw', 'Buy a saw'));
 
         expect($extracted->primary)->toBe('/products/saw');
         expect($extracted->parts)->toBe(['url' => '/products/saw', 'text' => 'Buy a saw', 'type' => 'entry']);
     });
 
-    it('ignores a link with no URL', function() {
-        expect((new LinkExtractor())->extract(new FakeLink('')))->toBeNull();
+    it('ignores a link with no URL', function () {
+        expect((new LinkExtractor)->extract(new FakeLink('')))->toBeNull();
     });
 });
 
-describe('CollectionExtractor', function() {
-    it('unwraps a collection to its items', function() {
+describe('CollectionExtractor', function () {
+    it('unwraps a collection to its items', function () {
         $collection = new FakeLinkCollection([new FakeLink('/a'), new FakeLink('/b')]);
 
         expect(CollectionExtractor::supports($collection))->toBeTrue();
-        expect((new CollectionExtractor())->extract($collection)->primary)->toHaveCount(2);
+        expect((new CollectionExtractor)->extract($collection)->primary)->toHaveCount(2);
     });
 });
 
-describe('AddressExtractor', function() {
-    it('exposes coordinates as parts a path can reach', function() {
-        $extracted = (new AddressExtractor())->extract(new FakeAddress(35.2271, -80.8431, 'Charlotte', 'US'));
+describe('AddressExtractor', function () {
+    it('exposes coordinates as parts a path can reach', function () {
+        $extracted = (new AddressExtractor)->extract(new FakeAddress(35.2271, -80.8431, 'Charlotte', 'US'));
 
         expect($extracted->part('lat'))->toBe(35.2271);
         expect($extracted->part('lng'))->toBe(-80.8431);
@@ -171,42 +155,42 @@ describe('AddressExtractor', function() {
         expect($extracted->primary)->toBe('Charlotte, US');
     });
 
-    it('does not claim an object with no coordinates', function() {
-        expect(AddressExtractor::supports(new FakeAddress()))->toBeFalse();
+    it('does not claim an object with no coordinates', function () {
+        expect(AddressExtractor::supports(new FakeAddress))->toBeFalse();
     });
 });
 
-describe('MoneyExtractor', function() {
-    it('converts minor units to major', function() {
-        $extracted = (new MoneyExtractor())->extract(new FakeMoney('1999', new FakeCurrency('GBP')));
+describe('MoneyExtractor', function () {
+    it('converts minor units to major', function () {
+        $extracted = (new MoneyExtractor)->extract(new FakeMoney('1999', new FakeCurrency('GBP')));
 
         expect($extracted->primary)->toBe(19.99);
         expect($extracted->part('minor'))->toBe(1999);
         expect($extracted->part('currency'))->toBe('GBP');
     });
 
-    it('leaves a zero-decimal currency alone', function() {
+    it('leaves a zero-decimal currency alone', function () {
         // The bug this guards: dividing yen by 100 makes every price a hundredth of itself, and
         // a price facet that is wrong by two orders of magnitude still looks plausible.
-        $extracted = (new MoneyExtractor())->extract(new FakeMoney('1999', new FakeCurrency('JPY')));
+        $extracted = (new MoneyExtractor)->extract(new FakeMoney('1999', new FakeCurrency('JPY')));
 
         expect($extracted->primary)->toBe(1999.0);
     });
 });
 
-describe('OptionExtractor', function() {
-    it('keeps the stored value, not the label', function() {
+describe('OptionExtractor', function () {
+    it('keeps the stored value, not the label', function () {
         // A refinement URL carries the value, so it has to be the one that does not change when
         // an editor rewords the label.
-        $extracted = (new OptionExtractor())->extract(new FakeOption('lrg', 'Large'));
+        $extracted = (new OptionExtractor)->extract(new FakeOption('lrg', 'Large'));
 
         expect($extracted->primary)->toBe('lrg');
         expect($extracted->part('label'))->toBe('Large');
     });
 });
 
-describe('extractor specificity', function() {
-    it('does not read a link as a dropdown option', function() {
+describe('extractor specificity', function () {
+    it('does not read a link as a dropdown option', function () {
         // FreeLink's link model carries `value` and `label`, which is most of what option data
         // looks like. Before `selected` was required as well, this matched OptionExtractor and
         // `link.url` resolved to nothing while `link.value` quietly worked.
@@ -215,35 +199,35 @@ describe('extractor specificity', function() {
         expect(OptionExtractor::supports($link))->toBeFalse();
         expect(LinkExtractor::supports($link))->toBeTrue();
 
-        $extracted = (new LinkExtractor())->extract($link);
+        $extracted = (new LinkExtractor)->extract($link);
 
         expect($extracted->part('url'))->toBe('https://craftcms.com');
         expect($extracted->part('text'))->toBe('Craft CMS');
     });
 });
 
-describe('ColorExtractor', function() {
-    it('takes the hex', function() {
-        expect((new ColorExtractor())->extract(new FakeColor('#ff0000'))->primary)->toBe('#ff0000');
+describe('ColorExtractor', function () {
+    it('takes the hex', function () {
+        expect((new ColorExtractor)->extract(new FakeColor('#ff0000'))->primary)->toBe('#ff0000');
     });
 });
 
-describe('ValueHelper with extracted values', function() {
+describe('ValueHelper with extracted values', function () {
     $link = new ExtractedValue('/products/saw', ['url' => '/products/saw', 'text' => 'Buy a saw']);
 
-    it('facets on the primary', function() use ($link) {
+    it('facets on the primary', function () use ($link) {
         expect(ValueHelper::flatten($link))->toBe(['/products/saw']);
     });
 
-    it('keeps the wrapper when asked not to unwrap', function() use ($link) {
+    it('keeps the wrapper when asked not to unwrap', function () use ($link) {
         expect(ValueHelper::flatten($link, false))->toBe([$link]);
     });
 
-    it('puts every part in the payload', function() use ($link) {
+    it('puts every part in the payload', function () use ($link) {
         expect(ValueHelper::payloadValue($link))->toBe(['url' => '/products/saw', 'text' => 'Buy a saw']);
     });
 
-    it('indexes the text and not the URL', function() use ($link) {
+    it('indexes the text and not the URL', function () use ($link) {
         // Nobody searches for "https".
         expect(ValueHelper::searchableText($link))->toBe('Buy a saw');
     });

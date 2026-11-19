@@ -89,7 +89,7 @@ class Tokenizer
         $words = [];
 
         foreach ($index->stopwords as $entry) {
-            foreach (Rules::tokenize((string)$entry) as $token) {
+            foreach (Rules::tokenize((string) $entry) as $token) {
                 $words[$token] = true;
             }
         }
@@ -112,7 +112,7 @@ class Tokenizer
         foreach ($index->synonyms as $group) {
             $tokens = [];
 
-            foreach (explode(',', (string)$group) as $word) {
+            foreach (explode(',', (string) $group) as $word) {
                 foreach (Rules::tokenize($word) as $token) {
                     $tokens[$token] = true;
                 }
@@ -133,7 +133,7 @@ class Tokenizer
             }
         }
 
-        return array_map(fn(array $others) => array_keys($others), $map);
+        return array_map(fn (array $others) => array_keys($others), $map);
     }
 
     /**

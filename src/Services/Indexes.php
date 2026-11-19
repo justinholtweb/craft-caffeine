@@ -28,7 +28,7 @@ class Indexes
     public const CONFIG_ROOT = 'caffeine';
 
     /** Indexes live at `caffeine.indexes.<uid>`. */
-    public const CONFIG_PATH = self::CONFIG_ROOT . '.indexes';
+    public const CONFIG_PATH = self::CONFIG_ROOT.'.indexes';
 
     /**
      * `DefineIndex` is dispatched for each index as definitions load, before anything builds or
@@ -114,16 +114,16 @@ class Indexes
         $indexes = [];
 
         foreach ($config as $uid => $row) {
-            if (!is_array($row)) {
+            if (! is_array($row)) {
                 continue;
             }
 
-            $indexes[$uid] = IndexDefinition::fromConfig((string)$uid, $row);
+            $indexes[$uid] = IndexDefinition::fromConfig((string) $uid, $row);
         }
 
         // Deterministic order, so the CP list and every console command agree on what "the
         // first index" means — which matters once Lite starts enforcing its limit of one.
-        uasort($indexes, fn(IndexDefinition $a, IndexDefinition $b) => strcmp($a->handle, $b->handle));
+        uasort($indexes, fn (IndexDefinition $a, IndexDefinition $b) => strcmp($a->handle, $b->handle));
 
         return $this->stored = $indexes;
     }
@@ -154,10 +154,10 @@ class Indexes
     private function define(IndexDefinition $stored): IndexDefinition
     {
         $index = clone $stored;
-        $index->attributes = array_map(fn(AttributeDefinition $a) => clone $a, $stored->attributes);
-        $index->sortings = array_map(fn(SortingDefinition $s) => clone $s, $stored->sortings);
+        $index->attributes = array_map(fn (AttributeDefinition $a) => clone $a, $stored->attributes);
+        $index->sortings = array_map(fn (SortingDefinition $s) => clone $s, $stored->sortings);
 
-        if (!Event::hasListeners(DefineIndex::class)) {
+        if (! Event::hasListeners(DefineIndex::class)) {
             return $index;
         }
 
@@ -173,10 +173,10 @@ class Indexes
         $attributes = [];
 
         foreach (array_values($index->attributes) as $attribute) {
-            if (!isset($before[spl_object_id($attribute)])) {
+            if (! isset($before[spl_object_id($attribute)])) {
                 $attribute->dynamic = true;
 
-                if (!$attribute->validate() || isset($keys[$attribute->key])) {
+                if (! $attribute->validate() || isset($keys[$attribute->key])) {
                     Log::channel('caffeine')->warning(sprintf(
                         'Caffeine ignored the attribute “%s” added to “%s”: %s',
                         $attribute->key,
@@ -195,7 +195,7 @@ class Indexes
         $index->attributes = $attributes;
 
         foreach ($index->sortings as $sorting) {
-            if (!isset($before[spl_object_id($sorting)])) {
+            if (! isset($before[spl_object_id($sorting)])) {
                 $sorting->dynamic = true;
             }
         }
@@ -300,18 +300,18 @@ class Indexes
         // facet as a string facet would produce one bucket per record — visibly broken, and
         // harder to diagnose than a facet that is simply not there.
         $downgraded->attributes = array_values(array_filter(
-            array_map(fn(AttributeDefinition $a) => clone $a, $index->attributes),
-            fn(AttributeDefinition $a) => !$a->isFacet() || in_array($a->facetType, $facetTypes, true),
+            array_map(fn (AttributeDefinition $a) => clone $a, $index->attributes),
+            fn (AttributeDefinition $a) => ! $a->isFacet() || in_array($a->facetType, $facetTypes, true),
         ));
 
-        $keys = array_map(fn(AttributeDefinition $a) => $a->key, $downgraded->attributes);
+        $keys = array_map(fn (AttributeDefinition $a) => $a->key, $downgraded->attributes);
         $kept = 0;
 
         $downgraded->sortings = array_values(array_filter(
             $index->sortings,
-            function(SortingDefinition $sorting) use ($keys, &$kept) {
+            function (SortingDefinition $sorting) use ($keys, &$kept) {
                 // A sorting whose attribute just went with a dropped facet cannot work either.
-                if (!$sorting->isRelevance() && !in_array($sorting->attribute, $keys, true)) {
+                if (! $sorting->isRelevance() && ! in_array($sorting->attribute, $keys, true)) {
                     return false;
                 }
 
@@ -319,11 +319,11 @@ class Indexes
             },
         ));
 
-        if (!in_array($downgraded->transport, Edition::transports(false), true)) {
+        if (! in_array($downgraded->transport, Edition::transports(false), true)) {
             $downgraded->transport = IndexDefinition::TRANSPORT_HTMX;
         }
 
-        if (!Edition::allowsWordLists(false)) {
+        if (! Edition::allowsWordLists(false)) {
             $downgraded->stopwords = [];
             $downgraded->synonyms = [];
         }
@@ -351,7 +351,7 @@ class Indexes
      */
     public function save(IndexDefinition $index, bool $runValidation = true): bool
     {
-        if ($runValidation && !$index->validate()) {
+        if ($runValidation && ! $index->validate()) {
             return false;
         }
 
@@ -391,7 +391,7 @@ class Indexes
         }
 
         ProjectConfig::set(
-            self::CONFIG_PATH . '.' . $uid,
+            self::CONFIG_PATH.'.'.$uid,
             $index->toConfig(),
             "Save Caffeine index “{$index->handle}”",
         );
@@ -417,7 +417,7 @@ class Indexes
         $this->tearDown($index->uid);
 
         ProjectConfig::remove(
-            self::CONFIG_PATH . '.' . $index->uid,
+            self::CONFIG_PATH.'.'.$index->uid,
             "Delete Caffeine index “{$index->handle}”",
         );
 
@@ -442,7 +442,7 @@ class Indexes
         // Craft passes the `{uid}` token positionally, not by name.
         $uid = $event->tokenMatches[0] ?? null;
 
-        if (!is_string($uid)) {
+        if (! is_string($uid)) {
             return;
         }
 
@@ -456,7 +456,7 @@ class Indexes
         // Craft passes the `{uid}` token positionally, not by name.
         $uid = $event->tokenMatches[0] ?? null;
 
-        if (!is_string($uid)) {
+        if (! is_string($uid)) {
             return;
         }
 
@@ -501,6 +501,7 @@ class Indexes
             if ($deleted === null) {
                 // Publishing right now. The next run gets it.
                 $result['busy'][] = $index->handle;
+
                 continue;
             }
 

@@ -35,7 +35,7 @@ class Geo
 
         // atan2 rather than asin: asin loses precision for antipodal points, where the argument
         // approaches 1 and its derivative goes to infinity.
-        return (int)round(self::EARTH_RADIUS * 2 * atan2(sqrt($a), sqrt(max(0.0, 1 - $a))));
+        return (int) round(self::EARTH_RADIUS * 2 * atan2(sqrt($a), sqrt(max(0.0, 1 - $a))));
     }
 
     /**
@@ -43,19 +43,17 @@ class Geo
      *
      * A missing address maps to null, but a half-filled one maps to `[0, 0]` — a real point in
      * the Gulf of Guinea that would quietly match a radius search from anywhere in west Africa.
-     *
-     * @param mixed $point
      */
     public static function isValid(mixed $point): bool
     {
-        if (!is_array($point) || count($point) !== 2) {
+        if (! is_array($point) || count($point) !== 2) {
             return false;
         }
 
         [$lat, $lng] = array_values($point);
 
         return is_numeric($lat) && is_numeric($lng)
-            && abs((float)$lat) <= 90 && abs((float)$lng) <= 180
-            && ((float)$lat !== 0.0 || (float)$lng !== 0.0);
+            && abs((float) $lat) <= 90 && abs((float) $lng) <= 180
+            && ((float) $lat !== 0.0 || (float) $lng !== 0.0);
     }
 }

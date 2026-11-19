@@ -24,8 +24,7 @@ class Engine
 
     public function __construct(
         private readonly Artifact $artifact,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array<string, mixed> The Algolia-shaped response described in QUERY_SPEC §9.
@@ -66,7 +65,7 @@ class Engine
 
         // §3.5 — pagination.
         $nbHits = count($ordered);
-        $nbPages = (int)ceil($nbHits / $hitsPerPage);
+        $nbPages = (int) ceil($nbHits / $hitsPerPage);
         $page = $nbPages > 0 ? min($state->page, $nbPages - 1) : 0;
         $slice = array_values(array_slice($ordered, $page * $hitsPerPage, $hitsPerPage));
         // One call for the whole page: on the server, payloads can be loaded on demand, and a
@@ -74,14 +73,14 @@ class Engine
         $payloads = $this->artifact->payloadsFor($slice);
 
         return [
-            'hits' => array_map(fn(int $id) => $this->hit($id, $payloads[$id] ?? []), $slice),
+            'hits' => array_map(fn (int $id) => $this->hit($id, $payloads[$id] ?? []), $slice),
             'nbHits' => $nbHits,
             'page' => $page,
             'nbPages' => $nbPages,
             'hitsPerPage' => $hitsPerPage,
             'query' => $state->query,
             'params' => http_build_query($state->toArray()),
-            'processingTimeMS' => (int)round((microtime(true) - $startedAt) * 1000),
+            'processingTimeMS' => (int) round((microtime(true) - $startedAt) * 1000),
             'exhaustiveNbHits' => true,
             'exhaustiveFacetsCount' => true,
             'facets' => $facets,
@@ -197,7 +196,7 @@ class Engine
         $offsets = $this->artifact->tokenOffsets;
 
         for ($i = $low; $i < $count; $i++) {
-            if (!str_starts_with((string)$tokens[$i], $prefix)) {
+            if (! str_starts_with((string) $tokens[$i], $prefix)) {
                 break;
             }
 
@@ -205,7 +204,7 @@ class Engine
                 $id = $ids[$p];
                 $weight = $tokenWeights[$p];
 
-                if (!isset($weights[$id]) || $weight > $weights[$id]) {
+                if (! isset($weights[$id]) || $weight > $weights[$id]) {
                     $weights[$id] = $weight;
                 }
             }
@@ -234,7 +233,7 @@ class Engine
 
         $stopwords = array_fill_keys($this->artifact->stopwords, true);
 
-        return array_values(array_filter($tokens, fn(string $token) => !isset($stopwords[$token])));
+        return array_values(array_filter($tokens, fn (string $token) => ! isset($stopwords[$token])));
     }
 
     /**
@@ -257,14 +256,14 @@ class Engine
             }
 
             foreach ($points as $id => $point) {
-                if (!Geo::isValid($point)) {
+                if (! Geo::isValid($point)) {
                     continue;
                 }
 
                 $metres = Geo::distance($around['lat'], $around['lng'], $point[0], $point[1]);
 
                 // With two geo facets in play, nearest means nearest to either.
-                if (!isset($distances[$id]) || $metres < $distances[$id]) {
+                if (! isset($distances[$id]) || $metres < $distances[$id]) {
                     $distances[$id] = $metres;
                 }
             }
@@ -307,7 +306,7 @@ class Engine
         $filters = [];
 
         foreach ($state->refinements as $key => $values) {
-            if ($values === [] || !isset($this->artifact->facets[$key])) {
+            if ($values === [] || ! isset($this->artifact->facets[$key])) {
                 continue;
             }
 
@@ -325,7 +324,7 @@ class Engine
         }
 
         foreach ($state->ranges as $key => $range) {
-            if (!isset($this->artifact->facets[$key])) {
+            if (! isset($this->artifact->facets[$key])) {
                 continue;
             }
 
@@ -337,7 +336,7 @@ class Engine
         // filters nothing: it only turns on the distance sorting.
         foreach ($state->around as $key => $around) {
             $points = $this->artifact->geo[$key] ?? null;
-            $radius = (float)($around['radius'] ?? 0);
+            $radius = (float) ($around['radius'] ?? 0);
 
             if ($points === null || $radius <= 0) {
                 continue;
@@ -346,7 +345,7 @@ class Engine
             $set = [];
 
             foreach ($points as $id => $point) {
-                if (!Geo::isValid($point)) {
+                if (! Geo::isValid($point)) {
                     continue;
                 }
 
@@ -367,7 +366,7 @@ class Engine
      * Scanning the value dictionary rather than the records: the dictionary holds only distinct
      * values, so it is invariably the smaller of the two.
      *
-     * @param array{min?: float, max?: float} $range
+     * @param  array{min?: float, max?: float}  $range
      * @return array<int, true>
      */
     private function rangeSet(string $key, array $range): array
@@ -376,7 +375,7 @@ class Engine
         $set = [];
 
         foreach ($facet['values'] as $index => $value) {
-            if (!is_int($value) && !is_float($value)) {
+            if (! is_int($value) && ! is_float($value)) {
                 continue;
             }
 
@@ -413,10 +412,10 @@ class Engine
      * §3.3 — facet counts, with the disjunctive/conjunctive asymmetry that makes each kind of
      * facet behave the way a visitor expects.
      *
-     * @param list<string> $facetKeys
-     * @param array<int, true> $candidates
-     * @param array<string, array<int, true>> $filters
-     * @param array<int, true> $result
+     * @param  list<string>  $facetKeys
+     * @param  array<int, true>  $candidates
+     * @param  array<string, array<int, true>>  $filters
+     * @param  array<int, true>  $result
      * @return array{0: array<string, array<string, int>>, 1: array<string, mixed>, 2: array<string, mixed>}
      */
     private function countFacets(QueryState $state, array $facetKeys, array $candidates, array $filters, array $result): array
@@ -426,7 +425,7 @@ class Engine
         $stats = [];
 
         foreach ($facetKeys as $key) {
-            if (!isset($this->artifact->facets[$key])) {
+            if (! isset($this->artifact->facets[$key])) {
                 continue;
             }
 
@@ -495,8 +494,8 @@ class Engine
      * The order of the result matters as well as the counts: facet stats sum floats in it, and
      * the JavaScript engine sums in the same order (QUERY_SPEC §3.3).
      *
-     * @param list<list<int>> $postings
-     * @param array<int, true> $base
+     * @param  list<list<int>>  $postings
+     * @param  array<int, true>  $base
      * @return array<int, int>
      */
     private function countValues(string $key, array $postings, array $base): array
@@ -585,8 +584,8 @@ class Engine
     /**
      * §3.3 — which values appear, and in what order.
      *
-     * @param array{type: string, operator: string, sort?: string|null, valueOrder?: list<mixed>, maxValues?: int, values: list<mixed>, postings: list<list<int>>, records: list<list<int>>} $facet
-     * @param array<int, int> $counts value index → count
+     * @param  array{type: string, operator: string, sort?: string|null, valueOrder?: list<mixed>, maxValues?: int, values: list<mixed>, postings: list<list<int>>, records: list<list<int>>}  $facet
+     * @param  array<int, int>  $counts  value index → count
      * @return list<array{value: mixed, count: int, isRefined: bool}>
      */
     private function buildBuckets(QueryState $state, string $key, array $facet, array $counts): array
@@ -599,7 +598,7 @@ class Engine
 
             // A refined value stays visible at zero — otherwise the control the visitor used to
             // refine disappears and they have no way to undo it.
-            if ($count === 0 && !$isRefined) {
+            if ($count === 0 && ! $isRefined) {
                 continue;
             }
 
@@ -609,7 +608,7 @@ class Engine
         $sort = $facet['sort'] ?? 'count';
         $order = $facet['valueOrder'] ?? [];
 
-        usort($buckets, function(array $a, array $b) use ($sort, $order) {
+        usort($buckets, function (array $a, array $b) use ($sort, $order) {
             if ($sort === 'alpha') {
                 return Comparator::compare($a['value'], $b['value']);
             }
@@ -636,7 +635,7 @@ class Engine
                 ?: Comparator::compare($a['value'], $b['value']);
         });
 
-        $limit = (int)($facet['maxValues'] ?? 20);
+        $limit = (int) ($facet['maxValues'] ?? 20);
 
         if (count($buckets) <= $limit) {
             return $buckets;
@@ -658,7 +657,7 @@ class Engine
                 break;
             }
 
-            if (!$bucket['isRefined']) {
+            if (! $bucket['isRefined']) {
                 $kept[] = $bucket;
             }
         }
@@ -679,8 +678,8 @@ class Engine
      * §5 — stats over every value carried by records in the base set, counting a record once
      * per value it holds.
      *
-     * @param list<mixed> $values
-     * @param array<int, int> $counts
+     * @param  list<mixed>  $values
+     * @param  array<int, int>  $counts
      * @return array{min: float, max: float, avg: float, sum: float}|null
      */
     private function facetStats(array $values, array $counts): ?array
@@ -693,11 +692,11 @@ class Engine
         foreach ($counts as $index => $count) {
             $value = $values[$index] ?? null;
 
-            if (!is_int($value) && !is_float($value)) {
+            if (! is_int($value) && ! is_float($value)) {
                 continue;
             }
 
-            $value = (float)$value;
+            $value = (float) $value;
             $min = $min === null ? $value : min($min, $value);
             $max = $max === null ? $value : max($max, $value);
             $sum += $value * $count;
@@ -714,8 +713,8 @@ class Engine
     /**
      * §3.4 — ordering.
      *
-     * @param array<int, true> $result
-     * @param array<int, float> $scores
+     * @param  array<int, true>  $result
+     * @param  array<int, float>  $scores
      * @return list<int>
      */
     private function sort(array $result, array $scores, string $sortBy, bool $hasQuery, array $distances = []): array
@@ -725,7 +724,7 @@ class Engine
         if ($sortBy === self::SORT_DISTANCE && $distances !== []) {
             $ids = array_keys($result);
 
-            usort($ids, function(int $a, int $b) use ($distances) {
+            usort($ids, function (int $a, int $b) use ($distances) {
                 return ($distances[$a] ?? PHP_INT_MAX) <=> ($distances[$b] ?? PHP_INT_MAX)
                     ?: Comparator::compare($this->artifact->objectIds[$a], $this->artifact->objectIds[$b]);
             });
@@ -738,7 +737,7 @@ class Engine
         // With no text query every score is 0, so the score tie-break is a no-op and the
         // precomputed order is already exactly right — filter it and take. This is the common
         // case for a filtered listing, and it avoids sorting entirely.
-        if (!$hasQuery && $sorting !== null) {
+        if (! $hasQuery && $sorting !== null) {
             $ordered = [];
 
             foreach ($sorting as $id) {
@@ -753,7 +752,7 @@ class Engine
         $ids = array_keys($result);
 
         if ($sortBy === 'relevance' || $sorting === null) {
-            usort($ids, function(int $a, int $b) use ($scores) {
+            usort($ids, function (int $a, int $b) use ($scores) {
                 return ($scores[$b] ?? 0.0) <=> ($scores[$a] ?? 0.0)
                     ?: Comparator::compare($this->artifact->objectIds[$a], $this->artifact->objectIds[$b]);
             });
@@ -773,14 +772,14 @@ class Engine
 
         $attribute = $this->artifact->sortableValues[$sortBy] ?? null;
 
-        usort($ids, function(int $a, int $b) use ($scores, $position, $attribute) {
+        usort($ids, function (int $a, int $b) use ($scores, $position, $attribute) {
             if ($attribute !== null) {
                 $av = $attribute[$a] ?? null;
                 $bv = $attribute[$b] ?? null;
 
                 // Equal sort keys fall through to score; unequal ones keep the precomputed
                 // order, which already encodes direction and nulls-last.
-                if (!$this->sameValue($av, $bv)) {
+                if (! $this->sameValue($av, $bv)) {
                     return ($position[$a] ?? PHP_INT_MAX) <=> ($position[$b] ?? PHP_INT_MAX);
                 }
             } elseif (($position[$a] ?? PHP_INT_MAX) !== ($position[$b] ?? PHP_INT_MAX)) {
@@ -804,8 +803,8 @@ class Engine
     }
 
     /**
-     * @param array<int, true> $candidates
-     * @param array<string, array<int, true>> $filters
+     * @param  array<int, true>  $candidates
+     * @param  array<string, array<int, true>>  $filters
      * @return array<int, true>
      */
     private function intersectAll(array $candidates, array $filters, ?string $except = null): array
@@ -828,7 +827,7 @@ class Engine
     }
 
     /**
-     * @param list<array<int, true>> $sets
+     * @param  list<array<int, true>>  $sets
      * @return array<int, true>
      */
     private function unionSets(array $sets): array
@@ -843,7 +842,7 @@ class Engine
     }
 
     /**
-     * @param list<array<int, true>> $sets
+     * @param  list<array<int, true>>  $sets
      * @return array<int, true>
      */
     private function intersectSets(array $sets): array
@@ -862,7 +861,7 @@ class Engine
     }
 
     /**
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */
     private function hit(int $id, array $payload): array

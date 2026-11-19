@@ -16,6 +16,7 @@ use Normalizer;
 class Tokenizer
 {
     public const MIN_LENGTH = 2;
+
     public const MAX_LENGTH = 64;
 
     /**

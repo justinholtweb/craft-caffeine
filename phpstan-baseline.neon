@@ -1,0 +1,25 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Parameter \#1 \$array \(list\<int\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: src/Search/ArtifactEncoder.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<mixed\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: src/Search/ArtifactEncoder.php
+
+		-
+			message: '#^Parameter \#1 \$array \(list\<int\>\) of array_values is already a list, call has no effect\.$#'
+			identifier: arrayValues.list
+			count: 1
+			path: src/Search/Engine.php
+
+		-
+			message: '#^Parameter \#3 \$facet of method JustinHoltWeb\\Caffeine\\Search\\Engine\:\:buildBuckets\(\) expects array\{type\: string, operator\: string, sort\?\: string\|null, valueOrder\?\: list\<mixed\>, maxValues\?\: int, values\: list\<mixed\>, postings\: list\<list\<int\>\>, records\: list\<list\<int\>\>\}, array\{type\: string, operator\: string, sort\?\: string\|null, valueOrder\?\: list\<mixed\>, maxValues\?\: int, values\: list\<mixed\>, postings\: list\<list\<int\>\>\} given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Search/Engine.php

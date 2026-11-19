@@ -6,6 +6,7 @@ use Closure;
 use CraftCms\Cms\Support\Json;
 use CraftCms\Cms\Support\Query;
 use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -33,7 +34,9 @@ use Throwable;
 class Artifacts
 {
     public const STATUS_LIVE = 'live';
+
     public const STATUS_SUPERSEDED = 'superseded';
+
     public const STATUS_FAILED = 'failed';
 
     /**
@@ -64,7 +67,7 @@ class Artifacts
      */
     public function publish(IndexDefinition $index): array
     {
-        return $this->locked($index->uid, self::LOCK_TIMEOUT, fn() => $this->publishLocked($index));
+        return $this->locked($index->uid, self::LOCK_TIMEOUT, fn () => $this->publishLocked($index));
     }
 
     /**
@@ -96,11 +99,11 @@ class Artifacts
             return [
                 'published' => false,
                 'reason' => 'unchanged',
-                'version' => (int)$live['version'],
+                'version' => (int) $live['version'],
                 'checksum' => $prepared['checksum'],
                 'records' => $prepared['nbRecords'],
                 'bytes' => $prepared['bytes'],
-                'buildMs' => (int)round((microtime(true) - $startedAt) * 1000),
+                'buildMs' => (int) round((microtime(true) - $startedAt) * 1000),
                 'pruned' => 0,
                 'url' => $publisher->pointerUrl($index),
             ];
@@ -113,13 +116,13 @@ class Artifacts
                 'recordCount' => $prepared['nbRecords'],
                 'checksum' => $prepared['checksum'],
                 'error' => $e->getMessage(),
-                'buildMs' => (int)round((microtime(true) - $startedAt) * 1000),
+                'buildMs' => (int) round((microtime(true) - $startedAt) * 1000),
             ]);
 
             throw $e;
         }
 
-        $buildMs = (int)round((microtime(true) - $startedAt) * 1000);
+        $buildMs = (int) round((microtime(true) - $startedAt) * 1000);
 
         $this->supersedeLive($index->uid);
 
@@ -154,7 +157,7 @@ class Artifacts
      */
     public function compile(IndexDefinition $index, int $version = 1): Artifact
     {
-        return (new Compiler())->compile(
+        return (new Compiler)->compile(
             // Downgraded here rather than at every call site: this is the only place a build
             // starts, so it is the only place the edition can change what gets built.
             app(Indexes::class)->forEdition($index),
@@ -203,7 +206,7 @@ class Artifacts
                 continue;
             }
 
-            $document = $this->readDocument($index, (string)$file);
+            $document = $this->readDocument($index, (string) $file);
 
             if ($document === null) {
                 return null;
@@ -212,14 +215,14 @@ class Artifacts
             $documents[$kind] = $document;
         }
 
-        if (!isset($documents['index'])) {
+        if (! isset($documents['index'])) {
             return null;
         }
 
-        $artifact = (new ArtifactDecoder())->decode(
+        $artifact = (new ArtifactDecoder)->decode(
             $documents['index'],
             $documents['payload'] ?? null,
-            (int)($manifest['version'] ?? 0),
+            (int) ($manifest['version'] ?? 0),
             $documents['lookup'] ?? null,
             $loader,
         );
@@ -239,7 +242,7 @@ class Artifacts
      * in the window between a record changing and the next publish, and only by a page that
      * shows that record.
      *
-     * @param array<string, mixed> $manifest
+     * @param  array<string, mixed>  $manifest
      * @return Closure(list<int>, Artifact): array<int, array<string, mixed>>
      */
     private function payloadLoader(IndexDefinition $index, array $manifest): Closure
@@ -247,14 +250,14 @@ class Artifacts
         /** @var list<array<string, mixed>>|null $shard */
         $shard = null;
 
-        return function(array $ids, Artifact $artifact) use ($index, $manifest, &$shard): array {
+        return function (array $ids, Artifact $artifact) use ($index, $manifest, &$shard): array {
             $wanted = [];
 
             foreach ($ids as $id) {
                 $objectId = $artifact->objectIds[$id] ?? null;
 
                 if ($objectId !== null) {
-                    $wanted[(string)$objectId] = $id;
+                    $wanted[(string) $objectId] = $id;
                 }
             }
 
@@ -266,8 +269,8 @@ class Artifacts
             }
 
             if ($shard === null) {
-                $document = $this->readDocument($index, (string)$manifest['shards']['payload']['file']);
-                $shard = array_values((array)($document['payloads'] ?? []));
+                $document = $this->readDocument($index, (string) $manifest['shards']['payload']['file']);
+                $shard = array_values((array) ($document['payloads'] ?? []));
 
                 if ($document === null) {
                     Log::channel('caffeine')->warning(
@@ -292,7 +295,7 @@ class Artifacts
      * a record's object id is `<elementId>-<siteId>` (see `Mapper::objectId()`), and anything
      * else simply falls through to the shard.
      *
-     * @param array<string, int> $wanted objectId → internal id
+     * @param  array<string, int>  $wanted  objectId → internal id
      * @return array<int, array<string, mixed>> internal id → payload
      */
     private function recordPayloads(IndexDefinition $index, Artifact $artifact, array $wanted): array
@@ -300,8 +303,8 @@ class Artifacts
         $elementIds = [];
 
         foreach (array_keys($wanted) as $objectId) {
-            if (preg_match('/^(\d+)-\d+$/', (string)$objectId, $m) === 1) {
-                $elementIds[(int)$m[1]] = true;
+            if (preg_match('/^(\d+)-\d+$/', (string) $objectId, $m) === 1) {
+                $elementIds[(int) $m[1]] = true;
             }
         }
 
@@ -318,7 +321,7 @@ class Artifacts
         $payloads = [];
 
         foreach ($rows as $row) {
-            $id = $wanted[(string)$row->objectId] ?? null;
+            $id = $wanted[(string) $row->objectId] ?? null;
 
             if ($id === null || $row->content === null) {
                 continue;
@@ -327,7 +330,7 @@ class Artifacts
             // Decoded exactly the way `Records::stream()` hands content to the compiler, so an
             // unchanged record produces the very array that was published, and the same hash.
             $content = Json::decodeIfJson($row->content) ?: [];
-            $payload = (array)($content['payload'] ?? []);
+            $payload = (array) ($content['payload'] ?? []);
 
             if (ArtifactEncoder::payloadHash($payload) === $artifact->payloadHash($id)) {
                 $payloads[$id] = $payload;
@@ -365,7 +368,7 @@ class Artifacts
      */
     public function prune(IndexDefinition $index): int
     {
-        return $this->locked($index->uid, self::LOCK_TIMEOUT, fn() => $this->pruneLocked($index));
+        return $this->locked($index->uid, self::LOCK_TIMEOUT, fn () => $this->pruneLocked($index));
     }
 
     private function pruneLocked(IndexDefinition $index): int
@@ -386,6 +389,7 @@ class Artifacts
             // before the last rebuild is still fetching one of them.
             if ($i < $keep || $row['status'] === self::STATUS_LIVE) {
                 $retained[] = $row;
+
                 continue;
             }
 
@@ -399,7 +403,7 @@ class Artifacts
         $keepFiles = [];
 
         foreach ($retained as $row) {
-            foreach ((array)Json::decodeIfJson($row['files'] ?? '[]') as $file) {
+            foreach ((array) Json::decodeIfJson($row['files'] ?? '[]') as $file) {
                 $keepFiles[$file] = true;
             }
         }
@@ -407,7 +411,7 @@ class Artifacts
         $delete = [];
 
         foreach ($doomed as $row) {
-            foreach ((array)Json::decodeIfJson($row['files'] ?? '[]') as $file) {
+            foreach ((array) Json::decodeIfJson($row['files'] ?? '[]') as $file) {
                 // Shared with something still live or still retained. Content-addressed names
                 // make this the common case rather than the exception: a rebuild that only
                 // touched payload leaves the whole facet index sitting at its original path.
@@ -440,7 +444,7 @@ class Artifacts
             ->orderByDesc('version')
             ->first();
 
-        return $row !== null ? (array)$row : null;
+        return $row !== null ? (array) $row : null;
     }
 
     /**
@@ -480,12 +484,12 @@ class Artifacts
         return [
             'records' => $records->countFor($index->uid),
             'dirty' => $dirty,
-            'version' => $live !== null ? (int)$live['version'] : null,
-            'status' => $live !== null ? (string)$live['status'] : null,
-            'checksum' => $live !== null ? (string)$live['checksum'] : null,
-            'bytes' => $live !== null ? (int)$live['byteSize'] : 0,
-            'publishedAt' => $live !== null ? (string)$live['dateCreated'] : null,
-            'buildMs' => $live !== null ? (int)$live['buildMs'] : null,
+            'version' => $live !== null ? (int) $live['version'] : null,
+            'status' => $live !== null ? (string) $live['status'] : null,
+            'checksum' => $live !== null ? (string) $live['checksum'] : null,
+            'bytes' => $live !== null ? (int) $live['byteSize'] : 0,
+            'publishedAt' => $live !== null ? (string) $live['dateCreated'] : null,
+            'buildMs' => $live !== null ? (int) $live['buildMs'] : null,
             'url' => app(Publisher::class)->pointerUrl($index),
             // Records have moved since the live artifact was cut, so what visitors are being
             // served is behind the CMS.
@@ -523,7 +527,7 @@ class Artifacts
             ->where('indexUid', $indexUid)
             ->max('version');
 
-        return $max === null ? 1 : (int)$max + 1;
+        return $max === null ? 1 : (int) $max + 1;
     }
 
     /**
@@ -543,7 +547,7 @@ class Artifacts
         $files = [];
 
         foreach ($rows as $list) {
-            foreach ((array)Json::decodeIfJson($list ?? '[]') as $file) {
+            foreach ((array) Json::decodeIfJson($list ?? '[]') as $file) {
                 $files[$file] = true;
             }
         }
@@ -559,7 +563,7 @@ class Artifacts
      * The counterpart to `Records::deleteOrphans()`, and the more important half: orphaned rows
      * waste a little storage, but orphaned *artifacts* sit in the web root being served forever.
      *
-     * @param list<string> $keepUids Uids currently defined in project config.
+     * @param  list<string>  $keepUids  Uids currently defined in project config.
      * @return int Indexes cleaned up.
      */
     public function deleteOrphans(array $keepUids): int
@@ -573,7 +577,7 @@ class Artifacts
         $orphans = $query->pluck('indexUid')->all();
 
         foreach ($orphans as $uid) {
-            $this->deleteForIndex((string)$uid);
+            $this->deleteForIndex((string) $uid);
         }
 
         return count($orphans);
@@ -596,7 +600,7 @@ class Artifacts
      */
     public function sweep(IndexDefinition $index): ?array
     {
-        return $this->locked($index->uid, 0, function() use ($index): array {
+        return $this->locked($index->uid, 0, function () use ($index): array {
             $publisher = app(Publisher::class);
             $store = $publisher->store();
             $keep = [$publisher->path($index, Publisher::POINTER) => true];
@@ -606,7 +610,7 @@ class Artifacts
                 ->pluck('files');
 
             foreach ($rows as $files) {
-                foreach ((array)Json::decodeIfJson($files ?? '[]') as $file) {
+                foreach ((array) Json::decodeIfJson($files ?? '[]') as $file) {
                     $keep[$file] = true;
                 }
             }
@@ -616,12 +620,12 @@ class Artifacts
             $pointer = $publisher->pointer($index);
 
             foreach ($pointer['shards'] ?? [] as $shard) {
-                $path = $publisher->path($index, (string)($shard['file'] ?? ''));
+                $path = $publisher->path($index, (string) ($shard['file'] ?? ''));
                 $keep[$path] = $keep["{$path}.gz"] = $keep["{$path}.br"] = true;
             }
 
             if (isset($pointer['lookup']['file'])) {
-                $keep[$publisher->path($index, (string)$pointer['lookup']['file'])] = true;
+                $keep[$publisher->path($index, (string) $pointer['lookup']['file'])] = true;
             }
 
             $deleted = [];
@@ -649,8 +653,9 @@ class Artifacts
      * Runs a callback holding the index's publish lock.
      *
      * @template T
-     * @param callable(): T $callback
-     * @param mixed $busy Returned instead when `$timeout` is zero and the lock is taken.
+     *
+     * @param  callable(): T  $callback
+     * @param  mixed  $busy  Returned instead when `$timeout` is zero and the lock is taken.
      * @return T
      */
     private function locked(string $indexUid, int $timeout, callable $callback, mixed $busy = null): mixed
@@ -658,7 +663,7 @@ class Artifacts
         $lock = Cache::lock("caffeine:publish:{$indexUid}", self::LOCK_TTL);
 
         if ($timeout === 0) {
-            if (!$lock->get()) {
+            if (! $lock->get()) {
                 return $busy;
             }
         } else {
@@ -677,7 +682,7 @@ class Artifacts
     }
 
     /**
-     * @param array<string, mixed> $values
+     * @param  array<string, mixed>  $values
      */
     private function record(IndexDefinition $index, int $version, string $status, array $values): void
     {
@@ -691,9 +696,9 @@ class Artifacts
             'byteSize' => 0,
             'dateCreated' => $now,
             'dateUpdated' => $now,
-            'uid' => (string)Str::uuid(),
+            'uid' => (string) Str::uuid(),
         ], array_map(
-            fn($value) => is_array($value) ? json_encode($value, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) : $value,
+            fn ($value) => is_array($value) ? json_encode($value, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) : $value,
             $values,
         )));
     }
@@ -703,8 +708,8 @@ class Artifacts
      *
      * @return list<array<string, mixed>>
      */
-    private function rows(\Illuminate\Database\Query\Builder $query): array
+    private function rows(Builder $query): array
     {
-        return $query->get()->map(fn(object $row) => (array)$row)->values()->all();
+        return $query->get()->map(fn (object $row) => (array) $row)->values()->all();
     }
 }

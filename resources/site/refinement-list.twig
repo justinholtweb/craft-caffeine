@@ -10,7 +10,7 @@
 
     <ul class="caffeine-refinement-list__items">
       {% for bucket in shown %}
-        {% include 'caffeine/_widgets/_bucket' with { bucket: bucket, facet: facet } only %}
+        {% include '_caffeine/_bucket' with { bucket: bucket, facet: facet } only %}
       {% endfor %}
     </ul>
 
@@ -21,7 +21,7 @@
         <summary>{{ 'Show {count} more'|t('caffeine', { count: overflow|length }) }}</summary>
         <ul class="caffeine-refinement-list__items">
           {% for bucket in overflow %}
-            {% include 'caffeine/_widgets/_bucket' with { bucket: bucket, facet: facet } only %}
+            {% include '_caffeine/_bucket' with { bucket: bucket, facet: facet } only %}
           {% endfor %}
         </ul>
       </details>

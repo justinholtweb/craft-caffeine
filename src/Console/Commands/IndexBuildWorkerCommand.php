@@ -31,9 +31,9 @@ class IndexBuildWorkerCommand extends Command
 
     public function handle(Indexes $indexes, Builder $builder): int
     {
-        $index = $indexes->getByHandle((string)$this->argument('handle'));
-        $range = (string)$this->option('range');
-        $resultFile = (string)$this->option('result');
+        $index = $indexes->getByHandle((string) $this->argument('handle'));
+        $range = (string) $this->option('range');
+        $resultFile = (string) $this->option('result');
 
         if ($index === null || $resultFile === '' || preg_match('/^(\d+):(\d*)$/', $range, $m) !== 1) {
             $this->error('Invalid worker invocation.');
@@ -41,9 +41,9 @@ class IndexBuildWorkerCommand extends Command
             return self::INVALID;
         }
 
-        $result = $builder->buildAll($index, function(int $done, int $total) {
+        $result = $builder->buildAll($index, function (int $done, int $total) {
             $this->output->writeln("progress {$done} {$total}");
-        }, [(int)$m[1], $m[2] === '' ? null : (int)$m[2]], false);
+        }, [(int) $m[1], $m[2] === '' ? null : (int) $m[2]], false);
 
         file_put_contents($resultFile, json_encode($result, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
 

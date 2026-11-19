@@ -1,4 +1,5 @@
 <?php
+
 // Exercises Phase 7's coverage work against the plugin-testing harness.
 //
 //   ddev exec bash -c "cd /var/www/html && php /var/www/craft-caffeine/tests/integration/coverage-checks.php"
@@ -24,7 +25,7 @@ function check(string $label, bool $ok, string $detail = ''): void
 
     echo $ok ? '  ok   ' : '  FAIL ', $label, $detail !== '' ? "  ({$detail})" : '', PHP_EOL;
 
-    if (!$ok) {
+    if (! $ok) {
         $failures++;
     }
 }
@@ -51,10 +52,11 @@ foreach ($all as $handle => $source) {
     $definition = new SourceDefinition(['type' => $handle]);
 
     try {
-        $count = (int)$source->query($definition, Craft::$app->getSites()->getPrimarySite()->id)->count();
+        $count = (int) $source->query($definition, Craft::$app->getSites()->getPrimarySite()->id)->count();
         check("“{$handle}” queries without erroring", true, "{$count} element(s)");
     } catch (Throwable $e) {
         check("“{$handle}” queries without erroring", false, $e->getMessage());
+
         continue;
     }
 
@@ -73,12 +75,12 @@ echo "\nStatus mapping\n";
 // The bug this guards: `live` is an entry concept. Asking a category, asset or user query for it
 // returns nothing at all rather than erroring — an empty index and no explanation.
 foreach (['category' => Category::class, 'asset' => Asset::class, 'user' => User::class] as $handle => $class) {
-    if (!isset($all[$handle])) {
+    if (! isset($all[$handle])) {
         continue;
     }
 
-    $live = (int)$all[$handle]->query(new SourceDefinition(['type' => $handle, 'status' => 'live']), Craft::$app->getSites()->getPrimarySite()->id)->count();
-    $any = (int)$all[$handle]->query(new SourceDefinition(['type' => $handle, 'status' => 'any']), Craft::$app->getSites()->getPrimarySite()->id)->count();
+    $live = (int) $all[$handle]->query(new SourceDefinition(['type' => $handle, 'status' => 'live']), Craft::$app->getSites()->getPrimarySite()->id)->count();
+    $any = (int) $all[$handle]->query(new SourceDefinition(['type' => $handle, 'status' => 'any']), Craft::$app->getSites()->getPrimarySite()->id)->count();
 
     check("“{$handle}” returns something for the default status", $any === 0 || $live > 0, "{$live} live of {$any}");
 }
@@ -98,6 +100,7 @@ $probes = [
 foreach ($probes as $handle => $expectedParts) {
     if (Craft::$app->getFields()->getFieldByHandle($handle) === null) {
         echo "  skip {$handle} — not installed\n";
+
         continue;
     }
 
@@ -137,11 +140,13 @@ foreach ($probes as $handle => $expectedParts) {
 
     if ($error !== null) {
         check("{$handle} maps without erroring", false, $error);
+
         continue;
     }
 
     if ($record === null) {
         echo "  skip {$handle} — no entry has a value\n";
+
         continue;
     }
 
@@ -151,11 +156,11 @@ foreach ($probes as $handle => $expectedParts) {
     // A payload that came back as a class name is exactly the failure extractors exist to fix.
     $opaque = is_string($payload) && str_contains($payload, chr(92));
 
-    check("{$handle} extracts to something usable", !$opaque && $facets !== [],
-        substr((string)json_encode($payload), 0, 100));
+    check("{$handle} extracts to something usable", ! $opaque && $facets !== [],
+        substr((string) json_encode($payload), 0, 100));
 
     if (is_array($payload)) {
-        check('  and exposes ' . implode('/', $expectedParts),
+        check('  and exposes '.implode('/', $expectedParts),
             array_intersect($expectedParts, array_keys($payload)) !== [],
             implode(', ', array_keys($payload)));
     }

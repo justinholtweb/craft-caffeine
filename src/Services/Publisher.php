@@ -6,12 +6,12 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use JustinHoltWeb\Caffeine\Models\IndexDefinition;
 use JustinHoltWeb\Caffeine\Models\Settings;
+use JustinHoltWeb\Caffeine\Plugin;
 use JustinHoltWeb\Caffeine\Publish\FsStore;
 use JustinHoltWeb\Caffeine\Publish\LocalStore;
 use JustinHoltWeb\Caffeine\Publish\StoreInterface;
 use JustinHoltWeb\Caffeine\Search\Artifact;
 use JustinHoltWeb\Caffeine\Search\ArtifactEncoder;
-use JustinHoltWeb\Caffeine\Plugin;
 use RuntimeException;
 
 /**
@@ -54,7 +54,7 @@ class Publisher
      */
     public function prepare(IndexDefinition $index, Artifact $artifact): array
     {
-        $encoded = (new ArtifactEncoder())->encode($artifact);
+        $encoded = (new ArtifactEncoder)->encode($artifact);
 
         // Sharding is a publishing decision, not a compilation one: the encoder always produces
         // both documents and this chooses whether they travel separately. Merged, the payload
@@ -66,7 +66,7 @@ class Publisher
         // Server-only, and only worth having when the payload travels on its own: it is what
         // lets a server render read the index shard and skip the payload shard (see
         // `ArtifactEncoder::encodeLookup()`). Never compressed, because no browser fetches it.
-        $lookupDocument = $index->shardPayload ? (new ArtifactEncoder())->encodeLookup($artifact) : null;
+        $lookupDocument = $index->shardPayload ? (new ArtifactEncoder)->encodeLookup($artifact) : null;
 
         $prepared = [];
         $bytes = 0;
@@ -99,7 +99,7 @@ class Publisher
             ];
         }
 
-        $checksums = array_map(fn(array $d) => $d['checksum'], $prepared);
+        $checksums = array_map(fn (array $d) => $d['checksum'], $prepared);
 
         if ($lookup !== null) {
             $checksums[] = $lookup['checksum'];
@@ -121,7 +121,7 @@ class Publisher
     /**
      * Writes a prepared artifact and swings the pointer at it.
      *
-     * @param array{documents: array<string, array{name: string, contents: string, checksum: string, bytes: int}>, lookup?: array{name: string, contents: string, checksum: string, bytes: int}|null, checksum: string, bytes: int, nbRecords: int} $prepared
+     * @param  array{documents: array<string, array{name: string, contents: string, checksum: string, bytes: int}>, lookup?: array{name: string, contents: string, checksum: string, bytes: int}|null, checksum: string, bytes: int, nbRecords: int}  $prepared
      * @return array{checksum: string, version: int, files: list<string>, bytes: int, manifest: array<string, mixed>, reused: bool}
      */
     public function commit(IndexDefinition $index, array $prepared, int $version): array
@@ -139,7 +139,7 @@ class Publisher
             // Content-addressed, so a shard whose bytes have not changed is already sitting at
             // exactly this filename. Two indexes that differ only in their payload republish
             // only the payload.
-            if (!$store->exists($path)) {
+            if (! $store->exists($path)) {
                 $store->write($path, $document['contents']);
                 $written++;
             }
@@ -149,7 +149,7 @@ class Publisher
             foreach ($this->compress($document['contents'], $settings) as $extension => $compressed) {
                 $sidecar = "{$path}.{$extension}";
 
-                if (!$store->exists($sidecar)) {
+                if (! $store->exists($sidecar)) {
                     $store->write($sidecar, $compressed);
                 }
 
@@ -169,7 +169,7 @@ class Publisher
         if (($prepared['lookup'] ?? null) !== null) {
             $path = $this->path($index, $prepared['lookup']['name']);
 
-            if (!$store->exists($path)) {
+            if (! $store->exists($path)) {
                 $store->write($path, $prepared['lookup']['contents']);
                 $written++;
             }
@@ -239,7 +239,7 @@ class Publisher
     /**
      * Removes published files.
      *
-     * @param list<string> $files Paths exactly as recorded when they were written.
+     * @param  list<string>  $files  Paths exactly as recorded when they were written.
      */
     public function prune(array $files): void
     {
@@ -281,8 +281,8 @@ class Publisher
 
         $settings = $this->settings();
 
-        $disk = (string)($settings->filesystemHandle ?? '');
-        $publishPath = (string)($settings->publishPath ?? '');
+        $disk = (string) ($settings->filesystemHandle ?? '');
+        $publishPath = (string) ($settings->publishPath ?? '');
 
         if ($disk === '') {
             return $this->store = LocalStore::forPath($publishPath);
@@ -317,7 +317,7 @@ class Publisher
      */
     private function compress(string $contents, Settings $settings): array
     {
-        if (!$settings->precompress) {
+        if (! $settings->precompress) {
             return [];
         }
 
@@ -330,7 +330,7 @@ class Publisher
             $out['br'] = brotli_compress($contents, 11);
         }
 
-        return array_filter($out, fn($value) => is_string($value) && $value !== '');
+        return array_filter($out, fn ($value) => is_string($value) && $value !== '');
     }
 
     /**

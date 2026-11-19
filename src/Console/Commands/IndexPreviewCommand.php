@@ -10,6 +10,7 @@ use Illuminate\Console\Command;
 use JustinHoltWeb\Caffeine\Services\Indexes;
 use JustinHoltWeb\Caffeine\Services\Mapper;
 use JustinHoltWeb\Caffeine\Services\Tokenizer;
+use Symfony\Component\Console\Output\OutputInterface;
 
 /**
  * Prints the record Caffeine would build for one element, so a definition can be checked
@@ -32,8 +33,8 @@ class IndexPreviewCommand extends Command
 
     public function handle(Indexes $indexes, Mapper $mapper, Tokenizer $tokenizer): int
     {
-        $handle = (string)$this->argument('handle');
-        $elementId = (int)$this->argument('elementId');
+        $handle = (string) $this->argument('handle');
+        $elementId = (int) $this->argument('elementId');
         $index = $indexes->getByHandle($handle);
 
         if ($index === null) {
@@ -52,7 +53,7 @@ class IndexPreviewCommand extends Command
 
         $record = $mapper->map($index, $element);
 
-        $this->output->writeln((string)json_encode([
+        $this->output->writeln((string) json_encode([
             'objectID' => $record->objectId,
             'facets' => $record->facets,
             'sortable' => $record->sortable,
@@ -60,7 +61,7 @@ class IndexPreviewCommand extends Command
             'searchable' => $record->searchable,
             'tokens' => $tokenizer->tokenizeRecord($index, $record),
             'dependsOn' => $record->dependencies,
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), \Symfony\Component\Console\Output\OutputInterface::OUTPUT_RAW);
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), OutputInterface::OUTPUT_RAW);
 
         return self::SUCCESS;
     }

@@ -150,7 +150,7 @@ class Artifact
     /**
      * Payloads for some records, keyed by internal id: what a page of hits needs.
      *
-     * @param list<int> $ids
+     * @param  list<int>  $ids
      * @return array<int, array<string, mixed>>
      */
     public function payloadsFor(array $ids): array
@@ -183,7 +183,7 @@ class Artifact
     /**
      * Builds the flat token lists from per-token `[id, weight]` pairs.
      *
-     * @param list<list<array{0: int, 1: float}>> $postings Parallel to the token list.
+     * @param  list<list<array{0: int, 1: float}>>  $postings  Parallel to the token list.
      * @return array{tokenIds: list<int>, tokenWeights: list<float>, tokenOffsets: list<int>}
      */
     public static function flattenTokenPostings(array $postings): array
@@ -194,8 +194,8 @@ class Artifact
 
         foreach ($postings as $list) {
             foreach ($list as [$id, $weight]) {
-                $ids[] = (int)$id;
-                $weights[] = (float)$weight;
+                $ids[] = (int) $id;
+                $weights[] = (float) $weight;
             }
 
             $offsets[] = count($ids);
@@ -287,29 +287,29 @@ class Artifact
     /**
      * The inverse of `toArray()`. Any reverse map in `$data` is ignored: it is derived.
      *
-     * @param array<string, mixed> $data
+     * @param  array<string, mixed>  $data
      */
     public static function fromArray(array $data): self
     {
         $facets = [];
 
-        foreach ((array)($data['facets'] ?? []) as $key => $facet) {
+        foreach ((array) ($data['facets'] ?? []) as $key => $facet) {
             unset($facet['records']);
             $facets[$key] = $facet;
         }
 
         return new self(
-            ...self::flattenTokenPostings(array_values((array)($data['tokenPostings'] ?? []))),
-            index: (string)($data['index'] ?? ''),
-            version: (int)($data['version'] ?? 0),
-            objectIds: array_values((array)($data['objectIds'] ?? [])),
-            payloads: array_values((array)($data['payloads'] ?? [])),
+            ...self::flattenTokenPostings(array_values((array) ($data['tokenPostings'] ?? []))),
+            index: (string) ($data['index'] ?? ''),
+            version: (int) ($data['version'] ?? 0),
+            objectIds: array_values((array) ($data['objectIds'] ?? [])),
+            payloads: array_values((array) ($data['payloads'] ?? [])),
             facets: $facets,
-            sortings: (array)($data['sortings'] ?? []),
-            tokens: array_values((array)($data['tokens'] ?? [])),
-            sortableValues: (array)($data['sortableValues'] ?? []),
-            stopwords: array_values((array)($data['stopwords'] ?? [])),
-            geo: (array)($data['geo'] ?? []),
+            sortings: (array) ($data['sortings'] ?? []),
+            tokens: array_values((array) ($data['tokens'] ?? [])),
+            sortableValues: (array) ($data['sortableValues'] ?? []),
+            stopwords: array_values((array) ($data['stopwords'] ?? [])),
+            geo: (array) ($data['geo'] ?? []),
         );
     }
 }

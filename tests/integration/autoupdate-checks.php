@@ -1,4 +1,5 @@
 <?php
+
 // Exercises Phase 5's auto-update against the plugin-testing harness.
 //
 // Nothing here can be a fixture: it is entirely about what Craft's element events do, when they
@@ -11,6 +12,7 @@ define('CRAFT_BASE_PATH', '/var/www/html');
 $app = require '/var/www/html/vendor/craftcms/cms/bootstrap/console.php';
 
 use craft\elements\Entry;
+use JustinHoltWeb\Caffeine\Jobs\UpdateJob;
 use JustinHoltWeb\Caffeine\Plugin;
 
 $failures = 0;
@@ -21,7 +23,7 @@ function check(string $label, bool $ok, string $detail = ''): void
 
     echo $ok ? '  ok   ' : '  FAIL ', $label, $detail !== '' ? "  ({$detail})" : '', PHP_EOL;
 
-    if (!$ok) {
+    if (! $ok) {
         $failures++;
     }
 }
@@ -38,13 +40,13 @@ $index = $plugin->indexes->getByHandle('products');
  * in `products` and something the `related` index reads — and one job each is the correct
  * outcome, not a coalescing failure.
  */
-$queued = function(?string $name = null) use ($queue): int {
+$queued = function (?string $name = null) use ($queue): int {
     $count = 0;
 
     foreach ($queue->getJobInfo() as $job) {
-        $description = (string)($job['description'] ?? '');
+        $description = (string) ($job['description'] ?? '');
 
-        if (!str_contains($description, 'search index')) {
+        if (! str_contains($description, 'search index')) {
             continue;
         }
 
@@ -56,7 +58,7 @@ $queued = function(?string $name = null) use ($queue): int {
     return $count;
 };
 
-$drain = function() use ($queue, $plugin, $index) {
+$drain = function () use ($plugin, $index) {
     Craft::$app->getDb()->createCommand()->delete('{{%queue}}')->execute();
     $plugin->autoUpdate->clearPending($index->uid);
 };
@@ -79,16 +81,16 @@ $entries[0]->title = $entries[0]->title;
 $elements->saveElement($entries[0]);
 
 check('the saved element goes dirty', $plugin->records->countFor($index->uid, true) > $before,
-    $plugin->records->countFor($index->uid, true) . ' dirty');
-check('an update is queued for it', $queued('Products') === 1, $queued('Products') . ' queued');
+    $plugin->records->countFor($index->uid, true).' dirty');
+check('an update is queued for it', $queued('Products') === 1, $queued('Products').' queued');
 check('and the index is marked pending', $plugin->autoUpdate->isPending($index->uid));
 
 echo "\nThe debounce coalesces\n";
 
 $elements->saveElement($entries[1]);
-check('a second save queues nothing more', $queued('Products') === 1, $queued('Products') . ' queued');
+check('a second save queues nothing more', $queued('Products') === 1, $queued('Products').' queued');
 check('but still marks it dirty', $plugin->records->countFor($index->uid, true) >= 2,
-    $plugin->records->countFor($index->uid, true) . ' dirty');
+    $plugin->records->countFor($index->uid, true).' dirty');
 
 echo "\nA bulk operation collapses to one job\n";
 
@@ -100,13 +102,13 @@ foreach ($entries as $entry) {
     $elements->saveElement($entry);
 }
 
-check('nothing is queued while the operation runs', $queued('Products') === 0, $queued('Products') . ' queued');
+check('nothing is queued while the operation runs', $queued('Products') === 0, $queued('Products').' queued');
 
 $elements->endBulkOp($key);
 
-check('one job is queued when it finishes', $queued('Products') === 1, $queued('Products') . ' queued');
+check('one job is queued when it finishes', $queued('Products') === 1, $queued('Products').' queued');
 check('every element it touched is dirty', $plugin->records->countFor($index->uid, true) >= count($entries),
-    $plugin->records->countFor($index->uid, true) . ' dirty');
+    $plugin->records->countFor($index->uid, true).' dirty');
 
 echo "\nThe dependency map carries a related change through\n";
 
@@ -121,36 +123,36 @@ check('the related index starts clean', $plugin->records->countFor($related->uid
 // The entry the `related` index descends *into* — it has no record of its own there, so the only
 // thing that can mark the dependent record dirty is caffeine_deps.
 $target = Entry::find()->section('testEntries')->one();
-$dependents = $plugin->records->indexUidsDependingOn([(int)$target->id]);
+$dependents = $plugin->records->indexUidsDependingOn([(int) $target->id]);
 
 check('caffeine_deps knows who reads it', in_array($related->uid, $dependents, true),
-    count($dependents) . ' dependent index(es)');
-check('and only indexes that still exist', array_filter($dependents, fn($uid) => $plugin->indexes->getByUid($uid) === null) === [],
+    count($dependents).' dependent index(es)');
+check('and only indexes that still exist', array_filter($dependents, fn ($uid) => $plugin->indexes->getByUid($uid) === null) === [],
     'orphans are collected by craft gc');
 
 $elements->saveElement($target);
 
 check('saving it marks the dependent record dirty', $plugin->records->countFor($related->uid, true) > 0,
-    $plugin->records->countFor($related->uid, true) . ' dirty');
+    $plugin->records->countFor($related->uid, true).' dirty');
 
 echo "\nThe job rebuilds and republishes\n";
 
 $drain();
-$versionBefore = (int)($plugin->artifacts->live($index->uid)['version'] ?? 0);
+$versionBefore = (int) ($plugin->artifacts->live($index->uid)['version'] ?? 0);
 
 $plugin->builder->buildAll($index);
 $elements->saveElement($entries[0]);
 
-$job = new JustinHoltWeb\Caffeine\Jobs\UpdateJob(['indexUid' => $index->uid]);
+$job = new UpdateJob(['indexUid' => $index->uid]);
 $job->execute($queue);
 
 check('the dirty rows are gone', $plugin->records->countFor($index->uid, true) === 0,
-    $plugin->records->countFor($index->uid, true) . ' dirty');
-check('the pending marker is cleared', !$plugin->autoUpdate->isPending($index->uid));
+    $plugin->records->countFor($index->uid, true).' dirty');
+check('the pending marker is cleared', ! $plugin->autoUpdate->isPending($index->uid));
 
 $after = $plugin->artifacts->live($index->uid);
 check('the artifact is live and current', ($after['status'] ?? null) === 'live',
-    'v' . ($after['version'] ?? '?'));
+    'v'.($after['version'] ?? '?'));
 
 $published = $plugin->artifacts->published($index);
 check('and matches a fresh compile',

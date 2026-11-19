@@ -38,7 +38,7 @@ class OptionExtractor implements ValueExtractorInterface
 
         return new ExtractedValue($stored, [
             'value' => $stored,
-            'label' => is_string($label) && $label !== '' ? $label : (string)$stored,
+            'label' => is_string($label) && $label !== '' ? $label : (string) $stored,
         ]);
     }
 }

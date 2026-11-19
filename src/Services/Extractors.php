@@ -43,14 +43,14 @@ class Extractors
             return $this->extractors;
         }
 
-        $event = new RegisterExtractors();
+        $event = new RegisterExtractors;
 
         event($event);
 
         $registered = array_values(array_filter(
             $event->extractors,
             // @phpstan-ignore function.alreadyNarrowedType (registered by third-party handlers, so not trusted)
-            fn($class) => is_string($class) && is_subclass_of($class, ValueExtractorInterface::class),
+            fn ($class) => is_string($class) && is_subclass_of($class, ValueExtractorInterface::class),
         ));
 
         return $this->extractors = array_merge($registered, [
@@ -72,17 +72,17 @@ class Extractors
      */
     public function expand(mixed $value): mixed
     {
-        if (!is_object($value) || $value instanceof DateTimeInterface || $value instanceof ExtractedValue) {
+        if (! is_object($value) || $value instanceof DateTimeInterface || $value instanceof ExtractedValue) {
             return $value;
         }
 
         foreach ($this->all() as $class) {
             try {
-                if (!$class::supports($value)) {
+                if (! $class::supports($value)) {
                     continue;
                 }
 
-                $extracted = (new $class())->extract($value);
+                $extracted = (new $class)->extract($value);
             } catch (Throwable) {
                 // An extractor that throws on an odd value is a bug in that extractor, not a
                 // reason to fail the build for the record that happened to contain it.
@@ -96,7 +96,7 @@ class Extractors
             // A collection extracts to a plain list, which needs walking again — its items are
             // the things with shapes worth recognising.
             return $extracted->parts === [] && is_array($extracted->primary)
-                ? array_map(fn($item) => $this->expand($item), $extracted->primary)
+                ? array_map(fn ($item) => $this->expand($item), $extracted->primary)
                 : $extracted;
         }
 

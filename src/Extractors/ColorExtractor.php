@@ -22,7 +22,7 @@ class ColorExtractor implements ValueExtractorInterface
             return null;
         }
 
-        if (!is_string($hex) || $hex === '') {
+        if (! is_string($hex) || $hex === '') {
             return null;
         }
 

@@ -37,9 +37,9 @@ class Builder
      * element ids and the parent prunes once every slice is done. A worker that pruned would
      * delete every record outside its own slice.
      *
-     * @param callable(int, int): void|null $progress Called with (done, total).
-     * @param array{0: int, 1: int|null}|null $range Element ids from and to, inclusive, with a
-     *                                                null upper bound for no upper bound.
+     * @param  callable(int, int): void|null  $progress  Called with (done, total).
+     * @param  array{0: int, 1: int|null}|null  $range  Element ids from and to, inclusive, with a
+     *                                                  null upper bound for no upper bound.
      * @return array{records: int, pruned: int, errors: list<string>, seen: list<int>}
      */
     public function buildAll(IndexDefinition $index, ?callable $progress = null, ?array $range = null, bool $prune = true): array
@@ -61,7 +61,7 @@ class Builder
 
                 // `chunk()` pages with limit/offset under the id ordering every source applies, and
                 // eager-loads per page — the Craft 6 replacement for Craft 5's `batch()`.
-                $query->chunk(self::BATCH_SIZE, function(iterable $elements) use ($index, $progress, $total, &$records, &$errors, &$seenElementIds) {
+                $query->chunk(self::BATCH_SIZE, function (iterable $elements) use ($index, $progress, $total, &$records, &$errors, &$seenElementIds) {
                     foreach ($elements as $element) {
                         $seenElementIds[$element->id] = true;
 
@@ -106,7 +106,7 @@ class Builder
         foreach ($this->siteIds($index) as $siteId) {
             foreach (app(Sources::class)->resolve($index) as ['source' => $source, 'definition' => $definition]) {
                 foreach ($source->query($definition, $siteId)->ids() as $id) {
-                    $ids[(int)$id] = true;
+                    $ids[(int) $id] = true;
                 }
             }
         }
@@ -120,7 +120,7 @@ class Builder
     /**
      * Rebuilds only the records marked dirty.
      *
-     * @param callable(int, int): void|null $progress Called with (done, total).
+     * @param  callable(int, int): void|null  $progress  Called with (done, total).
      * @return array{records: int, removed: int, errors: list<string>}
      */
     public function buildDirty(IndexDefinition $index, ?callable $progress = null): array
@@ -141,8 +141,8 @@ class Builder
     /**
      * Rebuilds specific elements, removing any that no longer belong in the index.
      *
-     * @param list<int> $elementIds
-     * @param callable(int, int): void|null $progress Called with (done, total).
+     * @param  list<int>  $elementIds
+     * @param  callable(int, int): void|null  $progress  Called with (done, total).
      * @return array{records: int, removed: int, errors: list<string>}
      */
     public function buildElements(IndexDefinition $index, array $elementIds, ?callable $progress = null): array
@@ -164,8 +164,9 @@ class Builder
                         // An element can stop qualifying without being deleted — moved to
                         // another section, or disabled. Rebuilding it blindly would leave a
                         // live record for content that should have vanished from the index.
-                        if (!$sources->covers($index, $element)) {
-                            $removed += $store->markDeleted($index->uid, [(int)$element->id]);
+                        if (! $sources->covers($index, $element)) {
+                            $removed += $store->markDeleted($index->uid, [(int) $element->id]);
+
                             continue;
                         }
 
@@ -202,7 +203,7 @@ class Builder
     }
 
     /**
-     * @param list<int> $elementIds
+     * @param  list<int>  $elementIds
      * @return ElementInterface[]
      */
     private function loadElements(IndexDefinition $index, array $elementIds, int $siteId): array
@@ -219,7 +220,7 @@ class Builder
             $this->defineQuery($index, $source, $definition, $siteId, $query);
 
             foreach ($query->all() as $element) {
-                $elements[$element->id . '-' . $element->siteId] = $element;
+                $elements[$element->id.'-'.$element->siteId] = $element;
             }
         }
 
@@ -227,7 +228,7 @@ class Builder
     }
 
     /**
-     * @param list<int> $elementIds
+     * @param  list<int>  $elementIds
      * @return list<int>
      */
     private function missingElementIds(IndexDefinition $index, array $elementIds): array
@@ -259,13 +260,13 @@ class Builder
         }
 
         return Sites::getAllSites()
-            ->map(fn($site) => (int)$site->id)
+            ->map(fn ($site) => (int) $site->id)
             ->values()
             ->all();
     }
 
     /**
-     * @param array{0: int, 1: int|null}|null $range See `buildAll()`.
+     * @param  array{0: int, 1: int|null}|null  $range  See `buildAll()`.
      */
     public function countElements(IndexDefinition $index, ?array $range = null): int
     {
@@ -287,18 +288,18 @@ class Builder
     }
 
     /**
-     * @param array{0: int, 1: int|null} $range
+     * @param  array{0: int, 1: int|null}  $range
      */
     private function applyRange(ElementQueryInterface $query, array $range): void
     {
         $query->id($range[1] === null
-            ? '>= ' . (int)$range[0]
-            : ['and', '>= ' . (int)$range[0], '<= ' . (int)$range[1]]);
+            ? '>= '.(int) $range[0]
+            : ['and', '>= '.(int) $range[0], '<= '.(int) $range[1]]);
     }
 
     private function defineQuery(IndexDefinition $index, SourceInterface $source, SourceDefinition $definition, int $siteId, ElementQueryInterface $query): void
     {
-        if (!Event::hasListeners(DefineSourceQuery::class)) {
+        if (! Event::hasListeners(DefineSourceQuery::class)) {
             return;
         }
 

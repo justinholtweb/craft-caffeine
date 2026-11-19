@@ -40,7 +40,7 @@ class AssetSource extends BaseSource
         $options = [];
 
         foreach (Volumes::getAllVolumes() as $volume) {
-            $options[(string)$volume->handle] = (string)$volume->name;
+            $options[(string) $volume->handle] = (string) $volume->name;
         }
 
         return $options;
@@ -76,7 +76,7 @@ class AssetSource extends BaseSource
 
     public function covers(SourceDefinition $definition, ElementInterface $element): bool
     {
-        if (!$element instanceof Asset) {
+        if (! $element instanceof Asset) {
             return false;
         }
 
@@ -87,12 +87,12 @@ class AssetSource extends BaseSource
                 return false;
             }
 
-            if (!in_array($volume->handle, $definition->containers, true)) {
+            if (! in_array($volume->handle, $definition->containers, true)) {
                 return false;
             }
         }
 
-        if ($definition->subTypes !== [] && !in_array($element->kind, $definition->subTypes, true)) {
+        if ($definition->subTypes !== [] && ! in_array($element->kind, $definition->subTypes, true)) {
             return false;
         }
 

@@ -11,23 +11,23 @@
  *   ddev exec bash -c "cd /var/www/craft-caffeine && php tests/bench/artifact-size.php 10000"
  */
 
-require __DIR__ . '/../../vendor/autoload.php';
+require __DIR__.'/../../vendor/autoload.php';
 
-require __DIR__ . '/fixture.php';
+require __DIR__.'/fixture.php';
 
 use JustinHoltWeb\Caffeine\Search\ArtifactEncoder;
 use JustinHoltWeb\Caffeine\Search\Compiler;
 
-$count = (int)($argv[1] ?? 10000);
+$count = (int) ($argv[1] ?? 10000);
 
 [$index, $records] = caffeineBenchFixture($count);
 
 $startedAt = microtime(true);
-$artifact = (new Compiler())->compile($index, $records);
+$artifact = (new Compiler)->compile($index, $records);
 $compileMs = (microtime(true) - $startedAt) * 1000;
 
 $startedAt = microtime(true);
-$encoded = (new ArtifactEncoder())->encode($artifact);
+$encoded = (new ArtifactEncoder)->encode($artifact);
 $encodeMs = (microtime(true) - $startedAt) * 1000;
 
 $flags = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
@@ -55,9 +55,9 @@ $indexGz = strlen(gzencode($indexShard, 9));
 printf("\nIndex shard, by component (gzipped):\n");
 
 $components = [
-    'facet postings' => array_map(fn($f) => ['postings' => $f['postings'], 'postingLengths' => $f['postingLengths']], $encoded['index']['facets']),
-    'facet reverse map' => array_map(fn($f) => ['records' => $f['records'], 'recordLengths' => $f['recordLengths']], $encoded['index']['facets']),
-    'facet values' => array_map(fn($f) => $f['values'], $encoded['index']['facets']),
+    'facet postings' => array_map(fn ($f) => ['postings' => $f['postings'], 'postingLengths' => $f['postingLengths']], $encoded['index']['facets']),
+    'facet reverse map' => array_map(fn ($f) => ['records' => $f['records'], 'recordLengths' => $f['recordLengths']], $encoded['index']['facets']),
+    'facet values' => array_map(fn ($f) => $f['values'], $encoded['index']['facets']),
     'token dictionary' => $encoded['index']['tokens'],
     'token postings' => [$encoded['index']['tokenIds'], $encoded['index']['tokenWeights'], $encoded['index']['tokenLengths']],
     'sortings' => $encoded['index']['sortings'],

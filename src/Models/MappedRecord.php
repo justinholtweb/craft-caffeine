@@ -57,8 +57,7 @@ class MappedRecord
          * @var list<int>
          */
         public array $dependencies = [],
-    ) {
-    }
+    ) {}
 
     /**
      * The stored form. Deliberately not the artifact form — this is the intermediate the build

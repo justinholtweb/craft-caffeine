@@ -1,4 +1,5 @@
 <?php
+
 // Exercises the Lite/Pro boundary against the plugin-testing harness.
 //
 // The harness runs as Pro, which makes the Lite path the least-exercised code in the plugin — so
@@ -25,7 +26,7 @@ function check(string $label, bool $ok, string $detail = ''): void
 
     echo $ok ? '  ok   ' : '  FAIL ', $label, $detail !== '' ? "  ({$detail})" : '', PHP_EOL;
 
-    if (!$ok) {
+    if (! $ok) {
         $failures++;
     }
 }
@@ -34,7 +35,7 @@ $plugins = Craft::$app->getPlugins();
 $plugin = Plugin::getInstance();
 $original = $plugin->edition;
 
-$switch = function(string $edition) use ($plugins, &$plugin) {
+$switch = function (string $edition) use ($plugins, &$plugin) {
     $plugins->switchEdition('caffeine', $edition);
 
     // The instance caches its edition, so it has to be re-read rather than trusted.
@@ -55,7 +56,7 @@ try {
     check('every source is available', count($plugin->sources->all()) >= 5,
         implode(', ', array_keys($plugin->sources->all())));
     check('every index is allowed', count($plugin->indexes->allowed()) === count($plugin->indexes->all()),
-        count($plugin->indexes->all()) . ' defined');
+        count($plugin->indexes->all()).' defined');
 
     $products = $plugin->indexes->getByHandle('products');
     $proFacets = count($products->facets());
@@ -85,7 +86,7 @@ try {
     $lite = $plugin->indexes->forEdition($products);
 
     $liteTypes = array_values(array_unique(array_map(
-        fn(AttributeDefinition $a) => $a->facetType,
+        fn (AttributeDefinition $a) => $a->facetType,
         $lite->facets(),
     )));
 
@@ -93,8 +94,8 @@ try {
         implode(', ', $liteTypes));
     check('supported facets survive', $lite->facets() !== []);
     check('named sortings are capped',
-        count(array_filter($lite->sortings, fn(SortingDefinition $s) => !$s->isRelevance())) <= Edition::LITE_MAX_SORTINGS,
-        count($lite->sortings) . ' kept of ' . $proSortings);
+        count(array_filter($lite->sortings, fn (SortingDefinition $s) => ! $s->isRelevance())) <= Edition::LITE_MAX_SORTINGS,
+        count($lite->sortings).' kept of '.$proSortings);
     check('the transport is forced to the fragment transport',
         $lite->transport === IndexDefinition::TRANSPORT_HTMX, $lite->transport);
     check('word lists are ignored', $lite->stopwords === [] && $lite->synonyms === []);
@@ -111,11 +112,11 @@ try {
 
     try {
         $artifact = $plugin->artifacts->compile($only);
-        check('an index compiles', true, $artifact->recordCount() . ' records');
+        check('an index compiles', true, $artifact->recordCount().' records');
 
         $geoOrNumeric = array_filter(
             array_keys($artifact->facets),
-            fn(string $key) => in_array($key, ['postDate', 'price', 'near'], true),
+            fn (string $key) => in_array($key, ['postDate', 'price', 'near'], true),
         );
 
         check('and its artifact carries no Pro facet types', $geoOrNumeric === [],

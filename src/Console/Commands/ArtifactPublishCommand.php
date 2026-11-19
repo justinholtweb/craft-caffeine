@@ -49,8 +49,9 @@ class ArtifactPublishCommand extends Command
         $failed = false;
 
         foreach ($selected as $index) {
-            if (!$indexes->isAllowed($index)) {
+            if (! $indexes->isAllowed($index)) {
                 $this->warn("Skipping “{$index->handle}” — not available on this edition.");
+
                 continue;
             }
 
@@ -66,12 +67,13 @@ class ArtifactPublishCommand extends Command
             try {
                 $result = $artifacts->publish($index);
             } catch (Throwable $e) {
-                $this->error('  ' . $this->escape($e->getMessage()));
+                $this->error('  '.$this->escape($e->getMessage()));
                 $failed = true;
+
                 continue;
             }
 
-            if (!$result['published']) {
+            if (! $result['published']) {
                 $this->warn(sprintf(
                     '  Unchanged — v%d is still current (%d records).',
                     $result['version'],

@@ -6,6 +6,7 @@ namespace JustinHoltWeb\Caffeine\Console\Commands\Concerns;
 
 use JustinHoltWeb\Caffeine\Models\IndexDefinition;
 use JustinHoltWeb\Caffeine\Services\Indexes;
+use Symfony\Component\Console\Formatter\OutputFormatter;
 
 /**
  * What the Caffeine commands share: turning an optional handle argument into indexes, and
@@ -47,11 +48,11 @@ trait ResolvesIndexes
     /** A line in the muted colour Craft 5's `Console::FG_GREY` gave. */
     protected function muted(string $text): void
     {
-        $this->line('<fg=gray>' . $this->escape($text) . '</>');
+        $this->line('<fg=gray>'.$this->escape($text).'</>');
     }
 
     protected function escape(string $text): string
     {
-        return \Symfony\Component\Console\Formatter\OutputFormatter::escape($text);
+        return OutputFormatter::escape($text);
     }
 }

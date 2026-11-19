@@ -28,8 +28,11 @@ use JustinHoltWeb\Caffeine\Models\AttributeDefinition;
 class UrlState
 {
     public const PARAM_QUERY = 'q';
+
     public const PARAM_SORT = 'sort';
+
     public const PARAM_PAGE = 'page';
+
     public const PARAM_PER_PAGE = 'perPage';
 
     /** Separates the two halves of a range: `price=10..50`, `price=10..`, `price=..50`. */
@@ -45,6 +48,7 @@ class UrlState
      * URL is back to its canonical form.
      */
     public const SUFFIX_MIN = '_min';
+
     public const SUFFIX_MAX = '_max';
 
     /**
@@ -54,17 +58,17 @@ class UrlState
      * string at all — which is what `rel="canonical"` points at and what a full-page cache
      * stores.
      *
-     * @param array{prefix?: string, defaultSort?: string} $options
+     * @param  array{prefix?: string, defaultSort?: string}  $options
      * @return array<string, string>
      */
     public static function encode(QueryState $state, array $options = []): array
     {
-        $prefix = (string)($options['prefix'] ?? '');
-        $defaultSort = (string)($options['defaultSort'] ?? 'relevance');
+        $prefix = (string) ($options['prefix'] ?? '');
+        $defaultSort = (string) ($options['defaultSort'] ?? 'relevance');
         $params = [];
 
         if ($state->query !== '') {
-            $params[$prefix . self::PARAM_QUERY] = $state->query;
+            $params[$prefix.self::PARAM_QUERY] = $state->query;
         }
 
         // Refinements and ranges share a facet's parameter. They cannot collide: a range is
@@ -82,9 +86,9 @@ class UrlState
             // cannot collide with refinement values because a geo facet has none — it is filtered
             // by distance, never by equality.
             $tokens[$key][] = implode(',', [
-                FacetValue::toKey((float)$spec['lat']),
-                FacetValue::toKey((float)$spec['lng']),
-                FacetValue::toKey((float)($spec['radius'] ?? 0)),
+                FacetValue::toKey((float) $spec['lat']),
+                FacetValue::toKey((float) $spec['lng']),
+                FacetValue::toKey((float) ($spec['radius'] ?? 0)),
             ]);
         }
 
@@ -96,27 +100,27 @@ class UrlState
                 continue;
             }
 
-            $tokens[$key][] = ($min === null ? '' : FacetValue::toKey((float)$min))
-                . self::RANGE_SEPARATOR
-                . ($max === null ? '' : FacetValue::toKey((float)$max));
+            $tokens[$key][] = ($min === null ? '' : FacetValue::toKey((float) $min))
+                .self::RANGE_SEPARATOR
+                .($max === null ? '' : FacetValue::toKey((float) $max));
         }
 
         foreach ($tokens as $key => $values) {
-            $params[$prefix . $key] = implode(',', $values);
+            $params[$prefix.$key] = implode(',', $values);
         }
 
         if ($state->sortBy !== '' && $state->sortBy !== $defaultSort) {
-            $params[$prefix . self::PARAM_SORT] = $state->sortBy;
+            $params[$prefix.self::PARAM_SORT] = $state->sortBy;
         }
 
         if ($state->page > 0) {
             // One-based in the URL. `page=2` is the second page, which is what a visitor reading
             // their own address bar expects; zero-based is an implementation detail of the engine.
-            $params[$prefix . self::PARAM_PAGE] = (string)($state->page + 1);
+            $params[$prefix.self::PARAM_PAGE] = (string) ($state->page + 1);
         }
 
         if ($state->hitsPerPage !== null) {
-            $params[$prefix . self::PARAM_PER_PAGE] = (string)$state->hitsPerPage;
+            $params[$prefix.self::PARAM_PER_PAGE] = (string) $state->hitsPerPage;
         }
 
         return $params;
@@ -125,21 +129,21 @@ class UrlState
     /**
      * Parses query-string parameters back into a state.
      *
-     * @param array<string, mixed> $params Usually `$request->getQueryParams()`.
-     * @param array<string, array{type?: string, values?: list<mixed>}> $facets The artifact's facets.
-     * @param array{prefix?: string, defaultSort?: string} $options
+     * @param  array<string, mixed>  $params  Usually `$request->getQueryParams()`.
+     * @param  array<string, array{type?: string, values?: list<mixed>}>  $facets  The artifact's facets.
+     * @param  array{prefix?: string, defaultSort?: string}  $options
      */
     public static function parse(array $params, array $facets, array $options = []): QueryState
     {
-        $prefix = (string)($options['prefix'] ?? '');
-        $defaultSort = (string)($options['defaultSort'] ?? 'relevance');
+        $prefix = (string) ($options['prefix'] ?? '');
+        $defaultSort = (string) ($options['defaultSort'] ?? 'relevance');
 
         $refinements = [];
         $ranges = [];
         $around = [];
 
         foreach ($facets as $key => $facet) {
-            $raw = $params[$prefix . $key] ?? null;
+            $raw = $params[$prefix.$key] ?? null;
 
             if (($facet['type'] ?? null) === AttributeDefinition::FACET_GEO) {
                 if (is_string($raw) && $raw !== '') {
@@ -147,9 +151,9 @@ class UrlState
 
                     if (count($parts) >= 2 && is_numeric($parts[0]) && is_numeric($parts[1])) {
                         $around[$key] = [
-                            'lat' => (float)$parts[0],
-                            'lng' => (float)$parts[1],
-                            'radius' => isset($parts[2]) && is_numeric($parts[2]) ? max(0.0, (float)$parts[2]) : 0.0,
+                            'lat' => (float) $parts[0],
+                            'lng' => (float) $parts[1],
+                            'radius' => isset($parts[2]) && is_numeric($parts[2]) ? max(0.0, (float) $parts[2]) : 0.0,
                         ];
                     }
                 }
@@ -162,15 +166,15 @@ class UrlState
                 AttributeDefinition::FACET_DATE,
             ], true);
 
-            if ($rangeable && (!is_string($raw) || $raw === '')) {
-                $bounds = self::formBounds($params, $prefix . $key);
+            if ($rangeable && (! is_string($raw) || $raw === '')) {
+                $bounds = self::formBounds($params, $prefix.$key);
 
                 if ($bounds !== []) {
                     $ranges[$key] = $bounds;
                 }
             }
 
-            if (!is_string($raw) || $raw === '') {
+            if (! is_string($raw) || $raw === '') {
                 continue;
             }
 
@@ -180,11 +184,11 @@ class UrlState
                     $range = [];
 
                     if ($min !== '') {
-                        $range['min'] = (float)$min;
+                        $range['min'] = (float) $min;
                     }
 
                     if ($max !== '') {
-                        $range['max'] = (float)$max;
+                        $range['max'] = (float) $max;
                     }
 
                     if ($range !== []) {
@@ -200,24 +204,24 @@ class UrlState
             }
         }
 
-        $page = (int)($params[$prefix . self::PARAM_PAGE] ?? 1);
-        $perPage = $params[$prefix . self::PARAM_PER_PAGE] ?? null;
+        $page = (int) ($params[$prefix.self::PARAM_PAGE] ?? 1);
+        $perPage = $params[$prefix.self::PARAM_PER_PAGE] ?? null;
 
         return new QueryState(
-            query: trim((string)($params[$prefix . self::PARAM_QUERY] ?? '')),
+            query: trim((string) ($params[$prefix.self::PARAM_QUERY] ?? '')),
             refinements: $refinements,
             ranges: $ranges,
             around: $around,
-            sortBy: (string)($params[$prefix . self::PARAM_SORT] ?? $defaultSort),
+            sortBy: (string) ($params[$prefix.self::PARAM_SORT] ?? $defaultSort),
             page: max(0, $page - 1),
-            hitsPerPage: is_numeric($perPage) ? max(1, (int)$perPage) : null,
+            hitsPerPage: is_numeric($perPage) ? max(1, (int) $perPage) : null,
         );
     }
 
     /**
      * Reads a range posted by a plain form as `<facet>_min` / `<facet>_max`.
      *
-     * @param array<string, mixed> $params
+     * @param  array<string, mixed>  $params
      * @return array{min?: float, max?: float}
      */
     private static function formBounds(array $params, string $name): array
@@ -225,10 +229,10 @@ class UrlState
         $bounds = [];
 
         foreach ([self::SUFFIX_MIN => 'min', self::SUFFIX_MAX => 'max'] as $suffix => $bound) {
-            $value = $params[$name . $suffix] ?? null;
+            $value = $params[$name.$suffix] ?? null;
 
             if (is_string($value) && $value !== '' && is_numeric($value)) {
-                $bounds[$bound] = (float)$value;
+                $bounds[$bound] = (float) $value;
             }
         }
 
@@ -255,7 +259,7 @@ class UrlState
         // whole point of choosing them as the separator was a URL a person can read. Escaped
         // commas inside a value keep their backslash and still survive the round trip, because
         // `split()` honours the escape rather than the encoding.
-        return $path . '?' . str_replace('%2C', ',', $query);
+        return $path.'?'.str_replace('%2C', ',', $query);
     }
 
     /**
@@ -274,12 +278,14 @@ class UrlState
 
             if ($char === '\\' && $i + 1 < $length) {
                 $current .= $value[++$i];
+
                 continue;
             }
 
             if ($char === ',') {
                 $tokens[] = $current;
                 $current = '';
+
                 continue;
             }
 
@@ -288,7 +294,7 @@ class UrlState
 
         $tokens[] = $current;
 
-        return array_values(array_filter($tokens, fn(string $token) => $token !== ''));
+        return array_values(array_filter($tokens, fn (string $token) => $token !== ''));
     }
 
     public static function escape(string $value): string

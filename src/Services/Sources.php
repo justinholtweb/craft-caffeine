@@ -10,8 +10,8 @@ use JustinHoltWeb\Caffeine\Plugin;
 use JustinHoltWeb\Caffeine\Sources\AssetSource;
 use JustinHoltWeb\Caffeine\Sources\EntrySource;
 use JustinHoltWeb\Caffeine\Sources\ProductSource;
-use JustinHoltWeb\Caffeine\Sources\UserSource;
 use JustinHoltWeb\Caffeine\Sources\SourceInterface;
+use JustinHoltWeb\Caffeine\Sources\UserSource;
 
 /**
  * The source registry.
@@ -54,15 +54,15 @@ class Sources
         $isPro = Plugin::getInstance()->isPro();
 
         foreach ($event->sources as $class) {
-            if (!is_subclass_of($class, SourceInterface::class) || !$class::isAvailable()) {
+            if (! is_subclass_of($class, SourceInterface::class) || ! $class::isAvailable()) {
                 continue;
             }
 
-            if (!$isPro && $class::handle() !== EntrySource::handle()) {
+            if (! $isPro && $class::handle() !== EntrySource::handle()) {
                 continue;
             }
 
-            $sources[$class::handle()] = new $class();
+            $sources[$class::handle()] = new $class;
         }
 
         return $this->sources = $sources;

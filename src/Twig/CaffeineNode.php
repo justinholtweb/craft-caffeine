@@ -2,6 +2,10 @@
 
 namespace JustinHoltWeb\Caffeine\Twig;
 
+use CraftCms\Cms\Element\Contracts\ElementInterface;
+use JustinHoltWeb\Caffeine\Models\SearchContext;
+use JustinHoltWeb\Caffeine\Plugin;
+use Twig\Attribute\YieldReady;
 use Twig\Compiler;
 use Twig\Node\Node;
 
@@ -18,6 +22,7 @@ use Twig\Node\Node;
  * 3. The previous value of the alias is saved and restored, so a `{% caffeine %}` block nested
  *    inside a loop that already had a `search` variable does not clobber it.
  */
+#[YieldReady]
 class CaffeineNode extends Node
 {
     public function compile(Compiler $compiler): void
@@ -26,7 +31,7 @@ class CaffeineNode extends Node
 
         $compiler
             ->addDebugInfo($this)
-            ->write("\$caffeineOptions = ");
+            ->write('$caffeineOptions = ');
 
         if ($this->hasNode('options')) {
             $compiler->subcompile($this->getNode('options'));
@@ -41,8 +46,8 @@ class CaffeineNode extends Node
             // actually appears in — including when that is a partial. The fragment endpoint
             // re-renders exactly this, which is how hit markup stays in Twig and stays honest.
             ->write("\$caffeineOptions['template'] = \$this->getTemplateName();\n")
-            ->write("\$caffeineOptions['element'] = \justinholtweb\\caffeine\\web\\twig\\CaffeineNode::element(\$context);\n")
-            ->write("\$caffeineSearch = \\justinholtweb\\caffeine\\Plugin::getInstance()->search->context(")
+            ->write("\$caffeineOptions['element'] = \\JustinHoltWeb\\Caffeine\\Twig\\CaffeineNode::element(\$context);\n")
+            ->write('$caffeineSearch = app(\\JustinHoltWeb\\Caffeine\\Services\\Search::class)->context(')
             ->subcompile($this->getNode('handle'))
             ->raw(", \$caffeineOptions);\n")
             // Both names are set: the alias for the template, and a fixed key so
@@ -51,9 +56,9 @@ class CaffeineNode extends Node
             ->write("\$caffeinePreviousInternal = \$context['_caffeine'] ?? null;\n")
             ->write("\$context['{$alias}'] = \$caffeineSearch;\n")
             ->write("\$context['_caffeine'] = \$caffeineSearch;\n")
-            ->write("echo \\justinholtweb\\caffeine\\web\\twig\\CaffeineNode::open(\$caffeineSearch, \$caffeineOptions);\n")
+            ->write("yield \\JustinHoltWeb\\Caffeine\\Twig\\CaffeineNode::open(\$caffeineSearch, \$caffeineOptions);\n")
             ->subcompile($this->getNode('body'))
-            ->write("echo \\justinholtweb\\caffeine\\web\\twig\\CaffeineNode::close(\$caffeineOptions);\n")
+            ->write("yield \\JustinHoltWeb\\Caffeine\\Twig\\CaffeineNode::close(\$caffeineOptions);\n")
             ->write("\$context['{$alias}'] = \$caffeinePrevious;\n")
             ->write("\$context['_caffeine'] = \$caffeinePreviousInternal;\n");
     }
@@ -65,7 +70,7 @@ class CaffeineNode extends Node
      * section that entry describes — and the fragment endpoint has to put it back or the
      * re-render fails on a null. Only the id travels, signed; the element is loaded fresh.
      *
-     * @param array<string, mixed> $context
+     * @param  array<string, mixed>  $context
      * @return array{type: string, id: int, siteId: int}|null
      */
     public static function element(array $context): ?array
@@ -73,8 +78,8 @@ class CaffeineNode extends Node
         foreach (['entry', 'category', 'product', 'element'] as $name) {
             $value = $context[$name] ?? null;
 
-            if ($value instanceof \craft\base\ElementInterface && $value->id !== null) {
-                return ['type' => $name, 'id' => (int)$value->id, 'siteId' => (int)$value->siteId];
+            if ($value instanceof ElementInterface && $value->id !== null) {
+                return ['type' => $name, 'id' => (int) $value->id, 'siteId' => (int) $value->siteId];
             }
         }
 
@@ -82,9 +87,9 @@ class CaffeineNode extends Node
     }
 
     /**
-     * @param array<string, mixed> $options
+     * @param  array<string, mixed>  $options
      */
-    public static function open(\JustinHoltWeb\Caffeine\Models\SearchContext $search, array $options): string
+    public static function open(SearchContext $search, array $options): string
     {
         $tag = self::tagName($options);
 
@@ -97,10 +102,8 @@ class CaffeineNode extends Node
         // Registered here rather than in the plugin's init, so a site that never uses the tag
         // never ships the runtime — and never when HTMX is driving, because two libraries
         // intercepting the same click is a race, not a feature.
-        if (!$htmx && ($options['runtime'] ?? true) !== false) {
-            \Craft::$app->getView()->registerAssetBundle(
-                \JustinHoltWeb\Caffeine\web\assets\runtime\CaffeineAsset::class,
-            );
+        if (! $htmx && ($options['runtime'] ?? true) !== false) {
+            Plugin::getInstance()->registerRuntime();
         }
 
         $attributes = [
@@ -117,7 +120,7 @@ class CaffeineNode extends Node
             // the page keep their previous numbers. Put the widgets inside
             // `{% caffeineresults %}` if that matters, or use the bundled runtime, which swaps
             // every region and is why HTMX is supported rather than required.
-            $target = '#' . $search->getResultsId();
+            $target = '#'.$search->getResultsId();
 
             $attributes += [
                 'hx-boost' => 'true',
@@ -128,12 +131,12 @@ class CaffeineNode extends Node
             ];
         }
 
-        if (!empty($options['class'])) {
-            $attributes['class'] = (string)$options['class'];
+        if (! empty($options['class'])) {
+            $attributes['class'] = (string) $options['class'];
         }
 
-        if (!empty($options['id'])) {
-            $attributes['id'] = (string)$options['id'];
+        if (! empty($options['id'])) {
+            $attributes['id'] = (string) $options['id'];
         }
 
         $rendered = '';
@@ -146,7 +149,7 @@ class CaffeineNode extends Node
     }
 
     /**
-     * @param array<string, mixed> $options
+     * @param  array<string, mixed>  $options
      */
     public static function close(array $options): string
     {
@@ -156,7 +159,7 @@ class CaffeineNode extends Node
     }
 
     /**
-     * @param array<string, mixed> $options
+     * @param  array<string, mixed>  $options
      */
     private static function tagName(array $options): ?string
     {
@@ -168,6 +171,6 @@ class CaffeineNode extends Node
             return null;
         }
 
-        return preg_match('/^[a-zA-Z][a-zA-Z0-9-]*$/', (string)$tag) ? (string)$tag : 'div';
+        return preg_match('/^[a-zA-Z][a-zA-Z0-9-]*$/', (string) $tag) ? (string) $tag : 'div';
     }
 }

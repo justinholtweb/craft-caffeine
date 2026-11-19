@@ -33,14 +33,14 @@ class Varint
     public const MAX_VALUE = 9007199254740991;
 
     /**
-     * @param iterable<int> $values Non-negative, any order.
+     * @param  iterable<int>  $values  Non-negative, any order.
      */
     public static function encode(iterable $values): string
     {
         $out = '';
 
         foreach ($values as $value) {
-            $out .= self::encodeOne((int)$value);
+            $out .= self::encodeOne((int) $value);
         }
 
         return base64_encode($out);
@@ -73,9 +73,10 @@ class Varint
             $current += ($byte & 0x7F) * (2 ** $shift);
 
             if (($byte & 0x80) === 0) {
-                $values[] = (int)$current;
+                $values[] = (int) $current;
                 $current = 0;
                 $shift = 0;
+
                 continue;
             }
 
@@ -94,7 +95,7 @@ class Varint
     }
 
     /**
-     * @param list<int> $values Ascending. Equal neighbours are allowed; descending is not.
+     * @param  list<int>  $values  Ascending. Equal neighbours are allowed; descending is not.
      */
     public static function encodeDelta(array $values): string
     {
@@ -102,7 +103,7 @@ class Varint
         $previous = 0;
 
         foreach ($values as $value) {
-            $value = (int)$value;
+            $value = (int) $value;
             $delta = $value - $previous;
 
             if ($delta < 0) {
@@ -135,7 +136,7 @@ class Varint
     private static function encodeOne(int $value): string
     {
         if ($value < 0) {
-            throw new InvalidArgumentException('Varints are unsigned; got ' . $value . '.');
+            throw new InvalidArgumentException('Varints are unsigned; got '.$value.'.');
         }
 
         if ($value > self::MAX_VALUE) {

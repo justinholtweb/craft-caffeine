@@ -29,12 +29,12 @@ class FacetValue
         }
 
         if (is_int($value)) {
-            return (string)$value;
+            return (string) $value;
         }
 
         if (is_float($value)) {
-            if (!is_finite($value)) {
-                return (string)$value;
+            if (! is_finite($value)) {
+                return (string) $value;
             }
 
             if ($value === floor($value)) {
@@ -43,10 +43,10 @@ class FacetValue
                 return sprintf('%.0F', $value);
             }
 
-            return self::trimZeros(sprintf('%.' . self::PRECISION . 'F', $value));
+            return self::trimZeros(sprintf('%.'.self::PRECISION.'F', $value));
         }
 
-        return (string)$value;
+        return (string) $value;
     }
 
     /**
@@ -57,7 +57,7 @@ class FacetValue
      * depending on how the field serialised, and guessing wrong means the refinement silently
      * matches nothing.
      *
-     * @param list<mixed> $values The facet's interning dictionary.
+     * @param  list<mixed>  $values  The facet's interning dictionary.
      * @return mixed The stored value, or the key itself when nothing matches — a refinement can
      *               name a value that has since disappeared, which QUERY_SPEC §3.2 treats as
      *               matching nothing rather than as an error.

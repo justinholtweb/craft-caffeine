@@ -16,18 +16,18 @@ use InvalidArgumentException;
 class ArtifactDecoder
 {
     /**
-     * @param array<string, mixed> $index The index document. May already carry the payload.
-     * @param array<string, mixed>|null $payload The payload document, when it was sharded out.
-     * @param int $version From the manifest — shard documents deliberately do not carry it, so
-     *                     that byte-identical rebuilds hash to the same filename.
-     * @param array<string, mixed>|null $lookup The server's lookup document, read instead of the
-     *                     payload document when payloads are loaded on demand.
-     * @param (Closure(list<int>, Artifact): array<int, array<string, mixed>>)|null $payloadLoader Loads
-     *                     them, when `$lookup` is given.
+     * @param  array<string, mixed>  $index  The index document. May already carry the payload.
+     * @param  array<string, mixed>|null  $payload  The payload document, when it was sharded out.
+     * @param  int  $version  From the manifest — shard documents deliberately do not carry it, so
+     *                        that byte-identical rebuilds hash to the same filename.
+     * @param  array<string, mixed>|null  $lookup  The server's lookup document, read instead of the
+     *                                             payload document when payloads are loaded on demand.
+     * @param  (Closure(list<int>, Artifact): array<int, array<string, mixed>>)|null  $payloadLoader  Loads
+     *                                                                                                them, when `$lookup` is given.
      */
     public function decode(array $index, ?array $payload = null, int $version = 0, ?array $lookup = null, ?Closure $payloadLoader = null): Artifact
     {
-        $format = (int)($index['format'] ?? 0);
+        $format = (int) ($index['format'] ?? 0);
 
         if ($format !== ArtifactEncoder::FORMAT) {
             throw new InvalidArgumentException(sprintf(
@@ -39,11 +39,11 @@ class ArtifactDecoder
 
         $lazy = $payload === null && $lookup !== null && $payloadLoader !== null;
         $payload ??= $lazy ? $lookup : $index;
-        $recordCount = (int)($index['nbRecords'] ?? 0);
+        $recordCount = (int) ($index['nbRecords'] ?? 0);
 
         $facets = [];
 
-        foreach ((array)($index['facets'] ?? []) as $key => $facet) {
+        foreach ((array) ($index['facets'] ?? []) as $key => $facet) {
             $facets[$key] = [
                 // Rebuilt in the order the compiler writes them, so a decoded artifact is
                 // identical to a compiled one under a strict comparison and not merely
@@ -53,10 +53,10 @@ class ArtifactDecoder
                 'sort' => $facet['sort'] ?? null,
                 'valueOrder' => $facet['valueOrder'] ?? [],
                 'maxValues' => $facet['maxValues'] ?? 0,
-                'values' => array_values((array)($facet['values'] ?? [])),
+                'values' => array_values((array) ($facet['values'] ?? [])),
                 'postings' => $this->decodeLists(
-                    (string)($facet['postings'] ?? ''),
-                    (string)($facet['postingLengths'] ?? ''),
+                    (string) ($facet['postings'] ?? ''),
+                    (string) ($facet['postingLengths'] ?? ''),
                 ),
                 // `records`, the reverse map, is left on the wire for the browser. This side
                 // counts from postings — see `Artifact::$facets`.
@@ -65,28 +65,28 @@ class ArtifactDecoder
 
         $sortings = [];
 
-        foreach ((array)($index['sortings'] ?? []) as $name => $order) {
-            $sortings[$name] = Varint::decode((string)$order);
+        foreach ((array) ($index['sortings'] ?? []) as $name => $order) {
+            $sortings[$name] = Varint::decode((string) $order);
         }
 
         // Unpacked first: PHP accepts named arguments after an unpacked array, not before one.
         return new Artifact(
             ...$this->decodeTokenPostings(
-                (string)($index['tokenIds'] ?? ''),
-                (string)($index['tokenWeights'] ?? ''),
-                (string)($index['tokenLengths'] ?? ''),
+                (string) ($index['tokenIds'] ?? ''),
+                (string) ($index['tokenWeights'] ?? ''),
+                (string) ($index['tokenLengths'] ?? ''),
             ),
-            index: (string)($index['index'] ?? ''),
+            index: (string) ($index['index'] ?? ''),
             version: $version,
-            objectIds: array_values((array)($payload['objectIds'] ?? [])),
-            payloads: $lazy ? [] : array_values((array)($payload['payloads'] ?? [])),
+            objectIds: array_values((array) ($payload['objectIds'] ?? [])),
+            payloads: $lazy ? [] : array_values((array) ($payload['payloads'] ?? [])),
             facets: $facets,
             sortings: $sortings,
-            tokens: array_values((array)($index['tokens'] ?? [])),
-            sortableValues: (array)($index['sortableValues'] ?? []),
-            stopwords: array_values((array)($index['stopwords'] ?? [])),
-            geo: (array)($index['geo'] ?? []),
-            payloadHashes: $lazy ? (string)($lookup['payloadHashes'] ?? '') : '',
+            tokens: array_values((array) ($index['tokens'] ?? [])),
+            sortableValues: (array) ($index['sortableValues'] ?? []),
+            stopwords: array_values((array) ($index['stopwords'] ?? [])),
+            geo: (array) ($index['geo'] ?? []),
+            payloadHashes: $lazy ? (string) ($lookup['payloadHashes'] ?? '') : '',
             payloadLoader: $lazy ? $payloadLoader : null,
         );
     }
@@ -94,7 +94,7 @@ class ArtifactDecoder
     /**
      * Whether a document carries its own payload, rather than pointing at a separate shard.
      *
-     * @param array<string, mixed> $document
+     * @param  array<string, mixed>  $document
      */
     public static function hasPayload(array $document): bool
     {
@@ -116,7 +116,7 @@ class ArtifactDecoder
             $running = 0;
 
             for ($i = 0; $i < $count; $i++) {
-                if (!array_key_exists($offset, $values)) {
+                if (! array_key_exists($offset, $values)) {
                     throw new InvalidArgumentException('Artifact postings are shorter than their lengths claim.');
                 }
 
@@ -165,7 +165,7 @@ class ArtifactDecoder
                 // Cast, because PHP's `/` hands back an int when the division comes out even,
                 // and a weight of int(1) where the compiler produced float(1.0) would fail the
                 // strict round-trip assertion for a reason that has nothing to do with the codec.
-                $weightValues[$offset] = (float)($weightValues[$offset] / ArtifactEncoder::WEIGHT_SCALE);
+                $weightValues[$offset] = (float) ($weightValues[$offset] / ArtifactEncoder::WEIGHT_SCALE);
             }
 
             $offsets[] = $offset;

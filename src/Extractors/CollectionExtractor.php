@@ -27,7 +27,7 @@ class CollectionExtractor implements ValueExtractorInterface
     public function extract(object $value): ?ExtractedValue
     {
         foreach (['getAll', 'all'] as $method) {
-            if (!method_exists($value, $method)) {
+            if (! method_exists($value, $method)) {
                 continue;
             }
 

@@ -18,13 +18,13 @@ use JustinHoltWeb\Caffeine\Services\Tokenizer;
  */
 function caffeineBenchFixture(int $count): array
 {
-    $config = json_decode(file_get_contents(__DIR__ . '/../Conformance/products.json'), true)['index'];
+    $config = json_decode(file_get_contents(__DIR__.'/../Conformance/products.json'), true)['index'];
     $index = IndexDefinition::fromConfig('bench-uid', $config);
-    $tokenizer = new Tokenizer();
+    $tokenizer = new Tokenizer;
 
-    $brands = array_map(fn($i) => "Brand {$i}", range(1, 200));
+    $brands = array_map(fn ($i) => "Brand {$i}", range(1, 200));
     $colours = ['red', 'blue', 'green', 'black', 'white', 'grey', 'navy', 'olive', 'tan', 'pink', 'gold', 'silver'];
-    $tagPool = array_map(fn($i) => "tag-{$i}", range(1, 50));
+    $tagPool = array_map(fn ($i) => "tag-{$i}", range(1, 50));
     $categories = ['Home > Tools > Saws', 'Home > Tools > Drills', 'Home > Garden > Hoses', 'Outdoor > Camping > Tents'];
     $words = ['acme', 'globex', 'saw', 'drill', 'hose', 'tent', 'compact', 'heavy', 'duty', 'pro', 'lite', 'steel', 'timber', 'garden', 'cordless'];
 

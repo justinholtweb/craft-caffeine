@@ -1,103 +1,87 @@
-{# Two tools that answer the two questions this screen otherwise cannot.
+{# Caffeine → index tools. A partial rendered inside CpScreenResponse::contentTemplate().
 
-   The preview answers "why is my facet empty" without a rebuild: it runs the mapper against one
-   real element and shows exactly what came out, including which elements the record now depends
-   on. The playground answers "what are visitors actually getting", which is why it queries the
-   *published* artifact rather than recompiling — a playground that quietly rebuilt would be
-   answering a different question from the one being asked. #}
+   Rebuild and publish, then two tools that answer the questions the edit screen can't. The
+   preview answers "why is my facet empty" without a rebuild: it runs the mapper against one real
+   element and shows what came out. The playground answers "what are visitors actually getting",
+   which is why it queries the *published* artifact rather than recompiling. #}
 
-<h2>{{ "Check a record"|t('caffeine') }}</h2>
-<p class="light">{{ "Run this definition against one element and see what the mapper produces. Nothing is saved or rebuilt."|t('caffeine') }}</p>
+<style>
+  .caffeine-tools { display: grid; gap: 2rem; max-width: 60rem; }
+  .caffeine-tools section { display: grid; gap: .75rem; }
+  .caffeine-tools h2 { margin: 0; }
+  .caffeine-tools .hint { opacity: .7; margin: 0; }
+  .caffeine-row { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+  .caffeine-status { display: grid; grid-template-columns: max-content 1fr; gap: .25rem 1rem; margin: 0; }
+  .caffeine-status dt { font-weight: 600; }
+  .caffeine-status dd { margin: 0; }
+  .caffeine-out { background: var(--gray-050, #f3f7fc); border: 1px solid var(--hairline-color, #cdd8e4); border-radius: 5px;
+    padding: 12px; max-height: 420px; overflow: auto; font-size: 12px; line-height: 1.5; white-space: pre; margin: 0; }
+  .caffeine-tools textarea { width: 100%; font-family: var(--code-font, monospace); }
+</style>
 
-<div class="flex">
-  <input type="number" id="caffeine-preview-id" class="text" size="10" placeholder="{{ 'Element ID'|t('caffeine') }}">
-  <button type="button" class="btn" id="caffeine-preview-go">{{ "Preview"|t('caffeine') }}</button>
-  <span class="spinner hidden" id="caffeine-preview-spinner"></span>
-</div>
+<div class="caffeine-tools" id="caffeine-tools" data-preview-url="{{ previewUrl }}" data-query-url="{{ queryUrl }}">
+  <section>
+    <h2>{{ 'Status'|t('caffeine') }}</h2>
+    <dl class="caffeine-status">
+      <dt>{{ 'Records'|t('caffeine') }}</dt>
+      <dd>{{ status.records ?? 0 }}{% if status.dirty ?? false %} · {{ '{n} stale'|t('caffeine', {n: status.dirty}) }}{% endif %}</dd>
+      <dt>{{ 'Published'|t('caffeine') }}</dt>
+      <dd>{{ (status.version ?? false) ? 'v' ~ status.version : 'Never'|t('caffeine') }}</dd>
+      {% if status.url ?? false %}
+        <dt>{{ 'Pointer'|t('caffeine') }}</dt>
+        <dd><a href="{{ status.url }}" target="_blank" rel="noopener">current.json</a></dd>
+      {% endif %}
+    </dl>
 
-<pre id="caffeine-preview-out" class="caffeine-out" style="display:none"></pre>
+    {% if canBuild %}
+      <div class="caffeine-row">
+        <form method="post" action="{{ cpUrl('caffeine/indexes/' ~ index.handle ~ '/build') }}">
+          {{ csrf_field() }}
+          <button type="submit" class="btn">{{ 'Update stale records'|t('caffeine') }}</button>
+        </form>
+        <form method="post" action="{{ cpUrl('caffeine/indexes/' ~ index.handle ~ '/build') }}">
+          {{ csrf_field() }}
+          <input type="hidden" name="full" value="1">
+          <button type="submit" class="btn">{{ 'Rebuild everything'|t('caffeine') }}</button>
+        </form>
+        <form method="post" action="{{ cpUrl('caffeine/indexes/' ~ index.handle ~ '/publish') }}">
+          {{ csrf_field() }}
+          <button type="submit" class="btn">{{ 'Publish now'|t('caffeine') }}</button>
+        </form>
+      </div>
+      <p class="hint">{{ 'Rebuilds run in the queue. Publishing without a rebuild writes the records as they are now; an unchanged artifact isn’t written again.'|t('caffeine') }}</p>
+    {% endif %}
+  </section>
 
-<h2 style="margin-top:2em">{{ "Query playground"|t('caffeine') }}</h2>
-<p class="light">{{ "Runs a state against the published artifact — the same engine, the same bytes visitors get."|t('caffeine') }}</p>
+  {% if isPro %}
+    <section>
+      <h2>{{ 'Check a record'|t('caffeine') }}</h2>
+      <p class="hint">{{ 'Run this definition against one element and see what the mapper produces. Nothing is saved or rebuilt.'|t('caffeine') }}</p>
+      <div class="caffeine-row">
+        <input type="number" id="caffeine-preview-id" class="text" size="10" placeholder="{{ 'Element ID'|t('caffeine') }}">
+        <button type="button" class="btn" id="caffeine-preview-go">{{ 'Preview'|t('caffeine') }}</button>
+      </div>
+      <pre id="caffeine-preview-out" class="caffeine-out" hidden></pre>
+    </section>
 
-<textarea id="caffeine-query-state" class="text code" rows="5" spellcheck="false">{{ '{
+    <section>
+      <h2>{{ 'Query playground'|t('caffeine') }}</h2>
+      <p class="hint">{{ 'Runs a state against the published artifact — the same engine, the same bytes visitors get.'|t('caffeine') }}</p>
+      <textarea id="caffeine-query-state" class="text" rows="5" spellcheck="false">{{ '{
   "query": "",
   "refinements": {},
   "page": 0
 }' }}</textarea>
-
-<div class="flex" style="margin-top:.5em">
-  <button type="button" class="btn submit" id="caffeine-query-go">{{ "Run"|t('caffeine') }}</button>
-  <span class="spinner hidden" id="caffeine-query-spinner"></span>
-  <span class="light" id="caffeine-query-timing"></span>
+      <div class="caffeine-row">
+        <button type="button" class="btn submit" id="caffeine-query-go">{{ 'Run'|t('caffeine') }}</button>
+        <span id="caffeine-query-timing" class="hint"></span>
+      </div>
+      <pre id="caffeine-query-out" class="caffeine-out" hidden></pre>
+    </section>
+  {% else %}
+    <section>
+      <h2>{{ 'Record preview and query playground'|t('caffeine') }}</h2>
+      <p class="hint">{{ 'These need Caffeine Pro.'|t('caffeine') }}</p>
+    </section>
+  {% endif %}
 </div>
-
-<pre id="caffeine-query-out" class="caffeine-out" style="display:none"></pre>
-
-{% css %}
-  .caffeine-out {
-    background: var(--gray-050, #f3f7fc);
-    border: 1px solid var(--hairline-color, #cdd8e4);
-    border-radius: var(--large-border-radius, 5px);
-    padding: 12px;
-    margin-top: 12px;
-    max-height: 420px;
-    overflow: auto;
-    font-size: 12px;
-    line-height: 1.5;
-    white-space: pre;
-  }
-{% endcss %}
-
-{% js %}
-  (function () {
-    const handle = {{ index.handle|json_encode|raw }};
-
-    function wire(button, spinner, output, action, data, onDone) {
-      button.addEventListener('click', async function () {
-        spinner.classList.remove('hidden');
-        output.style.display = 'none';
-
-        try {
-          const response = await Craft.sendActionRequest('POST', action, { data: data() });
-          const body = response.data;
-
-          output.textContent = body.error ? body.error : JSON.stringify(body, null, 2);
-          output.style.display = '';
-
-          if (onDone) onDone(body);
-        } catch (error) {
-          output.textContent = (error.response && error.response.data && error.response.data.error)
-            || error.message
-            || 'Request failed.';
-          output.style.display = '';
-        } finally {
-          spinner.classList.add('hidden');
-        }
-      });
-    }
-
-    wire(
-      document.getElementById('caffeine-preview-go'),
-      document.getElementById('caffeine-preview-spinner'),
-      document.getElementById('caffeine-preview-out'),
-      'caffeine/indexes/preview',
-      () => ({ handle: handle, elementId: document.getElementById('caffeine-preview-id').value })
-    );
-
-    const timing = document.getElementById('caffeine-query-timing');
-
-    wire(
-      document.getElementById('caffeine-query-go'),
-      document.getElementById('caffeine-query-spinner'),
-      document.getElementById('caffeine-query-out'),
-      'caffeine/indexes/query',
-      () => ({ handle: handle, state: document.getElementById('caffeine-query-state').value }),
-      (body) => {
-        timing.textContent = body.ms !== undefined
-          ? `v${body.version} · ${body.ms} ms · ${body.result.nbHits} hits`
-          : '';
-      }
-    );
-  })();
-{% endjs %}

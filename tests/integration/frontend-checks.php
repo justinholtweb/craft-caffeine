@@ -1,4 +1,5 @@
 <?php
+
 // Exercises the Phase 4 front end against the plugin-testing harness.
 //
 // The conformance suite pins the URL codec across both languages with fixtures; this pins the
@@ -24,7 +25,7 @@ function check(string $label, bool $ok, string $detail = ''): void
 
     echo $ok ? '  ok   ' : '  FAIL ', $label, $detail !== '' ? "  ({$detail})" : '', PHP_EOL;
 
-    if (!$ok) {
+    if (! $ok) {
         $failures++;
     }
 }
@@ -56,9 +57,9 @@ try {
     check('emits a wrapper carrying the runtime config', str_contains($html, 'data-caffeine="{'));
     check('emits the results region', str_contains($html, 'data-caffeine-results'));
     check('emits a region per widget', substr_count($html, 'data-caffeine-region=') >= 4,
-        substr_count($html, 'data-caffeine-region=') . ' regions');
+        substr_count($html, 'data-caffeine-region=').' regions');
     check('renders hits', str_contains($html, '<li>26-1</li>'));
-    check('facet links are real hrefs', (bool)preg_match('/<a href="\/listing\?choice=red"/', $html));
+    check('facet links are real hrefs', (bool) preg_match('/<a href="\/listing\?choice=red"/', $html));
     check('facet links are nofollow', str_contains($html, 'rel="nofollow"'));
 
     $context = $plugin->search->registered('products');
@@ -70,14 +71,14 @@ try {
     echo "\nToken\n";
 
     $token = $context->token();
-    $payload = json_decode((string)Craft::$app->getSecurity()->validateData($token), true);
+    $payload = json_decode((string) Craft::$app->getSecurity()->validateData($token), true);
 
     check('the token validates', is_array($payload));
     check('and names the template it came from', ($payload['template'] ?? null) === $name, $payload['template'] ?? 'null');
     // The tag was given an explicit path, which is what a fragment re-render has to build its
     // URLs from — a console render has no request path to fall back on.
     check('and the page path, not the endpoint', ($payload['path'] ?? null) === '/listing', $payload['path'] ?? 'null');
-    check('a tampered token is rejected', Craft::$app->getSecurity()->validateData('0' . substr($token, 1)) === false);
+    check('a tampered token is rejected', Craft::$app->getSecurity()->validateData('0'.substr($token, 1)) === false);
 
     echo "\nURL round trip against the real artifact\n";
 
@@ -91,7 +92,7 @@ try {
     );
 
     $url = UrlState::url('/listing', $state, ['defaultSort' => 'relevance']);
-    parse_str((string)parse_url($url, PHP_URL_QUERY), $params);
+    parse_str((string) parse_url($url, PHP_URL_QUERY), $params);
     $parsed = UrlState::parse($params, $artifact->facets, ['defaultSort' => 'relevance']);
 
     check('the URL is readable', $url === '/listing?q=test&choice=red&featured=false&sort=title_asc&page=3', $url);
@@ -110,7 +111,7 @@ try {
     $fixed = $plugin->search->context('products', ['path' => '/listing', 'params' => [], 'filters' => ['choice' => 'red']]);
 
     check('a fixed filter narrows like the refinement would', $fixed->getNbHits() === $refined->getNbHits() && $fixed->getNbHits() > 0,
-        $fixed->getNbHits() . ' vs ' . $refined->getNbHits());
+        $fixed->getNbHits().' vs '.$refined->getNbHits());
     check('and leaves the URL state empty', ($fixed->config()['state']['refinements'] ?? []) === [] && $fixed->params() === []);
     check('but reaches the runtime separately', ($fixed->config()['state']['filters'] ?? null) === ['choice' => ['red']]);
 
@@ -124,7 +125,7 @@ try {
 
     check('its bucket is marked fixed and refined', ($red['fixed'] ?? false) && ($red['isRefined'] ?? false));
     check('and links back to the same page rather than toggling', ($red['url'] ?? null) === '/listing', $red['url'] ?? 'null');
-    check('other facets\' URLs leave it out', !str_contains($fixed->toggleUrl('featured', true), 'choice'),
+    check('other facets\' URLs leave it out', ! str_contains($fixed->toggleUrl('featured', true), 'choice'),
         $fixed->toggleUrl('featured', true));
 
     echo "\nWidget overrides\n";

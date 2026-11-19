@@ -1,4 +1,5 @@
 <?php
+
 // Exercises Indexes::EVENT_DEFINE_INDEX against the plugin-testing harness.
 //
 // Fixtures cannot reach this: it is about what reaches project config, what the build and the
@@ -25,7 +26,7 @@ function check(string $label, bool $ok, string $detail = ''): void
 
     echo $ok ? '  ok   ' : '  FAIL ', $label, $detail !== '' ? "  ({$detail})" : '', PHP_EOL;
 
-    if (!$ok) {
+    if (! $ok) {
         $failures++;
     }
 }
@@ -39,7 +40,7 @@ $settings->autoUpdate = false;
 // in for that set, so the checks can grow it the way an editor would.
 $specs = ['dyn_title' => 'title'];
 
-$handler = function(DefineIndexEvent $event) use (&$specs) {
+$handler = function (DefineIndexEvent $event) use (&$specs) {
     if ($event->index->handle !== 'products') {
         return;
     }
@@ -59,7 +60,7 @@ $handler = function(DefineIndexEvent $event) use (&$specs) {
     $event->index->attributes[] = new AttributeDefinition(['key' => '', 'path' => 'title']);
 };
 
-$recordsDirty = fn(string $uid) => $plugin->records->countFor($uid, true);
+$recordsDirty = fn (string $uid) => $plugin->records->countFor($uid, true);
 
 $storedConfig = Craft::$app->getProjectConfig()->get(Indexes::CONFIG_PATH);
 
@@ -75,9 +76,9 @@ try {
 
     check('a handler can add an attribute', $added !== null);
     check('and it is flagged dynamic without the handler saying so', $added?->dynamic === true);
-    check('stored attributes are not', array_filter($index->attributes, fn($a) => $a->dynamic && $a->key !== 'dyn_title') === []);
+    check('stored attributes are not', array_filter($index->attributes, fn ($a) => $a->dynamic && $a->key !== 'dyn_title') === []);
     check('a duplicate key is dropped rather than shadowing the stored one',
-        count(array_filter($index->attributes, fn($a) => $a->key === 'title')) === 1 && !$index->getAttribute('title')->dynamic);
+        count(array_filter($index->attributes, fn ($a) => $a->key === 'title')) === 1 && ! $index->getAttribute('title')->dynamic);
     check('an invalid attribute is dropped', $index->getAttribute('') === null);
     check('the stored definition is untouched', $stored->getAttribute('dyn_title') === null);
 
@@ -86,9 +87,9 @@ try {
     $plugin->indexes->save($index);
     Craft::$app->getProjectConfig()->saveModifiedConfigData();
 
-    $keys = array_column(Craft::$app->getProjectConfig()->get(Indexes::CONFIG_PATH . '.' . $index->uid . '.attributes') ?? [], 'key');
+    $keys = array_column(Craft::$app->getProjectConfig()->get(Indexes::CONFIG_PATH.'.'.$index->uid.'.attributes') ?? [], 'key');
 
-    check('saving the defined index keeps module attributes out of project config', !in_array('dyn_title', $keys, true), implode(', ', $keys));
+    check('saving the defined index keeps module attributes out of project config', ! in_array('dyn_title', $keys, true), implode(', ', $keys));
     check('and the stored ones in', in_array('title', $keys, true));
 
     echo "\nBuilding and querying\n";
@@ -103,7 +104,7 @@ try {
     check('the facet is built into the artifact', isset($plugin->search->artifact($index)->facets['dyn_title']));
     check('and the query exposes it', ($context->facet('dyn_title')['buckets'] ?? []) !== []);
     check('the publish recorded the definition it came from', $plugin->artifacts->definitionHash($index->uid) === $index->fingerprint());
-    check('so an unchanged definition marks nothing', !$plugin->indexes->checkDefinition($index) && $recordsDirty($index->uid) === 0);
+    check('so an unchanged definition marks nothing', ! $plugin->indexes->checkDefinition($index) && $recordsDirty($index->uid) === 0);
 
     echo "\nA module's attribute set changes\n";
 

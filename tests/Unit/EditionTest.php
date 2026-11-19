@@ -14,7 +14,6 @@ use JustinHoltWeb\Caffeine\Models\SortingDefinition;
  * sense: the harness runs as Pro, so the Lite path is the least-exercised code in the plugin, and
  * a boundary that leaks is a boundary that was never worth drawing.
  */
-
 function caffeineProIndex(): IndexDefinition
 {
     return new IndexDefinition([
@@ -52,8 +51,8 @@ function caffeineProIndex(): IndexDefinition
     ]);
 }
 
-describe('what each edition allows', function() {
-    it('gives Pro everything', function() {
+describe('what each edition allows', function () {
+    it('gives Pro everything', function () {
         expect(Edition::facetTypes(true))->toBe(AttributeDefinition::FACET_TYPES);
         expect(Edition::transports(true))->toBe(IndexDefinition::TRANSPORTS);
         expect(Edition::maxSortings(true))->toBeNull();
@@ -62,7 +61,7 @@ describe('what each edition allows', function() {
         expect(Edition::allowsTools(true))->toBeTrue();
     });
 
-    it('holds Lite to strings, booleans and the fragment transport', function() {
+    it('holds Lite to strings, booleans and the fragment transport', function () {
         expect(Edition::facetTypes(false))->toBe(['string', 'boolean']);
         expect(Edition::transports(false))->toBe(['htmx']);
         expect(Edition::maxSortings(false))->toBe(1);
@@ -72,19 +71,19 @@ describe('what each edition allows', function() {
     });
 });
 
-describe('problems()', function() {
-    it('finds nothing wrong on Pro', function() {
+describe('problems()', function () {
+    it('finds nothing wrong on Pro', function () {
         expect(Edition::problems(caffeineProIndex(), true))->toBe([]);
     });
 
-    it('reports every problem at once rather than one per save', function() {
+    it('reports every problem at once rather than one per save', function () {
         $problems = Edition::problems(caffeineProIndex(), false);
 
         // Numeric facet, geo facet, client transport, two extra sortings, word lists.
         expect($problems)->toHaveCount(5);
     });
 
-    it('names the offending facet so the message is actionable', function() {
+    it('names the offending facet so the message is actionable', function () {
         $problems = implode(' ', Edition::problems(caffeineProIndex(), false));
 
         expect($problems)->toContain('price')
@@ -93,7 +92,7 @@ describe('problems()', function() {
             ->and($problems)->toContain('Stopwords and synonyms');
     });
 
-    it('passes a Lite-shaped index', function() {
+    it('passes a Lite-shaped index', function () {
         $index = new IndexDefinition([
             'handle' => 'products',
             'transport' => IndexDefinition::TRANSPORT_HTMX,
@@ -110,7 +109,7 @@ describe('problems()', function() {
         expect(Edition::problems($index, false))->toBe([]);
     });
 
-    it('counts relevance as free', function() {
+    it('counts relevance as free', function () {
         $index = new IndexDefinition([
             'handle' => 'products',
             'attributes' => [new AttributeDefinition([

@@ -74,7 +74,7 @@ class ArtifactStatusCommand extends Command
         }
 
         $this->newLine();
-        $this->muted('Publishing to ' . $publisher->store()->describe());
+        $this->muted('Publishing to '.$publisher->store()->describe());
 
         return self::SUCCESS;
     }

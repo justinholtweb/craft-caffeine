@@ -29,7 +29,7 @@ class ArtifactVersionsCommand extends Command
 
     public function handle(Indexes $indexes, Artifacts $artifacts): int
     {
-        $handle = (string)$this->argument('handle');
+        $handle = (string) $this->argument('handle');
         $index = $indexes->getByHandle($handle);
 
         if ($index === null) {
@@ -52,15 +52,15 @@ class ArtifactVersionsCommand extends Command
                 $row['version'],
                 $row['status'],
                 $row['recordCount'],
-                $this->formatBytes((int)$row['byteSize']),
-                (int)$row['buildMs'],
+                $this->formatBytes((int) $row['byteSize']),
+                (int) $row['buildMs'],
                 $row['dateCreated'],
             );
 
             $row['status'] === Artifacts::STATUS_LIVE ? $this->info($line) : $this->muted($line);
 
-            if (!empty($row['error'])) {
-                $this->error('        ' . $this->escape((string)$row['error']));
+            if (! empty($row['error'])) {
+                $this->error('        '.$this->escape((string) $row['error']));
             }
         }
 

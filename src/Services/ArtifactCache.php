@@ -42,19 +42,19 @@ class ArtifactCache
     /**
      * The decoded artifact, if OPcache already holds it.
      *
-     * @param array<string, mixed> $manifest The live pointer the artifact was published under.
-     * @param (Closure(list<int>, Artifact): array<int, array<string, mixed>>)|null $payloadLoader
-     *        Reattached when the cached artifact was written without its payloads.
+     * @param  array<string, mixed>  $manifest  The live pointer the artifact was published under.
+     * @param  (Closure(list<int>, Artifact): array<int, array<string, mixed>>)|null  $payloadLoader
+     *                                                                                                Reattached when the cached artifact was written without its payloads.
      */
     public function get(IndexDefinition $index, array $manifest, ?Closure $payloadLoader = null): ?Artifact
     {
-        if (!$this->isEnabled()) {
+        if (! $this->isEnabled()) {
             return null;
         }
 
         $path = $this->path($index, $manifest);
 
-        if (!@opcache_is_script_cached($path)) {
+        if (! @opcache_is_script_cached($path)) {
             return null;
         }
 
@@ -65,7 +65,7 @@ class ArtifactCache
             // nothing on the query path writes to an artifact.
             return new Artifact(
                 index: $data['index'],
-                version: (int)($manifest['version'] ?? 0),
+                version: (int) ($manifest['version'] ?? 0),
                 objectIds: $data['objectIds'],
                 payloads: $data['payloads'],
                 facets: $data['facets'],
@@ -96,11 +96,11 @@ class ArtifactCache
      * happens once per publish on each web server, in whichever request gets here first. Every
      * other request arriving meanwhile decodes as before rather than queueing behind it.
      *
-     * @param array<string, mixed> $manifest
+     * @param  array<string, mixed>  $manifest
      */
     public function put(IndexDefinition $index, array $manifest, Artifact $artifact): void
     {
-        if (!$this->isEnabled()) {
+        if (! $this->isEnabled()) {
             return;
         }
 
@@ -116,14 +116,14 @@ class ArtifactCache
 
         // Not waited for: a request that finds another one compiling simply decodes as before.
         // The TTL frees the lock if the compiling request dies.
-        $lock = Cache::lock('caffeine:opcache:' . basename($path), 300);
+        $lock = Cache::lock('caffeine:opcache:'.basename($path), 300);
 
-        if (!$lock->get()) {
+        if (! $lock->get()) {
             return;
         }
 
         try {
-            if (!file_exists($path)) {
+            if (! file_exists($path)) {
                 $this->write($path, $artifact);
                 $this->deleteSiblings($path);
             }
@@ -134,10 +134,10 @@ class ArtifactCache
                 @touch("{$path}.failed");
 
                 Log::channel('caffeine')->warning(sprintf(
-                    'Caffeine’s artifact cache for “%s” is %s, and OPcache would not hold it, so the artifact is decoded on every request instead. ' .
+                    'Caffeine’s artifact cache for “%s” is %s, and OPcache would not hold it, so the artifact is decoded on every request instead. '.
                     'Raise opcache.memory_consumption and opcache.interned_strings_buffer, check opcache.max_file_size, or turn the artifact cache off.',
                     $index->handle,
-                    $this->formatBytes((int)@filesize($path)),
+                    $this->formatBytes((int) @filesize($path)),
                 ));
             }
         } catch (Throwable $e) {
@@ -150,21 +150,21 @@ class ArtifactCache
     /**
      * Deletes the cache files of indexes that no longer exist.
      *
-     * @param list<string> $knownUids
+     * @param  list<string>  $knownUids
      * @return int Directories removed.
      */
     public function deleteOrphans(array $knownUids): int
     {
         $root = $this->root();
 
-        if (!is_dir($root)) {
+        if (! is_dir($root)) {
             return 0;
         }
 
         $removed = 0;
 
         foreach (File::directories($root) as $directory) {
-            if (!in_array(basename($directory), $knownUids, true)) {
+            if (! in_array(basename($directory), $knownUids, true)) {
                 $this->invalidateAll($directory);
                 File::deleteDirectory($directory);
                 $removed++;
@@ -176,11 +176,11 @@ class ArtifactCache
 
     public function isEnabled(): bool
     {
-        if (!Plugin::getInstance()->getSettings()->cacheArtifacts) {
+        if (! Plugin::getInstance()->getSettings()->cacheArtifacts) {
             return false;
         }
 
-        if (!function_exists('opcache_compile_file') || !function_exists('opcache_is_script_cached')) {
+        if (! function_exists('opcache_compile_file') || ! function_exists('opcache_is_script_cached')) {
             return false;
         }
 
@@ -194,13 +194,13 @@ class ArtifactCache
      * shape without changing the shards: the wire format, and this plugin's version, since an
      * upgrade can change what `Artifact` holds.
      *
-     * @param array<string, mixed> $manifest
+     * @param  array<string, mixed>  $manifest
      */
     public function path(IndexDefinition $index, array $manifest): string
     {
-        $files = array_map(fn(array $shard) => (string)($shard['file'] ?? ''), (array)($manifest['shards'] ?? []));
+        $files = array_map(fn (array $shard) => (string) ($shard['file'] ?? ''), (array) ($manifest['shards'] ?? []));
         // Whether the payloads are in the file or loaded on demand depends on this.
-        $files['lookup'] = (string)($manifest['lookup']['file'] ?? '');
+        $files['lookup'] = (string) ($manifest['lookup']['file'] ?? '');
 
         $key = substr(hash('sha256', implode('|', [
             ArtifactEncoder::FORMAT,
@@ -208,13 +208,13 @@ class ArtifactCache
             json_encode($files),
         ])), 0, 16);
 
-        return $this->root() . DIRECTORY_SEPARATOR . $index->uid . DIRECTORY_SEPARATOR . $key . '.php';
+        return $this->root().DIRECTORY_SEPARATOR.$index->uid.DIRECTORY_SEPARATOR.$key.'.php';
     }
 
     private function root(): string
     {
         // Not created here: `deleteOrphans()` asks whether it exists.
-        return Path::runtime('caffeine' . DIRECTORY_SEPARATOR . 'artifacts', false);
+        return Path::runtime('caffeine'.DIRECTORY_SEPARATOR.'artifacts', false);
     }
 
     /**
@@ -226,7 +226,7 @@ class ArtifactCache
     {
         File::ensureDirectoryExists(dirname($path));
 
-        $temporary = $path . '.tmp.' . bin2hex(random_bytes(6));
+        $temporary = $path.'.tmp.'.bin2hex(random_bytes(6));
         $handle = fopen($temporary, 'wb');
 
         if ($handle === false) {
@@ -250,9 +250,9 @@ class ArtifactCache
                 'stopwords' => $artifact->stopwords,
                 'geo' => $artifact->geo,
                 'payloadHashes' => $artifact->payloadHashes,
-                'lazy' => !$artifact->hasPayloads(),
+                'lazy' => ! $artifact->hasPayloads(),
             ] as $key => $value) {
-                fwrite($handle, var_export($key, true) . ' => ' . var_export($value, true) . ",\n");
+                fwrite($handle, var_export($key, true).' => '.var_export($value, true).",\n");
             }
 
             fwrite($handle, "];\n");
@@ -265,7 +265,7 @@ class ArtifactCache
         // written. This one is complete before it is renamed into place.
         touch($temporary, time() - 60);
 
-        if (!rename($temporary, $path)) {
+        if (! rename($temporary, $path)) {
             @unlink($temporary);
 
             throw new \RuntimeException("Could not move {$temporary} into place.");
@@ -278,7 +278,7 @@ class ArtifactCache
      */
     private function deleteSiblings(string $path): void
     {
-        foreach (glob(dirname($path) . DIRECTORY_SEPARATOR . '*') ?: [] as $file) {
+        foreach (glob(dirname($path).DIRECTORY_SEPARATOR.'*') ?: [] as $file) {
             if ($file === $path || str_contains($file, '.tmp.')) {
                 continue;
             }
@@ -293,13 +293,13 @@ class ArtifactCache
 
     private function invalidateAll(string $directory): void
     {
-        foreach (glob($directory . DIRECTORY_SEPARATOR . '*.php') ?: [] as $file) {
+        foreach (glob($directory.DIRECTORY_SEPARATOR.'*.php') ?: [] as $file) {
             @opcache_invalidate($file, true);
         }
     }
 
     private function formatBytes(int $bytes): string
     {
-        return $bytes >= 1048576 ? round($bytes / 1048576) . ' MB' : round($bytes / 1024) . ' KB';
+        return $bytes >= 1048576 ? round($bytes / 1048576).' MB' : round($bytes / 1024).' KB';
     }
 }

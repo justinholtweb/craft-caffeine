@@ -43,9 +43,9 @@ class UpdateJob extends Job
     private const RETRY_DELAY = 10;
 
     /**
-     * @param string $indexUid The index to update.
-     * @param bool $publish Set false to rebuild records without cutting a new artifact.
-     * @param int $attempt Guards against a job that keeps losing the lock requeueing itself forever.
+     * @param  string  $indexUid  The index to update.
+     * @param  bool  $publish  Set false to rebuild records without cutting a new artifact.
+     * @param  int  $attempt  Guards against a job that keeps losing the lock requeueing itself forever.
      */
     public function __construct(
         public string $indexUid = '',
@@ -59,7 +59,7 @@ class UpdateJob extends Job
     {
         $index = $indexes->getByUid($this->indexUid);
 
-        if ($index === null || !$indexes->isAllowed($index)) {
+        if ($index === null || ! $indexes->isAllowed($index)) {
             return;
         }
 
@@ -68,7 +68,7 @@ class UpdateJob extends Job
         // being swallowed by a job that had already read the dirty list.
         $autoUpdate->clearPending($this->indexUid);
 
-        $lock = Cache::lock('caffeine:update:' . $this->indexUid, self::LOCK_TTL);
+        $lock = Cache::lock('caffeine:update:'.$this->indexUid, self::LOCK_TTL);
 
         try {
             $lock->block(self::LOCK_WAIT);
@@ -81,17 +81,17 @@ class UpdateJob extends Job
         try {
             $this->setProgress(0, t('Rebuilding records', category: 'caffeine'));
 
-            $result = $builder->buildDirty($index, function(int $done, int $total) {
+            $result = $builder->buildDirty($index, function (int $done, int $total) {
                 // Capped below the halfway mark: publishing is the other half of the work, and a
                 // progress bar that reaches 100% and then sits there is worse than none.
-                $this->setProgress((int)floor(($done / max(1, $total)) * 50), t('Rebuilding records', category: 'caffeine'));
+                $this->setProgress((int) floor(($done / max(1, $total)) * 50), t('Rebuilding records', category: 'caffeine'));
             });
 
             foreach ($result['errors'] as $error) {
                 Log::channel('caffeine')->error(sprintf('Caffeine “%s”: %s', $index->handle, $error));
             }
 
-            if (!$this->publish) {
+            if (! $this->publish) {
                 return;
             }
 
@@ -140,7 +140,7 @@ class UpdateJob extends Job
         try {
             static::dispatch($this->indexUid, $this->publish, $this->attempt + 1)->delay(self::RETRY_DELAY);
         } catch (Throwable $e) {
-            Log::channel('caffeine')->error('Caffeine could not requeue an update: ' . $e->getMessage());
+            Log::channel('caffeine')->error('Caffeine could not requeue an update: '.$e->getMessage());
         }
     }
 

@@ -31,7 +31,7 @@ class AddressExtractor implements ValueExtractorInterface
             $part = self::read($value, $name);
 
             if ($part !== null && $part !== '') {
-                $parts[$name] = in_array($name, ['lat', 'lng'], true) ? (float)$part : $part;
+                $parts[$name] = in_array($name, ['lat', 'lng'], true) ? (float) $part : $part;
             }
         }
 
@@ -57,7 +57,7 @@ class AddressExtractor implements ValueExtractorInterface
                 return $value->$name;
             }
 
-            $getter = 'get' . ucfirst($name);
+            $getter = 'get'.ucfirst($name);
 
             if (method_exists($value, $getter)) {
                 return $value->$getter();
@@ -71,12 +71,12 @@ class AddressExtractor implements ValueExtractorInterface
 
     private static function stringify(object $value): ?string
     {
-        if (!method_exists($value, '__toString')) {
+        if (! method_exists($value, '__toString')) {
             return null;
         }
 
         try {
-            $string = trim((string)$value);
+            $string = trim((string) $value);
         } catch (Throwable) {
             return null;
         }

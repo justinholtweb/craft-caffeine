@@ -13,7 +13,6 @@ use JustinHoltWeb\Caffeine\Models\SourceDefinition;
  * The screen renders the common per-attribute settings and not the rest, so the test that
  * matters most here is the one asserting a save does not quietly discard what it never showed.
  */
-
 function caffeineFormBody(array $overrides = []): array
 {
     return array_merge([
@@ -45,7 +44,7 @@ function caffeineFormBody(array $overrides = []): array
     ], $overrides);
 }
 
-it('reads sources, splitting and trimming comma lists', function() {
+it('reads sources, splitting and trimming comma lists', function () {
     $index = IndexDefinition::fromForm(caffeineFormBody());
 
     expect($index->sources)->toHaveCount(1);
@@ -54,14 +53,14 @@ it('reads sources, splitting and trimming comma lists', function() {
     expect($index->sources[0]->subTypes)->toBe([]);
 });
 
-it('turns role checkboxes into a role list', function() {
+it('turns role checkboxes into a role list', function () {
     $index = IndexDefinition::fromForm(caffeineFormBody());
 
     expect($index->attributes[0]->roles)->toBe(['searchable', 'sortable', 'payload']);
     expect($index->attributes[1]->roles)->toBe(['facet']);
 });
 
-it('reads the scalar settings', function() {
+it('reads the scalar settings', function () {
     $index = IndexDefinition::fromForm(caffeineFormBody(['hitsPerPage' => '48', 'shardPayload' => '1']));
 
     expect($index->hitsPerPage)->toBe(48);
@@ -71,7 +70,7 @@ it('reads the scalar settings', function() {
     expect($index->attributes[1]->facetOperator)->toBe('and');
 });
 
-it('reads sortings', function() {
+it('reads sortings', function () {
     $index = IndexDefinition::fromForm(caffeineFormBody());
 
     expect($index->sortings)->toHaveCount(1);
@@ -79,7 +78,7 @@ it('reads sortings', function() {
     expect($index->sortings[0]->name)->toBe('title_asc');
 });
 
-it('skips blank rows rather than creating empty definitions', function() {
+it('skips blank rows rather than creating empty definitions', function () {
     $body = caffeineFormBody();
     $body['attributes'][] = ['key' => '  ', 'source' => 'field'];
     $body['sortings'][] = ['name' => '', 'attribute' => 'title'];
@@ -92,7 +91,7 @@ it('skips blank rows rather than creating empty definitions', function() {
     expect($index->sources)->toHaveCount(1);
 });
 
-it('keeps per-attribute settings the screen does not render', function() {
+it('keeps per-attribute settings the screen does not render', function () {
     // Everything here is configurable in project config and absent from the CP form. A save that
     // rebuilt attributes from scratch would reset all of it, and the screen would quietly become
     // the only way to configure an index.
@@ -131,7 +130,7 @@ it('keeps per-attribute settings the screen does not render', function() {
     expect($category->facetOperator)->toBe('and');
 });
 
-it('starts an unknown attribute from defaults', function() {
+it('starts an unknown attribute from defaults', function () {
     $existing = new IndexDefinition(['uid' => 'existing-uid', 'attributes' => []]);
     $index = IndexDefinition::fromForm(caffeineFormBody(), $existing);
 
@@ -139,7 +138,7 @@ it('starts an unknown attribute from defaults', function() {
     expect($index->getAttribute('title')->maxValuesPerFacet)->toBe(20);
 });
 
-it('refuses an index with no sources or attributes', function() {
+it('refuses an index with no sources or attributes', function () {
     // The guard that matters most, and the one Yii silently skipped: inline validators are
     // skipped on empty values by default, so the rules meant to catch "nothing configured" were
     // exactly the rules that never ran.
@@ -155,7 +154,7 @@ it('refuses an index with no sources or attributes', function() {
     expect($index->getErrors('attributes'))->not->toBeEmpty();
 });
 
-it('accepts an index with a source and an attribute', function() {
+it('accepts an index with a source and an attribute', function () {
     $index = IndexDefinition::fromForm(caffeineFormBody(['uid' => '']));
 
     expect($index->validate())->toBeTrue()

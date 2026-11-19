@@ -153,7 +153,7 @@ class ArtifactEncoder
     /**
      * A payload's fingerprint, as the lookup document carries it.
      *
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      */
     public static function payloadHash(array $payload): string
     {
@@ -168,8 +168,8 @@ class ArtifactEncoder
      * Two blobs rather than one per list: a facet with 4,000 values would otherwise become 4,000
      * short base64 strings, and the JSON punctuation around them would cost more than the ids.
      *
-     * @param list<list<int>> $lists
-     * @param bool $delta Whether each inner list is ascending and can store its gaps.
+     * @param  list<list<int>>  $lists
+     * @param  bool  $delta  Whether each inner list is ascending and can store its gaps.
      * @return array{0: string, 1: string}
      */
     private function encodeLists(array $lists, bool $delta): array
@@ -178,7 +178,7 @@ class ArtifactEncoder
         $lengths = [];
 
         foreach ($lists as $list) {
-            $list = array_values((array)$list);
+            $list = array_values((array) $list);
             $lengths[] = count($list);
 
             if ($delta) {
@@ -187,15 +187,15 @@ class ArtifactEncoder
                 $previous = 0;
 
                 foreach ($list as $value) {
-                    $flat[] = (int)$value - $previous;
-                    $previous = (int)$value;
+                    $flat[] = (int) $value - $previous;
+                    $previous = (int) $value;
                 }
 
                 continue;
             }
 
             foreach ($list as $value) {
-                $flat[] = (int)$value;
+                $flat[] = (int) $value;
             }
         }
 
@@ -221,7 +221,7 @@ class ArtifactEncoder
                 $ids[] = $id - $previous;
                 $previous = $id;
 
-                $weights[] = (int)round($artifact->tokenWeights[$i] * self::WEIGHT_SCALE);
+                $weights[] = (int) round($artifact->tokenWeights[$i] * self::WEIGHT_SCALE);
             }
         }
 

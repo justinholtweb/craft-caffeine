@@ -1,61 +1,48 @@
 <?php
 
+declare(strict_types=1);
+
 namespace JustinHoltWeb\Caffeine\Http\Controllers;
 
-use Craft;
-use craft\web\Controller;
-use craft\web\View;
-use JustinHoltWeb\Caffeine\Plugin;
-use yii\web\BadRequestHttpException;
-use yii\web\Response;
+use CraftCms\Cms\Support\Facades\Elements;
+use CraftCms\Cms\View\TemplateMode;
+use Illuminate\Contracts\Encryption\DecryptException;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Crypt;
+use JustinHoltWeb\Caffeine\Services\Indexes;
+use JustinHoltWeb\Caffeine\Services\Search;
+use Symfony\Component\HttpFoundation\Response;
+
+use function CraftCms\Cms\template;
 
 /**
- * Re-renders the `{% caffeineresults %}` block for a new state.
+ * Re-renders the page a `{% caffeine %}` block lives on and returns just its regions.
  *
- * The endpoint behind the `htmx` transport, and the reason hit markup stays in Twig. It renders
- * the *same template* the page rendered, with the same element in context, and returns only the
- * results region — so a refinement produces markup identical to what a full page load would,
- * because it came from the same code.
- *
- * The template is named by a signed token rather than a request parameter. An endpoint that
- * rendered whatever template it was told to would be an arbitrary template-render primitive
- * aimed at the whole site, `{{ craft.app }}` and all.
+ * Public: it serves the site's own front end. What it may render is fixed by the encrypted
+ * `caffeineToken` the page embedded — a template Caffeine was already rendering — never by a
+ * request parameter.
  */
-class FragmentController extends Controller
+class FragmentController
 {
-    /**
-     * Not `token`: Craft reserves that query parameter for its own preview and share tokens and
-     * rejects the request with "Invalid token" before any controller runs.
-     */
     public const PARAM_TOKEN = 'caffeineToken';
 
-    public array|bool|int $allowAnonymous = true;
-
-    public function actionIndex(): Response
+    public function __invoke(Request $request, Indexes $indexes, Search $search): Response
     {
-        $request = Craft::$app->getRequest();
-        $token = (string)$request->getParam(self::PARAM_TOKEN, '');
+        $payload = $this->decodeToken((string) $request->input(self::PARAM_TOKEN, ''));
 
-        $payload = $this->decodeToken($token);
-
-        $index = Plugin::getInstance()->indexes->getByHandle($payload['index']);
-
-        if ($index === null) {
-            throw new BadRequestHttpException('Unknown index.');
-        }
-
-        $search = Plugin::getInstance()->search;
+        $index = $indexes->getByHandle($payload['index']);
+        abort_if($index === null, 400, 'Unknown index.');
 
         // Every URL in the re-rendered block has to point back at the page, not at this endpoint.
         $search->overridePath($payload['path']);
 
-        $variables = $payload['variables'] ?? [];
+        $variables = $payload['variables'];
 
-        if (!empty($payload['element'])) {
-            $element = Craft::$app->getElements()->getElementById(
-                (int)$payload['element']['id'],
+        if (! empty($payload['element'])) {
+            $element = Elements::getElementById(
+                (int) $payload['element']['id'],
                 null,
-                (int)$payload['element']['siteId'],
+                (int) $payload['element']['siteId'],
             );
 
             if ($element !== null) {
@@ -63,31 +50,24 @@ class FragmentController extends Controller
             }
         }
 
-        $view = Craft::$app->getView();
-
         // Rendered whole, then narrowed. The block's markup can depend on anything else on the
         // page — a macro imported at the top, a variable set above it — so rendering it in
         // isolation would work until the first template that does something ordinary.
-        $view->renderPageTemplate($payload['template'], $variables, View::TEMPLATE_MODE_SITE);
+        template($payload['template'], $variables, TemplateMode::Site);
 
-        $context = $search->registered($payload['index'], $payload['prefix'] ?? '');
+        $context = $search->registered($payload['index'], $payload['prefix']);
 
-        if ($context === null || $context->getRenderedResults() === null) {
-            throw new BadRequestHttpException(sprintf(
-                'The template “%s” did not render a {%% caffeineresults %%} block for “%s”.',
-                $payload['template'],
-                $payload['index'],
-            ));
-        }
+        abort_if($context === null || $context->getRenderedResults() === null, 400, sprintf(
+            'The template “%s” did not render a {%% caffeineresults %%} block for “%s”.',
+            $payload['template'],
+            $payload['index'],
+        ));
 
-        // Two shapes from one endpoint, chosen by what the caller asks for.
-        //
-        // JSON is what the bundled runtime wants: it carries every state-dependent region, so
-        // the facet counts beside the results update with them. Raw HTML is what HTMX and
-        // anything else expecting a fragment wants, and it is the results block alone — which is
-        // all a plain `hx-get`/`hx-target` pair can swap.
-        if ($this->wantsJson($request)) {
-            return $this->asJson([
+        // JSON for the bundled runtime: every state-dependent region, so the facet counts beside
+        // the results update with them. Plain HTML for HTMX and anything else that swaps a
+        // fragment: the results block alone.
+        if ($request->input('format') === 'json' || $request->expectsJson()) {
+            return response()->json([
                 'regions' => $context->getRegions(),
                 'html' => $context->getRenderedResults(),
                 'nbHits' => $context->getNbHits(),
@@ -98,42 +78,27 @@ class FragmentController extends Controller
             ]);
         }
 
-        $response = Craft::$app->getResponse();
-        $response->format = Response::FORMAT_RAW;
-        $response->headers->set('Content-Type', 'text/html; charset=UTF-8');
-        $response->headers->set('X-Caffeine-Version', (string)$context->version);
-        $response->headers->set('X-Caffeine-Hits', (string)$context->getNbHits());
-
-        $response->data = $context->getRenderedResults();
-
-        return $response;
-    }
-
-    private function wantsJson(\craft\web\Request $request): bool
-    {
-        if ($request->getParam('format') === 'json') {
-            return true;
-        }
-
-        return str_contains((string)$request->getHeaders()->get('Accept'), 'application/json');
+        return response((string) $context->getRenderedResults(), 200, [
+            'Content-Type' => 'text/html; charset=UTF-8',
+            'X-Caffeine-Version' => (string) $context->version,
+            'X-Caffeine-Hits' => (string) $context->getNbHits(),
+        ]);
     }
 
     /**
-     * @return array{index: string, prefix: string|null, path: string, template: string, element: array|null, variables: array|null}
+     * @return array{index: string, prefix: string, path: string, template: string, element: array{type: string, id: int, siteId: int}|null, variables: array<string, mixed>}
      */
     private function decodeToken(string $token): array
     {
-        $json = Craft::$app->getSecurity()->validateData($token);
-
-        if ($json === false) {
-            throw new BadRequestHttpException('Invalid or missing Caffeine token.');
+        try {
+            $json = Crypt::decryptString($token);
+        } catch (DecryptException) {
+            abort(400, 'Invalid or missing Caffeine token.');
         }
 
         $payload = json_decode($json, true);
 
-        if (!is_array($payload) || empty($payload['template']) || empty($payload['index'])) {
-            throw new BadRequestHttpException('Malformed Caffeine token.');
-        }
+        abort_if(! is_array($payload) || empty($payload['template']) || empty($payload['index']), 400, 'Malformed Caffeine token.');
 
         return $payload + ['prefix' => '', 'path' => '/', 'element' => null, 'variables' => []];
     }
