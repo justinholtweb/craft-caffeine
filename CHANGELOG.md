@@ -5,6 +5,18 @@ All notable changes to Caffeine are documented here.
 Caffeine follows [semantic versioning](https://semver.org). The major version tracks Craft, so
 5.x supports Craft 5 — the same convention the rest of the family uses.
 
+## 5.3.1 — Unreleased
+
+### Security
+
+- The `client` transport's hit template (`<template data-caffeine-hit>`) escaped double quotes but
+  not single quotes or backticks, so a hit value placed in a single-quoted attribute could break
+  out of it. It now escapes both. A hit value that lands in a link, image or form URL as a
+  `javascript:`, `vbscript:` or `data:` URL is replaced with `#`. Sites whose editors can't be
+  trusted with arbitrary text, or whose indexes include user-submitted content, should update.
+  The `htmx` and `algolia-json` transports render hits in Twig or in your own code, and aren't
+  affected.
+
 ## 5.3.0 — 2026-10-25
 
 Server-side performance for large catalogues on the `htmx` transport, from the load test in

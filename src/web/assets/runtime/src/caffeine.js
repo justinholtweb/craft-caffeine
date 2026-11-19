@@ -413,6 +413,15 @@ class Caffeine {
       .map((hit) => source.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, path) => escapeHtml(dig(hit, path))))
       .join('')
 
+    // Hit values are content, not markup. Escaping keeps them out of tags, but a value placed
+    // in an href or src could still be a `javascript:` URL, so neutralise script-capable schemes.
+    for (const node of target.querySelectorAll('[href], [src], [action], [formaction], [xlink\\:href]')) {
+      for (const name of ['href', 'src', 'action', 'formaction', 'xlink:href']) {
+        const value = node.getAttribute(name)
+        if (value !== null && !isSafeUrl(value)) node.setAttribute(name, '#')
+      }
+    }
+
     for (const node of this.root.querySelectorAll('[data-caffeine-stats]')) {
       node.textContent = result.nbHits === 0 ? 'No results' : `${result.nbHits} results`
     }
@@ -490,6 +499,18 @@ function escapeHtml(value) {
     .replaceAll('<', '&lt;')
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
+    .replaceAll('`', '&#96;')
+}
+
+/**
+ * Whether a URL taken from content is safe to leave in a link or source attribute: anything
+ * except a `javascript:`, `vbscript:` or `data:` URL (browsers ignore whitespace and control
+ * characters inside the scheme, so those are stripped before checking).
+ */
+function isSafeUrl(value) {
+  const scheme = String(value).replace(/[\u0000-\u0020\u007f-\u009f]/g, '').toLowerCase()
+  return !/^(javascript|vbscript|data):/.test(scheme)
 }
 
 /**
