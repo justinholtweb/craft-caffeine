@@ -2,22 +2,25 @@
 
 namespace JustinHoltWeb\Caffeine\Services;
 
-use Craft;
-use craft\db\Query;
-use craft\helpers\Db;
-use craft\helpers\Json;
-use craft\helpers\StringHelper;
+use CraftCms\Cms\Support\Json;
+use CraftCms\Cms\Support\Query;
 use Generator;
-use JustinHoltWeb\Caffeine\Migrations\Install;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use JustinHoltWeb\Caffeine\Database\Tables;
 use JustinHoltWeb\Caffeine\Models\IndexDefinition;
 use JustinHoltWeb\Caffeine\Models\MappedRecord;
-use JustinHoltWeb\Caffeine\Plugin;
 
 /**
  * The record store: mapped records, their dependency edges, and what is stale.
  *
- * Written with the query builder rather than Active Record throughout. A build touches tens of
- * thousands of rows, and instantiating an AR model per row is most of the cost of doing so.
+ * Written with the query builder rather than Eloquent throughout. A build touches tens of
+ * thousands of rows, and hydrating a model per row is most of the cost of doing so.
+ *
+ * Element-id lists go through `whereIntegerInRaw()`/`whereIntegerNotInRaw()`, which inline the
+ * (integer-cast) ids rather than binding each one. Laravel uses native prepares on MySQL, where a
+ * statement is capped at 65,535 placeholders — and the keep-list a full build prunes against is
+ * every element id in the index.
  */
 class Records
 {
@@ -27,20 +30,24 @@ class Records
      */
     private const BATCH_SIZE = 500;
 
+    /** The unique index every upsert targets — Postgres requires the conflict target to match one. */
+    private const UNIQUE_KEY = ['indexUid', 'elementId', 'siteId'];
+
     /**
      * Writes a mapped record, replacing whatever was there, and refreshes its dependency edges.
      */
     public function save(IndexDefinition $index, MappedRecord $record): void
     {
-        $db = Craft::$app->getDb();
-        $now = Db::prepareDateForDb(new \DateTime());
+        $now = $this->timestamp();
 
         // Encoded once: tokenising is the most expensive thing in a build, and the upsert
         // needs the same values in both its insert and update halves.
-        $content = Json::encode($record->toArray());
-        $tokens = Json::encode(Plugin::getInstance()->tokenizer->tokenizeRecord($index, $record));
+        $content = $this->encode($record->toArray());
+        $tokens = $this->encode(app(Tokenizer::class)->tokenizeRecord($index, $record));
 
-        $db->createCommand()->upsert(Install::TABLE_RECORDS, [
+        // Laravel's `update` names columns whose new values come from the inserted row, so the
+        // insert row carries exactly what an existing row should be updated to.
+        DB::table(Tables::RECORDS)->upsert([[
             'indexUid' => $index->uid,
             'elementId' => $record->elementId,
             'siteId' => $record->siteId,
@@ -51,15 +58,8 @@ class Records
             'deleted' => false,
             'dateCreated' => $now,
             'dateUpdated' => $now,
-            'uid' => StringHelper::UUID(),
-        ], [
-            'objectId' => $record->objectId,
-            'content' => $content,
-            'tokens' => $tokens,
-            'dirty' => false,
-            'deleted' => false,
-            'dateUpdated' => $now,
-        ])->execute();
+            'uid' => (string)Str::uuid(),
+        ]], self::UNIQUE_KEY, ['objectId', 'content', 'tokens', 'dirty', 'deleted', 'dateUpdated']);
 
         $recordId = $this->recordId($index->uid, $record->elementId, $record->siteId);
 
@@ -76,18 +76,11 @@ class Records
     public function saveAll(IndexDefinition $index, array $records): void
     {
         foreach (array_chunk($records, self::BATCH_SIZE) as $chunk) {
-            $transaction = Craft::$app->getDb()->beginTransaction();
-
-            try {
+            DB::transaction(function () use ($index, $chunk) {
                 foreach ($chunk as $record) {
                     $this->save($index, $record);
                 }
-
-                $transaction->commit();
-            } catch (\Throwable $e) {
-                $transaction->rollBack();
-                throw $e;
-            }
+            });
         }
     }
 
@@ -103,11 +96,10 @@ class Records
      */
     public function touchElement(string $indexUid, int $elementId, array $siteIds): void
     {
-        $db = Craft::$app->getDb();
-        $now = Db::prepareDateForDb(new \DateTime());
+        $now = $this->timestamp();
 
         foreach ($siteIds as $siteId) {
-            $db->createCommand()->upsert(Install::TABLE_RECORDS, [
+            DB::table(Tables::RECORDS)->upsert([[
                 'indexUid' => $indexUid,
                 'elementId' => $elementId,
                 'siteId' => $siteId,
@@ -118,26 +110,24 @@ class Records
                 'deleted' => false,
                 'dateCreated' => $now,
                 'dateUpdated' => $now,
-                'uid' => StringHelper::UUID(),
-            ], [
+                'uid' => (string)Str::uuid(),
+            ]], self::UNIQUE_KEY, [
                 // Only the flags. An existing record keeps its content until the build replaces
                 // it, so the artifact stays servable the whole time it is stale.
-                'dirty' => true,
-                'deleted' => false,
-                'dateUpdated' => $now,
-            ])->execute();
+                'dirty',
+                'deleted',
+                'dateUpdated',
+            ]);
         }
     }
 
     public function recordId(string $indexUid, int $elementId, int $siteId): ?int
     {
-        $id = (new Query())
-            ->select(['id'])
-            ->from(Install::TABLE_RECORDS)
+        $id = DB::table(Tables::RECORDS)
             ->where(['indexUid' => $indexUid, 'elementId' => $elementId, 'siteId' => $siteId])
-            ->scalar();
+            ->value('id');
 
-        return $id !== false && $id !== null ? (int)$id : null;
+        return $id !== null ? (int)$id : null;
     }
 
     /**
@@ -150,28 +140,28 @@ class Records
      */
     public function saveDependencies(int $recordId, array $elementIds): void
     {
-        $db = Craft::$app->getDb();
-
-        $db->createCommand()
-            ->delete(Install::TABLE_DEPS, ['recordId' => $recordId])
-            ->execute();
+        DB::table(Tables::DEPS)->where('recordId', $recordId)->delete();
 
         if ($elementIds === []) {
             return;
         }
 
-        $now = Db::prepareDateForDb(new \DateTime());
+        $now = $this->timestamp();
         $rows = [];
 
         foreach (array_unique($elementIds) as $elementId) {
-            $rows[] = [$recordId, $elementId, $now, $now, StringHelper::UUID()];
+            $rows[] = [
+                'recordId' => $recordId,
+                'elementId' => $elementId,
+                'dateCreated' => $now,
+                'dateUpdated' => $now,
+                'uid' => (string)Str::uuid(),
+            ];
         }
 
-        $db->createCommand()->batchInsert(
-            Install::TABLE_DEPS,
-            ['recordId', 'elementId', 'dateCreated', 'dateUpdated', 'uid'],
-            $rows,
-        )->execute();
+        foreach (array_chunk($rows, self::BATCH_SIZE) as $chunk) {
+            DB::table(Tables::DEPS)->insert($chunk);
+        }
     }
 
     /**
@@ -189,23 +179,22 @@ class Records
             return 0;
         }
 
-        $recordIds = (new Query())
-            ->select(['recordId'])
+        $recordIds = DB::table(Tables::DEPS)
             ->distinct()
-            ->from(Install::TABLE_DEPS)
-            ->where(['elementId' => $elementIds])
-            ->column();
+            ->whereIntegerInRaw('elementId', $elementIds)
+            ->pluck('recordId')
+            ->all();
 
         if ($recordIds === []) {
             return 0;
         }
 
-        return Craft::$app->getDb()->createCommand()
-            ->update(Install::TABLE_RECORDS, [
+        return DB::table(Tables::RECORDS)
+            ->whereIntegerInRaw('id', $recordIds)
+            ->update([
                 'dirty' => true,
-                'dateUpdated' => Db::prepareDateForDb(new \DateTime()),
-            ], ['id' => $recordIds])
-            ->execute();
+                'dateUpdated' => $this->timestamp(),
+            ]);
     }
 
     /**
@@ -224,23 +213,23 @@ class Records
             return [];
         }
 
-        return (new Query())
-            ->select(['r.indexUid'])
+        return DB::table(Tables::RECORDS . ' as r')
+            ->join(Tables::DEPS . ' as d', 'd.recordId', '=', 'r.id')
             ->distinct()
-            ->from(['r' => Install::TABLE_RECORDS])
-            ->innerJoin(['d' => Install::TABLE_DEPS], '[[d.recordId]] = [[r.id]]')
-            ->where(['d.elementId' => $elementIds])
-            ->column();
+            ->whereIntegerInRaw('d.elementId', $elementIds)
+            ->pluck('r.indexUid')
+            ->map(fn($uid) => (string)$uid)
+            ->all();
     }
 
     public function markIndexDirty(string $indexUid): int
     {
-        return Craft::$app->getDb()->createCommand()
-            ->update(Install::TABLE_RECORDS, [
+        return DB::table(Tables::RECORDS)
+            ->where('indexUid', $indexUid)
+            ->update([
                 'dirty' => true,
-                'dateUpdated' => Db::prepareDateForDb(new \DateTime()),
-            ], ['indexUid' => $indexUid])
-            ->execute();
+                'dateUpdated' => $this->timestamp(),
+            ]);
     }
 
     /**
@@ -257,20 +246,21 @@ class Records
             return 0;
         }
 
-        return Craft::$app->getDb()->createCommand()
-            ->update(Install::TABLE_RECORDS, [
+        return DB::table(Tables::RECORDS)
+            ->where('indexUid', $indexUid)
+            ->whereIntegerInRaw('elementId', $elementIds)
+            ->update([
                 'deleted' => true,
                 'dirty' => true,
-                'dateUpdated' => Db::prepareDateForDb(new \DateTime()),
-            ], ['indexUid' => $indexUid, 'elementId' => $elementIds])
-            ->execute();
+                'dateUpdated' => $this->timestamp(),
+            ]);
     }
 
     public function purgeDeleted(string $indexUid): int
     {
-        return Craft::$app->getDb()->createCommand()
-            ->delete(Install::TABLE_RECORDS, ['indexUid' => $indexUid, 'deleted' => true])
-            ->execute();
+        return DB::table(Tables::RECORDS)
+            ->where(['indexUid' => $indexUid, 'deleted' => true])
+            ->delete();
     }
 
     /**
@@ -287,20 +277,20 @@ class Records
      */
     public function deleteOrphans(array $keepUids): int
     {
-        $condition = $keepUids === []
-            ? ['not', ['indexUid' => null]]
-            : ['not', ['indexUid' => $keepUids]];
+        $query = DB::table(Tables::RECORDS);
 
-        return Craft::$app->getDb()->createCommand()
-            ->delete(Install::TABLE_RECORDS, $condition)
-            ->execute();
+        if ($keepUids === []) {
+            $query->whereNotNull('indexUid');
+        } else {
+            $query->whereNotIn('indexUid', $keepUids);
+        }
+
+        return $query->delete();
     }
 
     public function deleteForIndex(string $indexUid): int
     {
-        return Craft::$app->getDb()->createCommand()
-            ->delete(Install::TABLE_RECORDS, ['indexUid' => $indexUid])
-            ->execute();
+        return DB::table(Tables::RECORDS)->where('indexUid', $indexUid)->delete();
     }
 
     /**
@@ -313,28 +303,26 @@ class Records
      */
     public function pruneMissing(string $indexUid, array $keepElementIds): int
     {
-        $condition = ['indexUid' => $indexUid];
+        $query = DB::table(Tables::RECORDS)->where('indexUid', $indexUid);
 
         if ($keepElementIds !== []) {
-            $condition = ['and', $condition, ['not', ['elementId' => $keepElementIds]]];
+            // Laravel's docblock types this parameter wrongly; any list of integers is what it takes.
+            $query->whereIntegerNotInRaw('elementId', $keepElementIds); // @phpstan-ignore argument.type
         }
 
-        return Craft::$app->getDb()->createCommand()
-            ->delete(Install::TABLE_RECORDS, $condition)
-            ->execute();
+        return $query->delete();
     }
 
     public function countFor(string $indexUid, bool $dirtyOnly = false): int
     {
-        $query = (new Query())
-            ->from(Install::TABLE_RECORDS)
+        $query = DB::table(Tables::RECORDS)
             ->where(['indexUid' => $indexUid, 'deleted' => false]);
 
         if ($dirtyOnly) {
-            $query->andWhere(['dirty' => true]);
+            $query->where('dirty', true);
         }
 
-        return (int)$query->count();
+        return $query->count();
     }
 
     /**
@@ -347,27 +335,50 @@ class Records
      */
     public function stream(string $indexUid): Generator
     {
-        $query = (new Query())
-            ->select(['elementId', 'siteId', 'objectId', 'content', 'tokens'])
-            ->from(Install::TABLE_RECORDS)
-            // `content is not null` excludes the stubs `touchElement()` writes for elements that
-            // have been marked but not yet built. Without it a publish between the two would put
-            // an empty hit in the artifact.
-            ->where(['and', ['indexUid' => $indexUid, 'deleted' => false], ['not', ['content' => null]]])
-            // Ordered so a build is reproducible: the record at position 12 is the same record
-            // on every run, which keeps postings lists stable across identical rebuilds.
-            ->orderBy(['elementId' => SORT_ASC, 'siteId' => SORT_ASC]);
+        $after = null;
 
-        foreach ($query->batch(self::BATCH_SIZE) as $rows) {
+        // Keyset-paginated on (elementId, siteId) rather than by offset: the unique index covers
+        // it, so every page is an index seek however deep into a 100,000-record store it is.
+        while (true) {
+            $query = DB::table(Tables::RECORDS)
+                ->select(['elementId', 'siteId', 'objectId', 'content', 'tokens'])
+                ->where(['indexUid' => $indexUid, 'deleted' => false])
+                // `content is not null` excludes the stubs `touchElement()` writes for elements
+                // that have been marked but not yet built. Without it a publish between the two
+                // would put an empty hit in the artifact.
+                ->whereNotNull('content')
+                // Ordered so a build is reproducible: the record at position 12 is the same
+                // record on every run, which keeps postings lists stable across identical
+                // rebuilds.
+                ->orderBy('elementId')
+                ->orderBy('siteId')
+                ->limit(self::BATCH_SIZE);
+
+            if ($after !== null) {
+                [$elementId, $siteId] = $after;
+                $query->where(fn($q) => $q
+                    ->where('elementId', '>', $elementId)
+                    ->orWhere(fn($q) => $q->where('elementId', $elementId)->where('siteId', '>', $siteId)));
+            }
+
+            $rows = $query->get();
+
             foreach ($rows as $row) {
                 yield [
-                    'elementId' => (int)$row['elementId'],
-                    'siteId' => (int)$row['siteId'],
-                    'objectId' => (string)$row['objectId'],
-                    'content' => Json::decodeIfJson($row['content']) ?: [],
-                    'tokens' => Json::decodeIfJson($row['tokens']) ?: [],
+                    'elementId' => (int)$row->elementId,
+                    'siteId' => (int)$row->siteId,
+                    'objectId' => (string)$row->objectId,
+                    'content' => Json::decodeIfJson($row->content) ?: [],
+                    'tokens' => Json::decodeIfJson($row->tokens) ?: [],
                 ];
             }
+
+            if ($rows->count() < self::BATCH_SIZE) {
+                return;
+            }
+
+            $last = $rows->last();
+            $after = [(int)$last->elementId, (int)$last->siteId];
         }
     }
 
@@ -378,18 +389,16 @@ class Records
      */
     public function dirtyElementIds(string $indexUid, ?int $limit = null): array
     {
-        $query = (new Query())
-            ->select(['elementId'])
+        $query = DB::table(Tables::RECORDS)
             ->distinct()
-            ->from(Install::TABLE_RECORDS)
             ->where(['indexUid' => $indexUid, 'dirty' => true, 'deleted' => false])
-            ->orderBy(['elementId' => SORT_ASC]);
+            ->orderBy('elementId');
 
         if ($limit !== null) {
             $query->limit($limit);
         }
 
-        return array_map('intval', $query->column());
+        return array_map('intval', $query->pluck('elementId')->all());
     }
 
     /**
@@ -399,11 +408,25 @@ class Records
      */
     public function indexesWithDirtyRecords(): array
     {
-        return (new Query())
-            ->select(['indexUid'])
+        return DB::table(Tables::RECORDS)
             ->distinct()
-            ->from(Install::TABLE_RECORDS)
-            ->where(['dirty' => true])
-            ->column();
+            ->where('dirty', true)
+            ->pluck('indexUid')
+            ->map(fn($uid) => (string)$uid)
+            ->all();
+    }
+
+    /**
+     * Encoded the way Craft 5's `Json::encode()` did, so rows written before and after an
+     * upgrade decode identically.
+     */
+    private function encode(mixed $value): string
+    {
+        return json_encode($value, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+    }
+
+    private function timestamp(): string
+    {
+        return (string)Query::prepareDateForDb(now());
     }
 }

@@ -1,39 +1,42 @@
 <?php
 
-namespace JustinHoltWeb\Caffeine\Migrations;
+declare(strict_types=1);
 
-use craft\db\Migration;
-use craft\db\Table;
+namespace JustinHoltWeb\Caffeine\Database\Migrations;
+
+use CraftCms\Cms\Database\Migration;
+use CraftCms\Cms\Database\Table;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+use JustinHoltWeb\Caffeine\Database\Tables;
 
 /**
  * Installs Caffeine's record store, dependency map and artifact ledger.
  *
  * Index *definitions* are not here — they live in project config. These tables hold only what
  * is derived from them, which is why every one of them can be dropped and rebuilt from content.
+ *
+ * Each table is skipped when it already exists. A site upgraded from Caffeine 5 keeps the tables
+ * it had, so their rows survive, and nothing here tries to create them a second time.
+ *
+ * Columns mirror the Craft 5 schema exactly: `integer('id', true)` primary keys, so the foreign
+ * keys between Caffeine's own tables and into `elements`/`sites` (also `integer`) line up.
  */
 class Install extends Migration
 {
-    public const TABLE_RECORDS = '{{%caffeine_records}}';
-    public const TABLE_DEPS = '{{%caffeine_deps}}';
-    public const TABLE_ARTIFACTS = '{{%caffeine_artifacts}}';
-
-    public function safeUp(): bool
+    public function up(): void
     {
         $this->createRecordsTable();
         $this->createDepsTable();
         $this->createArtifactsTable();
-
-        return true;
     }
 
-    public function safeDown(): bool
+    public function down(): void
     {
         // Deps first — it carries a foreign key into records.
-        $this->dropTableIfExists(self::TABLE_DEPS);
-        $this->dropTableIfExists(self::TABLE_RECORDS);
-        $this->dropTableIfExists(self::TABLE_ARTIFACTS);
-
-        return true;
+        Schema::dropIfExists(Tables::DEPS);
+        Schema::dropIfExists(Tables::RECORDS);
+        Schema::dropIfExists(Tables::ARTIFACTS);
     }
 
     /**
@@ -44,42 +47,42 @@ class Install extends Migration
      */
     private function createRecordsTable(): void
     {
-        if ($this->db->tableExists(self::TABLE_RECORDS)) {
+        if (Schema::hasTable(Tables::RECORDS)) {
             return;
         }
 
-        $this->createTable(self::TABLE_RECORDS, [
-            'id' => $this->primaryKey(),
+        Schema::create(Tables::RECORDS, function (Blueprint $table) {
+            $table->integer('id', true);
             // The index's project-config uid, not its handle: a handle rename should carry the
             // records with it rather than orphaning them.
-            'indexUid' => $this->string(36)->notNull(),
-            'elementId' => $this->integer()->notNull(),
-            'siteId' => $this->integer()->notNull(),
+            $table->string('indexUid', 36);
+            $table->integer('elementId');
+            $table->integer('siteId');
             // Stable public identifier for the record, exposed as `objectID` in hits to match
             // the Algolia response shape.
-            'objectId' => $this->string(64)->notNull(),
+            $table->string('objectId', 64);
             // The mapped record: facet values, sortable values and payload, already transformed.
-            'content' => $this->longText(),
+            $table->longText('content')->nullable();
             // Tokenised searchable text, built in PHP so the browser never needs a tokeniser.
-            'tokens' => $this->longText(),
+            $table->longText('tokens')->nullable();
             // Set when the element changes, or when something the record depends on changes.
             // The build walks dirty rows only.
-            'dirty' => $this->boolean()->notNull()->defaultValue(true),
+            $table->boolean('dirty')->default(true);
             // Records for elements that have gone away, kept until the next publish so the
             // artifact can be rebuilt without re-walking everything.
-            'deleted' => $this->boolean()->notNull()->defaultValue(false),
-            'dateCreated' => $this->dateTime()->notNull(),
-            'dateUpdated' => $this->dateTime()->notNull(),
-            'uid' => $this->uid(),
-        ]);
+            $table->boolean('deleted')->default(false);
+            $table->dateTime('dateCreated');
+            $table->dateTime('dateUpdated');
+            $table->char('uid', 36)->default('0');
 
-        $this->createIndex(null, self::TABLE_RECORDS, ['indexUid', 'elementId', 'siteId'], true);
-        $this->createIndex(null, self::TABLE_RECORDS, ['indexUid', 'dirty']);
-        $this->createIndex(null, self::TABLE_RECORDS, ['indexUid', 'deleted']);
-        $this->createIndex(null, self::TABLE_RECORDS, ['elementId']);
+            $table->unique(['indexUid', 'elementId', 'siteId']);
+            $table->index(['indexUid', 'dirty']);
+            $table->index(['indexUid', 'deleted']);
+            $table->index(['elementId']);
 
-        $this->addForeignKey(null, self::TABLE_RECORDS, ['elementId'], Table::ELEMENTS, ['id'], 'CASCADE', null);
-        $this->addForeignKey(null, self::TABLE_RECORDS, ['siteId'], Table::SITES, ['id'], 'CASCADE', null);
+            $table->foreign('elementId')->references('id')->on(Table::ELEMENTS)->cascadeOnDelete();
+            $table->foreign('siteId')->references('id')->on(Table::SITES)->cascadeOnDelete();
+        });
     }
 
     /**
@@ -88,29 +91,29 @@ class Install extends Migration
      * This is what stops denormalised data going stale. A record that copies a category's title
      * into a facet label depends on that category; renaming it has to mark the record dirty, or
      * the artifact serves a label that no longer exists anywhere in the CMS. Craft solves the
-     * same problem the same way with `templatecacheelements`.
+     * same problem the same way with its element cache tags.
      */
     private function createDepsTable(): void
     {
-        if ($this->db->tableExists(self::TABLE_DEPS)) {
+        if (Schema::hasTable(Tables::DEPS)) {
             return;
         }
 
-        $this->createTable(self::TABLE_DEPS, [
-            'id' => $this->primaryKey(),
-            'recordId' => $this->integer()->notNull(),
-            'elementId' => $this->integer()->notNull(),
-            'dateCreated' => $this->dateTime()->notNull(),
-            'dateUpdated' => $this->dateTime()->notNull(),
-            'uid' => $this->uid(),
-        ]);
+        Schema::create(Tables::DEPS, function (Blueprint $table) {
+            $table->integer('id', true);
+            $table->integer('recordId');
+            $table->integer('elementId');
+            $table->dateTime('dateCreated');
+            $table->dateTime('dateUpdated');
+            $table->char('uid', 36)->default('0');
 
-        $this->createIndex(null, self::TABLE_DEPS, ['recordId', 'elementId'], true);
-        // The hot path: "this element just changed — which records care?"
-        $this->createIndex(null, self::TABLE_DEPS, ['elementId']);
+            $table->unique(['recordId', 'elementId']);
+            // The hot path: "this element just changed — which records care?"
+            $table->index(['elementId']);
 
-        $this->addForeignKey(null, self::TABLE_DEPS, ['recordId'], self::TABLE_RECORDS, ['id'], 'CASCADE', null);
-        $this->addForeignKey(null, self::TABLE_DEPS, ['elementId'], Table::ELEMENTS, ['id'], 'CASCADE', null);
+            $table->foreign('recordId')->references('id')->on(Tables::RECORDS)->cascadeOnDelete();
+            $table->foreign('elementId')->references('id')->on(Table::ELEMENTS)->cascadeOnDelete();
+        });
     }
 
     /**
@@ -121,34 +124,34 @@ class Install extends Migration
      */
     private function createArtifactsTable(): void
     {
-        if ($this->db->tableExists(self::TABLE_ARTIFACTS)) {
+        if (Schema::hasTable(Tables::ARTIFACTS)) {
             return;
         }
 
-        $this->createTable(self::TABLE_ARTIFACTS, [
-            'id' => $this->primaryKey(),
-            'indexUid' => $this->string(36)->notNull(),
+        Schema::create(Tables::ARTIFACTS, function (Blueprint $table) {
+            $table->integer('id', true);
+            $table->string('indexUid', 36);
             // Monotonic per index, and the number that appears in the payload filename.
-            'version' => $this->integer()->unsigned()->notNull(),
-            'status' => $this->string(32)->notNull()->defaultValue('building'),
-            'recordCount' => $this->integer()->unsigned()->notNull()->defaultValue(0),
-            'byteSize' => $this->bigInteger()->unsigned()->notNull()->defaultValue(0),
+            $table->unsignedInteger('version');
+            $table->string('status', 32)->default('building');
+            $table->unsignedInteger('recordCount')->default(0);
+            $table->unsignedBigInteger('byteSize')->default(0);
             // Content hash of the payload, so an identical rebuild can skip republishing.
-            'checksum' => $this->string(64),
+            $table->string('checksum', 64)->nullable();
             // Relative paths of every file this version wrote, so pruning is exact rather than
             // a glob that might catch a neighbour's files.
-            'files' => $this->text(),
-            'buildMs' => $this->integer()->unsigned(),
+            $table->text('files')->nullable();
+            $table->unsignedInteger('buildMs')->nullable();
             // IndexDefinition::fingerprint() at publish, so a build can tell the definition has
             // changed in ways project config never saw — module-added attributes.
-            'definitionHash' => $this->string(16),
-            'error' => $this->text(),
-            'dateCreated' => $this->dateTime()->notNull(),
-            'dateUpdated' => $this->dateTime()->notNull(),
-            'uid' => $this->uid(),
-        ]);
+            $table->string('definitionHash', 16)->nullable();
+            $table->text('error')->nullable();
+            $table->dateTime('dateCreated');
+            $table->dateTime('dateUpdated');
+            $table->char('uid', 36)->default('0');
 
-        $this->createIndex(null, self::TABLE_ARTIFACTS, ['indexUid', 'version'], true);
-        $this->createIndex(null, self::TABLE_ARTIFACTS, ['indexUid', 'status']);
+            $table->unique(['indexUid', 'version']);
+            $table->index(['indexUid', 'status']);
+        });
     }
 }

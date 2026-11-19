@@ -2,11 +2,15 @@
 
 namespace JustinHoltWeb\Caffeine\Publish;
 
-use craft\base\FsInterface;
+use Illuminate\Contracts\Filesystem\Filesystem;
+use RuntimeException;
 use Throwable;
 
 /**
- * Publishes to a Craft filesystem — S3, a CDN-backed volume, anything with a driver.
+ * Publishes to a Laravel filesystem disk — S3, a CDN-backed bucket, anything with a driver.
+ *
+ * Craft 6 has no filesystems of its own any more; volumes and everything else sit on disks from
+ * `config/filesystems.php`, and so does this.
  *
  * The atomicity guarantee comes from the backend rather than from a rename here: an S3 `PUT` to
  * an existing key is atomic, and a reader gets either the old object or the new one. Object
@@ -15,26 +19,40 @@ use Throwable;
  */
 class FsStore implements StoreInterface
 {
+    /**
+     * @param Filesystem $disk The disk, from `Storage::disk()`.
+     * @param string $name The disk's name in `config/filesystems.php`, for messages.
+     */
     public function __construct(
-        private readonly FsInterface $fs,
+        private readonly Filesystem $disk,
+        private readonly string $name = 'disk',
         private readonly string $prefix = '',
     ) {
     }
 
     public function write(string $path, string $contents): void
     {
-        $this->fs->write($this->path($path), $contents);
+        // Disks default to `'throw' => false`, so a failed write is a `false` rather than an
+        // exception. Turned back into one: a publish that silently wrote nothing would swing the
+        // pointer at a shard that is not there.
+        if (!$this->disk->put($this->path($path), $contents)) {
+            throw new RuntimeException(sprintf('Caffeine could not write %s to the “%s” disk.', $this->path($path), $this->name));
+        }
     }
 
     public function exists(string $path): bool
     {
-        return $this->fs->fileExists($this->path($path));
+        try {
+            return $this->disk->exists($this->path($path));
+        } catch (Throwable) {
+            return false;
+        }
     }
 
     public function read(string $path): ?string
     {
         try {
-            return $this->fs->read($this->path($path));
+            return $this->disk->get($this->path($path));
         } catch (Throwable) {
             return null;
         }
@@ -43,7 +61,7 @@ class FsStore implements StoreInterface
     public function delete(string $path): void
     {
         try {
-            $this->fs->deleteFile($this->path($path));
+            $this->disk->delete($this->path($path));
         } catch (Throwable) {
             // Pruning is best-effort by design: two publishes can race to remove the same
             // superseded version, and losing that race is not a failure worth propagating.
@@ -56,20 +74,22 @@ class FsStore implements StoreInterface
         $files = [];
 
         try {
-            foreach ($this->fs->getFileList($this->path($directory), false) as $listing) {
-                if ($listing->getIsDir()) {
-                    continue;
-                }
+            foreach ($this->disk->files($this->path($directory)) as $file) {
+                // Back to a store path: the listing is relative to the disk root, so it carries
+                // the publish prefix that `path()` added.
+                $uri = ltrim($file, '/');
 
-                // Back to a store path: the listing's URI is relative to the filesystem root,
-                // so it carries the publish prefix that `path()` added.
-                $uri = ltrim($listing->getUri(), '/');
+                try {
+                    $modified = $this->disk->lastModified($file);
+                } catch (Throwable) {
+                    $modified = null;
+                }
 
                 if ($prefix !== '' && str_starts_with($uri, $prefix . '/')) {
                     $uri = substr($uri, strlen($prefix) + 1);
                 }
 
-                $files[$uri] = $listing->getDateModified();
+                $files[$uri] = $modified;
             }
         } catch (Throwable) {
             // A directory that is not there lists as nothing, whatever the driver thinks of it.
@@ -80,20 +100,21 @@ class FsStore implements StoreInterface
 
     public function url(string $path): ?string
     {
-        $root = $this->fs->getRootUrl();
+        // Drivers without public URLs throw rather than returning null — and a disk with no `url`
+        // configured is exactly the "not web-accessible" case the interface answers null for.
+        try {
+            /** @var \Illuminate\Filesystem\FilesystemAdapter $disk */
+            $disk = $this->disk;
 
-        if ($root === null) {
+            return $disk->url($this->path($path));
+        } catch (Throwable) {
             return null;
         }
-
-        return rtrim($root, '/') . '/' . ltrim($this->path($path), '/');
     }
 
     public function describe(): string
     {
-        $name = $this->fs->name ?? 'filesystem';
-
-        return $this->prefix !== '' ? "{$name}:{$this->prefix}" : $name;
+        return $this->prefix !== '' ? "{$this->name}:{$this->prefix}" : $this->name;
     }
 
     private function path(string $path): string

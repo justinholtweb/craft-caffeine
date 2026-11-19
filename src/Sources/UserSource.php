@@ -2,12 +2,14 @@
 
 namespace JustinHoltWeb\Caffeine\Sources;
 
-use Craft;
-use craft\base\ElementInterface;
-use craft\elements\db\ElementQueryInterface;
-use craft\elements\User;
+use CraftCms\Cms\Element\Contracts\ElementInterface;
+use CraftCms\Cms\Element\Queries\Contracts\ElementQueryInterface;
+use CraftCms\Cms\Support\Facades\UserGroups;
+use CraftCms\Cms\User\Elements\User;
 use JustinHoltWeb\Caffeine\Models\SourceDefinition;
 use Throwable;
+
+use function CraftCms\Cms\t;
 
 /**
  * Users, scoped to groups.
@@ -26,7 +28,7 @@ class UserSource extends BaseSource
 
     public static function displayName(): string
     {
-        return Craft::t('caffeine', 'Users');
+        return t('Users', category: 'caffeine');
     }
 
     public static function elementType(): string
@@ -38,8 +40,8 @@ class UserSource extends BaseSource
     {
         $options = [];
 
-        foreach (Craft::$app->getUserGroups()->getAllGroups() as $group) {
-            $options[$group->handle] = $group->name;
+        foreach (UserGroups::getAllGroups() as $group) {
+            $options[(string)$group->handle] = (string)$group->name;
         }
 
         return $options;
@@ -49,7 +51,7 @@ class UserSource extends BaseSource
     {
         $query = User::find()
             ->siteId($siteId)
-            ->orderBy(['elements.id' => SORT_ASC]);
+            ->orderBy('elements.id');
 
         if ($definition->containers !== []) {
             $query->group($definition->containers);

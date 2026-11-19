@@ -3,7 +3,7 @@
 namespace JustinHoltWeb\Caffeine\Services;
 
 use DateTimeInterface;
-use JustinHoltWeb\Caffeine\Events\RegisterExtractorsEvent;
+use JustinHoltWeb\Caffeine\Events\RegisterExtractors;
 use JustinHoltWeb\Caffeine\Extractors\AddressExtractor;
 use JustinHoltWeb\Caffeine\Extractors\CollectionExtractor;
 use JustinHoltWeb\Caffeine\Extractors\ColorExtractor;
@@ -28,9 +28,8 @@ use Throwable;
 class Extractors
 {
     /**
-     * @event RegisterExtractorsEvent Fired when Caffeine collects the available extractors.
+     * @event RegisterExtractors Fired when Caffeine collects the available extractors.
      */
-    public const EVENT_REGISTER_EXTRACTORS = 'registerExtractors';
 
     /** @var class-string<ValueExtractorInterface>[]|null */
     private ?array $extractors = null;
@@ -44,9 +43,9 @@ class Extractors
             return $this->extractors;
         }
 
-        $event = new RegisterExtractorsEvent(['extractors' => []]);
+        $event = new RegisterExtractors();
 
-        $this->trigger(self::EVENT_REGISTER_EXTRACTORS, $event);
+        event($event);
 
         $registered = array_values(array_filter(
             $event->extractors,

@@ -2,14 +2,18 @@
 
 namespace JustinHoltWeb\Caffeine\Services;
 
-use Craft;
-use craft\events\ConfigEvent;
-use JustinHoltWeb\Caffeine\Events\DefineIndexEvent;
+use CraftCms\Cms\ProjectConfig\Events\ConfigEvent;
+use CraftCms\Cms\Support\Facades\ProjectConfig;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
+use JustinHoltWeb\Caffeine\Events\DefineIndex;
 use JustinHoltWeb\Caffeine\Models\AttributeDefinition;
 use JustinHoltWeb\Caffeine\Models\Edition;
 use JustinHoltWeb\Caffeine\Models\IndexDefinition;
 use JustinHoltWeb\Caffeine\Models\SortingDefinition;
 use JustinHoltWeb\Caffeine\Plugin;
+
+use function CraftCms\Cms\t;
 
 /**
  * Index definitions, stored in project config.
@@ -27,12 +31,12 @@ class Indexes
     public const CONFIG_PATH = self::CONFIG_ROOT . '.indexes';
 
     /**
-     * @event DefineIndexEvent Fired for each index as definitions load, before anything builds or
-     * queries against them. Attributes and sortings a handler adds are flagged `dynamic` and never
-     * saved to project config.
+     * `DefineIndex` is dispatched for each index as definitions load, before anything builds or
+     * queries against them. Attributes and sortings a listener adds are flagged `dynamic` and
+     * never saved to project config.
      *
      * ```php
-     * Event::on(Indexes::class, Indexes::EVENT_DEFINE_INDEX, function(DefineIndexEvent $event) {
+     * Event::listen(DefineIndex::class, function (DefineIndex $event) {
      *     if ($event->index->handle !== 'products') {
      *         return;
      *     }
@@ -47,7 +51,6 @@ class Indexes
      * });
      * ```
      */
-    public const EVENT_DEFINE_INDEX = 'defineIndex';
 
     /** @var array<string, IndexDefinition>|null Keyed by uid, with every handler applied. */
     private ?array $indexes = null;
@@ -73,7 +76,7 @@ class Indexes
 
     /**
      * Every index keyed by uid, as the build and the query see them: with whatever
-     * `EVENT_DEFINE_INDEX` handlers added.
+     * `DefineIndex` listeners added.
      *
      * @return array<string, IndexDefinition>
      */
@@ -107,7 +110,7 @@ class Indexes
             return $this->stored;
         }
 
-        $config = Craft::$app->getProjectConfig()->get(self::CONFIG_PATH) ?? [];
+        $config = ProjectConfig::get(self::CONFIG_PATH) ?? [];
         $indexes = [];
 
         foreach ($config as $uid => $row) {
@@ -142,7 +145,7 @@ class Indexes
     }
 
     /**
-     * Applies `EVENT_DEFINE_INDEX` to a copy of a stored definition.
+     * Applies `DefineIndex` to a copy of a stored definition.
      *
      * Whatever a handler added is flagged `dynamic`, by identity rather than by trusting the
      * handler to set the flag. Anything it added that would break the build is dropped with a
@@ -154,7 +157,7 @@ class Indexes
         $index->attributes = array_map(fn(AttributeDefinition $a) => clone $a, $stored->attributes);
         $index->sortings = array_map(fn(SortingDefinition $s) => clone $s, $stored->sortings);
 
-        if (!$this->hasEventHandlers(self::EVENT_DEFINE_INDEX)) {
+        if (!Event::hasListeners(DefineIndex::class)) {
             return $index;
         }
 
@@ -164,7 +167,7 @@ class Indexes
             $before[spl_object_id($definition)] = true;
         }
 
-        $this->trigger(self::EVENT_DEFINE_INDEX, new DefineIndexEvent(['index' => $index]));
+        event(new DefineIndex($index));
 
         $keys = [];
         $attributes = [];
@@ -174,12 +177,12 @@ class Indexes
                 $attribute->dynamic = true;
 
                 if (!$attribute->validate() || isset($keys[$attribute->key])) {
-                    Craft::warning(sprintf(
+                    Log::channel('caffeine')->warning(sprintf(
                         'Caffeine ignored the attribute “%s” added to “%s”: %s',
                         $attribute->key,
                         $index->handle,
-                        isset($keys[$attribute->key]) ? 'the key is already in use.' : implode(' ', $attribute->getFirstErrors()),
-                    ), Plugin::LOG_CATEGORY);
+                        isset($keys[$attribute->key]) ? 'the key is already in use.' : implode(' ', $attribute->errors()->all()),
+                    ));
 
                     continue;
                 }
@@ -203,7 +206,7 @@ class Indexes
     /**
      * Marks every record of an index for rebuilding and schedules the update.
      *
-     * For a module whose `EVENT_DEFINE_INDEX` handler just started adding something different —
+     * For a module whose `DefineIndex` listener just started adding something different —
      * an editor created a new attribute — so the records catch up now rather than at the next
      * deploy. Safe to call as often as you like: the update is debounced like any other.
      *
@@ -222,11 +225,10 @@ class Indexes
             return 0;
         }
 
-        $plugin = Plugin::getInstance();
-        $marked = $plugin->records->markIndexDirty($index->uid);
+        $marked = app(Records::class)->markIndexDirty($index->uid);
 
-        if ($plugin->getSettings()->autoUpdate && $this->isAllowed($index)) {
-            $plugin->autoUpdate->schedule($index);
+        if (Plugin::getInstance()->getSettings()->autoUpdate && $this->isAllowed($index)) {
+            app(AutoUpdate::class)->schedule($index);
         }
 
         return $marked;
@@ -238,13 +240,13 @@ class Indexes
      *
      * The automatic half of `invalidate()`: a deploy that changes what a module adds never
      * touches project config, so nothing else would notice. Runs before every dirty build, so
-     * `caffeine/index/build` after a deploy does the right thing without `--all`.
+     * `caffeine:index:build` after a deploy does the right thing without `--all`.
      *
      * @return bool Whether the definition had changed.
      */
     public function checkDefinition(IndexDefinition $index): bool
     {
-        $published = Plugin::getInstance()->artifacts->definitionHash($index->uid);
+        $published = app(Artifacts::class)->definitionHash($index->uid);
 
         // Published before fingerprints were recorded. Nothing to compare against; the next
         // publish records one.
@@ -252,7 +254,7 @@ class Indexes
             return false;
         }
 
-        Plugin::getInstance()->records->markIndexDirty($index->uid);
+        app(Records::class)->markIndexDirty($index->uid);
 
         return true;
     }
@@ -360,10 +362,10 @@ class Indexes
         if ($runValidation) {
             foreach ($this->allByUid() as $uid => $existing) {
                 if ($existing->handle === $index->handle && $uid !== $index->uid) {
-                    $index->addError('handle', Craft::t(
-                        'caffeine',
+                    $index->addError('handle', t(
                         'Another index already uses the handle “{handle}”.',
                         ['handle' => $index->handle],
+                        category: 'caffeine',
                     ));
 
                     return false;
@@ -388,7 +390,7 @@ class Indexes
             }
         }
 
-        Craft::$app->getProjectConfig()->set(
+        ProjectConfig::set(
             self::CONFIG_PATH . '.' . $uid,
             $index->toConfig(),
             "Save Caffeine index “{$index->handle}”",
@@ -407,14 +409,14 @@ class Indexes
 
         // Torn down here as well as in the project-config handler, and deliberately so. The
         // handler is what runs on the *other* environments, when the deletion arrives through
-        // `project-config/apply`. On this one it cannot be relied on: project config coalesces
+        // `project-config:apply`. On this one it cannot be relied on: project config coalesces
         // changes within a request, so an index created and deleted in the same run — a test, a
         // migration, a seeding script — fires no removal event at all, and its records and
         // published files would outlive it with nothing left that knew they were orphans.
         // Both paths are idempotent, so running both is free.
         $this->tearDown($index->uid);
 
-        Craft::$app->getProjectConfig()->remove(
+        ProjectConfig::remove(
             self::CONFIG_PATH . '.' . $index->uid,
             "Delete Caffeine index “{$index->handle}”",
         );
@@ -444,7 +446,7 @@ class Indexes
             return;
         }
 
-        Plugin::getInstance()->records->markIndexDirty($uid);
+        app(Records::class)->markIndexDirty($uid);
     }
 
     public function handleDeletedIndex(ConfigEvent $event): void
@@ -467,34 +469,34 @@ class Indexes
      */
     private function tearDown(string $uid): void
     {
-        Plugin::getInstance()->records->deleteForIndex($uid);
-        Plugin::getInstance()->artifacts->deleteForIndex($uid);
+        app(Records::class)->deleteForIndex($uid);
+        app(Artifacts::class)->deleteForIndex($uid);
     }
 
     /**
      * Removes everything left behind by indexes that no longer exist, and files in the publish
      * directories of the ones that do that nothing references any more.
      *
-     * What Craft's garbage collection runs, and what `caffeine/index/prune-orphans` runs for an
+     * What Craft's garbage collection runs, and what `caffeine:index:prune-orphans` runs for an
      * operator who wants it done now — after a deploy, or after restoring a database.
      *
      * @return array{indexes: int, records: int, cache: int, files: list<string>, busy: list<string>}
      */
     public function collectGarbage(): array
     {
-        $plugin = Plugin::getInstance();
+        $artifacts = app(Artifacts::class);
         $known = array_keys($this->allByUid());
 
         $result = [
-            'indexes' => $plugin->artifacts->deleteOrphans($known),
-            'records' => $plugin->records->deleteOrphans($known),
-            'cache' => $plugin->artifactCache->deleteOrphans($known),
+            'indexes' => $artifacts->deleteOrphans($known),
+            'records' => app(Records::class)->deleteOrphans($known),
+            'cache' => app(ArtifactCache::class)->deleteOrphans($known),
             'files' => [],
             'busy' => [],
         ];
 
         foreach ($this->all() as $index) {
-            $deleted = $plugin->artifacts->sweep($index);
+            $deleted = $artifacts->sweep($index);
 
             if ($deleted === null) {
                 // Publishing right now. The next run gets it.

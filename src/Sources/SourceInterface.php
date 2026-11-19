@@ -2,8 +2,8 @@
 
 namespace JustinHoltWeb\Caffeine\Sources;
 
-use craft\base\ElementInterface;
-use craft\elements\db\ElementQueryInterface;
+use CraftCms\Cms\Element\Contracts\ElementInterface;
+use CraftCms\Cms\Element\Queries\Contracts\ElementQueryInterface;
 use JustinHoltWeb\Caffeine\Models\SourceDefinition;
 
 /**
@@ -29,8 +29,8 @@ interface SourceInterface
     public static function isAvailable(): bool;
 
     /**
-     * The containers a definition can be scoped to — section handles for entries, group
-     * handles for categories — as `handle => label`, for the CP screen.
+     * The containers a definition can be scoped to — section handles for entries, volume
+     * handles for assets — as `handle => label`, for the CP screen.
      *
      * @return array<string, string>
      */

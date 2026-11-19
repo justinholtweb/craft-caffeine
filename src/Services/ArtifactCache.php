@@ -3,8 +3,10 @@
 namespace JustinHoltWeb\Caffeine\Services;
 
 use Closure;
-use Craft;
-use craft\helpers\FileHelper;
+use CraftCms\Cms\Support\Facades\Path;
+use CraftCms\Cms\Support\File;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use JustinHoltWeb\Caffeine\Models\IndexDefinition;
 use JustinHoltWeb\Caffeine\Plugin;
 use JustinHoltWeb\Caffeine\Search\Artifact;
@@ -20,7 +22,7 @@ use Throwable;
  * `include` hands back arrays that live there: no read, no decode, and no memory charged to the
  * request, however large the artifact.
  *
- * APCu and Craft's cache were the other candidates, and neither helps: both hand back a copy, and
+ * APCu and Laravel's cache were the other candidates, and neither helps: both hand back a copy, and
  * building that copy costs about what decoding does.
  *
  * Opt-in, because it only pays when OPcache can hold the file, and the file is big — about
@@ -81,7 +83,7 @@ class ArtifactCache
                 payloadLoader: ($data['lazy'] ?? false) ? ($payloadLoader ?? throw new \RuntimeException('it was cached without payloads')) : null,
             );
         } catch (Throwable $e) {
-            Craft::warning("Caffeine could not read its cached artifact {$path}: {$e->getMessage()}", Plugin::LOG_CATEGORY);
+            Log::channel('caffeine')->warning("Caffeine could not read its cached artifact {$path}: {$e->getMessage()}");
 
             return null;
         }
@@ -112,10 +114,11 @@ class ArtifactCache
             return;
         }
 
-        $mutex = Craft::$app->getMutex();
-        $lock = 'caffeine:opcache:' . basename($path);
+        // Not waited for: a request that finds another one compiling simply decodes as before.
+        // The TTL frees the lock if the compiling request dies.
+        $lock = Cache::lock('caffeine:opcache:' . basename($path), 300);
 
-        if (!$mutex->acquire($lock)) {
+        if (!$lock->get()) {
             return;
         }
 
@@ -130,17 +133,17 @@ class ArtifactCache
             } else {
                 @touch("{$path}.failed");
 
-                Craft::warning(sprintf(
+                Log::channel('caffeine')->warning(sprintf(
                     'Caffeine’s artifact cache for “%s” is %s, and OPcache would not hold it, so the artifact is decoded on every request instead. ' .
                     'Raise opcache.memory_consumption and opcache.interned_strings_buffer, check opcache.max_file_size, or turn the artifact cache off.',
                     $index->handle,
                     $this->formatBytes((int)@filesize($path)),
-                ), Plugin::LOG_CATEGORY);
+                ));
             }
         } catch (Throwable $e) {
-            Craft::warning("Caffeine could not cache the artifact for “{$index->handle}”: {$e->getMessage()}", Plugin::LOG_CATEGORY);
+            Log::channel('caffeine')->warning("Caffeine could not cache the artifact for “{$index->handle}”: {$e->getMessage()}");
         } finally {
-            $mutex->release($lock);
+            $lock->release();
         }
     }
 
@@ -160,10 +163,10 @@ class ArtifactCache
 
         $removed = 0;
 
-        foreach (FileHelper::findDirectories($root, ['recursive' => false]) as $directory) {
+        foreach (File::directories($root) as $directory) {
             if (!in_array(basename($directory), $knownUids, true)) {
                 $this->invalidateAll($directory);
-                FileHelper::removeDirectory($directory);
+                File::deleteDirectory($directory);
                 $removed++;
             }
         }
@@ -201,7 +204,7 @@ class ArtifactCache
 
         $key = substr(hash('sha256', implode('|', [
             ArtifactEncoder::FORMAT,
-            Plugin::getInstance()->getVersion(),
+            Plugin::getInstance()->version,
             json_encode($files),
         ])), 0, 16);
 
@@ -210,7 +213,8 @@ class ArtifactCache
 
     private function root(): string
     {
-        return Craft::$app->getPath()->getRuntimePath() . DIRECTORY_SEPARATOR . 'caffeine' . DIRECTORY_SEPARATOR . 'artifacts';
+        // Not created here: `deleteOrphans()` asks whether it exists.
+        return Path::runtime('caffeine' . DIRECTORY_SEPARATOR . 'artifacts', false);
     }
 
     /**
@@ -220,7 +224,7 @@ class ArtifactCache
      */
     private function write(string $path, Artifact $artifact): void
     {
-        FileHelper::createDirectory(dirname($path));
+        File::ensureDirectoryExists(dirname($path));
 
         $temporary = $path . '.tmp.' . bin2hex(random_bytes(6));
         $handle = fopen($temporary, 'wb');

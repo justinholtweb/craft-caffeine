@@ -2,7 +2,7 @@
 
 namespace JustinHoltWeb\Caffeine\Models;
 
-use craft\base\ElementInterface;
+use CraftCms\Cms\Element\Contracts\ElementInterface;
 
 /**
  * Carried through a single element's mapping, collecting the elements it turned out to depend

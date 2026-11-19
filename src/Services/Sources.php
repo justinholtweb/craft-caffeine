@@ -2,16 +2,14 @@
 
 namespace JustinHoltWeb\Caffeine\Services;
 
-use craft\base\ElementInterface;
-use JustinHoltWeb\Caffeine\Events\RegisterSourcesEvent;
+use CraftCms\Cms\Element\Contracts\ElementInterface;
+use JustinHoltWeb\Caffeine\Events\RegisterSources;
 use JustinHoltWeb\Caffeine\Models\IndexDefinition;
 use JustinHoltWeb\Caffeine\Models\SourceDefinition;
 use JustinHoltWeb\Caffeine\Plugin;
 use JustinHoltWeb\Caffeine\Sources\AssetSource;
-use JustinHoltWeb\Caffeine\Sources\CategorySource;
 use JustinHoltWeb\Caffeine\Sources\EntrySource;
 use JustinHoltWeb\Caffeine\Sources\ProductSource;
-use JustinHoltWeb\Caffeine\Sources\TagSource;
 use JustinHoltWeb\Caffeine\Sources\UserSource;
 use JustinHoltWeb\Caffeine\Sources\SourceInterface;
 
@@ -21,9 +19,8 @@ use JustinHoltWeb\Caffeine\Sources\SourceInterface;
 class Sources
 {
     /**
-     * @event RegisterSourcesEvent Fired when Caffeine collects the available source types.
+     * `RegisterSources` is dispatched when Caffeine collects the available source types.
      */
-    public const EVENT_REGISTER_SOURCES = 'registerSources';
 
     /** @var array<string, SourceInterface>|null */
     private ?array $sources = null;
@@ -42,18 +39,16 @@ class Sources
             return $this->sources;
         }
 
-        $event = new RegisterSourcesEvent([
-            'sources' => [
-                EntrySource::class,
-                CategorySource::class,
-                TagSource::class,
-                AssetSource::class,
-                UserSource::class,
-                ProductSource::class,
-            ],
+        // No category or tag source: Craft 6 removed both element types from core. Sites convert
+        // them to entries before upgrading, and an entry source covers them from then on.
+        $event = new RegisterSources([
+            EntrySource::class,
+            AssetSource::class,
+            UserSource::class,
+            ProductSource::class,
         ]);
 
-        $this->trigger(self::EVENT_REGISTER_SOURCES, $event);
+        event($event);
 
         $sources = [];
         $isPro = Plugin::getInstance()->isPro();

@@ -2,13 +2,15 @@
 
 namespace JustinHoltWeb\Caffeine\Sources;
 
-use Craft;
-use craft\base\ElementInterface;
-use craft\elements\Asset;
-use craft\elements\db\ElementQueryInterface;
-use craft\helpers\Assets;
+use CraftCms\Cms\Asset\AssetsHelper;
+use CraftCms\Cms\Asset\Elements\Asset;
+use CraftCms\Cms\Element\Contracts\ElementInterface;
+use CraftCms\Cms\Element\Queries\Contracts\ElementQueryInterface;
+use CraftCms\Cms\Support\Facades\Volumes;
 use JustinHoltWeb\Caffeine\Models\SourceDefinition;
 use Throwable;
+
+use function CraftCms\Cms\t;
 
 /**
  * Assets, scoped to volumes and optionally to file kinds.
@@ -25,7 +27,7 @@ class AssetSource extends BaseSource
 
     public static function displayName(): string
     {
-        return Craft::t('caffeine', 'Assets');
+        return t('Assets', category: 'caffeine');
     }
 
     public static function elementType(): string
@@ -37,8 +39,8 @@ class AssetSource extends BaseSource
     {
         $options = [];
 
-        foreach (Craft::$app->getVolumes()->getAllVolumes() as $volume) {
-            $options[$volume->handle] = $volume->name;
+        foreach (Volumes::getAllVolumes() as $volume) {
+            $options[(string)$volume->handle] = (string)$volume->name;
         }
 
         return $options;
@@ -48,8 +50,8 @@ class AssetSource extends BaseSource
     {
         $options = [];
 
-        foreach (Assets::getFileKinds() as $kind => $info) {
-            $options[$kind] = $info['label'] ?? $kind;
+        foreach (AssetsHelper::getFileKinds() as $kind => $info) {
+            $options[$kind] = $info['label'];
         }
 
         return $options;
@@ -59,7 +61,7 @@ class AssetSource extends BaseSource
     {
         $query = Asset::find()
             ->siteId($siteId)
-            ->orderBy(['elements.id' => SORT_ASC]);
+            ->orderBy('elements.id');
 
         if ($definition->containers !== []) {
             $query->volume($definition->containers);

@@ -2,16 +2,17 @@
 
 namespace JustinHoltWeb\Caffeine\Services;
 
-use Craft;
+use CraftCms\Cms\Cms;
+use CraftCms\Cms\Support\Url;
+use Illuminate\Support\Facades\Log;
+use InvalidArgumentException;
 use JustinHoltWeb\Caffeine\Models\IndexDefinition;
 use JustinHoltWeb\Caffeine\Models\SearchContext;
-use JustinHoltWeb\Caffeine\Plugin;
 use JustinHoltWeb\Caffeine\Search\Artifact;
 use JustinHoltWeb\Caffeine\Search\Engine;
 use JustinHoltWeb\Caffeine\Search\FacetValue;
 use JustinHoltWeb\Caffeine\Search\QueryState;
 use JustinHoltWeb\Caffeine\Search\UrlState;
-use yii\base\InvalidConfigException;
 
 /**
  * Runs a search for the front end.
@@ -55,20 +56,21 @@ class Search
      */
     public function context(string $handle, array $options = []): SearchContext
     {
-        $index = Plugin::getInstance()->indexes->getByHandle($handle);
+        $indexes = app(Indexes::class);
+        $index = $indexes->getByHandle($handle);
 
         if ($index === null) {
-            throw new InvalidConfigException("No Caffeine index with the handle “{$handle}”.");
+            throw new InvalidArgumentException("No Caffeine index with the handle “{$handle}”.");
         }
 
-        if (!Plugin::getInstance()->indexes->isAllowed($index)) {
-            throw new InvalidConfigException(
+        if (!$indexes->isAllowed($index)) {
+            throw new InvalidArgumentException(
                 "The Caffeine index “{$handle}” is not available on this edition. Upgrade to Pro to use more than one index."
             );
         }
 
         // The same downgrade the build applies, so a Lite site queries exactly what it built.
-        $index = Plugin::getInstance()->indexes->forEdition($index);
+        $index = $indexes->forEdition($index);
 
         $artifact = $this->artifact($index);
         $prefix = (string)($options['prefix'] ?? '');
@@ -126,21 +128,21 @@ class Search
             return $this->artifacts[$handle];
         }
 
-        $artifact = Plugin::getInstance()->artifacts->published($index);
+        $artifact = app(Artifacts::class)->published($index);
 
         if ($artifact === null) {
             $this->artifacts[$handle] = false;
 
             $message = sprintf(
-                'Caffeine has nothing published for “%s”. Run `craft caffeine/index/build --all` then `craft caffeine/artifact/publish %s`.',
+                'Caffeine has nothing published for “%s”. Run `php artisan caffeine:index:build --all` then `php artisan caffeine:artifact:publish %s`.',
                 $handle,
                 $handle,
             );
 
-            Craft::error($message, Plugin::LOG_CATEGORY);
+            Log::channel('caffeine')->error($message);
 
-            if (Craft::$app->getConfig()->getGeneral()->devMode) {
-                throw new InvalidConfigException($message);
+            if (Cms::config()->devMode) {
+                throw new InvalidArgumentException($message);
             }
 
             return $this->emptyArtifact($index);
@@ -216,17 +218,18 @@ class Search
     /**
      * Query parameters from the request, where there is one.
      *
-     * A console request has no query string and no `getQueryParams()` to ask for it — which is
-     * the case whenever a template is rendered outside a web request: a console command, a
-     * queue job, the CP's query playground.
+     * A console run has no query string worth reading — which is the case whenever a template is
+     * rendered outside a web request: a console command, a queue job.
      *
      * @return array<string, mixed>
      */
     private function requestParams(): array
     {
-        $request = Craft::$app->getRequest();
+        if (app()->runningInConsole()) {
+            return [];
+        }
 
-        return $request instanceof \craft\web\Request ? $request->getQueryParams() : [];
+        return (array)request()->query();
     }
 
     /**
@@ -237,17 +240,19 @@ class Search
      */
     private function currentPath(): string
     {
-        $request = Craft::$app->getRequest();
-
         if ($this->pathOverride !== null) {
             return $this->pathOverride;
         }
 
-        if ($request->getIsConsoleRequest()) {
+        if (app()->runningInConsole()) {
             return '/';
         }
 
-        return \craft\helpers\UrlHelper::url($request->getPathInfo());
+        // Laravel's `path()` is `/` for the root and otherwise has no leading slash, which is the
+        // shape Craft 5's `getPathInfo()` had.
+        $path = request()->path();
+
+        return Url::url($path === '/' ? '' : $path);
     }
 
     /**

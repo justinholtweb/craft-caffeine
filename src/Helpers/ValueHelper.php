@@ -2,11 +2,11 @@
 
 namespace JustinHoltWeb\Caffeine\Helpers;
 
-use craft\base\ElementInterface;
-use craft\elements\Asset;
-use JustinHoltWeb\Caffeine\Extractors\ExtractedValue;
-use craft\helpers\StringHelper;
+use CraftCms\Cms\Asset\Elements\Asset;
+use CraftCms\Cms\Element\Contracts\ElementInterface;
 use DateTimeInterface;
+use Illuminate\Support\Str;
+use JustinHoltWeb\Caffeine\Extractors\ExtractedValue;
 use JustinHoltWeb\Caffeine\Models\AttributeDefinition;
 use Throwable;
 
@@ -23,8 +23,8 @@ class ValueHelper
     /**
      * Flattens nested arrays into a single list, dropping nulls and empties.
      *
-     * Only arrays are containers. This looks over-specific and is not: `yii\base\Model`
-     * implements `IteratorAggregate`, so every Craft element is technically Traversable, and
+     * Only arrays are containers. This looks over-specific and is not: plenty of value objects
+     * are `Traversable` (Craft 5 elements all were, through their base model), and
      * flattening "anything iterable" silently explodes an element into its attribute values.
      * Relations then arrive here as a list of strings, no path segment can descend through
      * them, and every relation-backed facet comes out empty — with the dependency map still
@@ -329,7 +329,7 @@ class ValueHelper
                 'lower' => array_map(fn($v) => is_string($v) ? mb_strtolower($v) : $v, $values),
                 'upper' => array_map(fn($v) => is_string($v) ? mb_strtoupper($v) : $v, $values),
                 'stripTags' => array_map(fn($v) => is_string($v) ? strip_tags($v) : $v, $values),
-                'slug' => array_map(fn($v) => is_string($v) ? StringHelper::slugify($v) : $v, $values),
+                'slug' => array_map(fn($v) => is_string($v) ? Str::slug($v) : $v, $values),
                 'unique' => array_values(array_unique($values, SORT_REGULAR)),
                 'first' => array_slice($values, 0, 1),
                 'sort' => self::sorted($values),
@@ -339,7 +339,8 @@ class ValueHelper
             };
         }
 
-        return array_values($values);
+        // Kept as a guard against a caller whose array is not the list its docblock promises.
+        return array_values($values); // @phpstan-ignore arrayValues.list
     }
 
     /**

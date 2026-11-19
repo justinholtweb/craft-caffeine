@@ -2,13 +2,14 @@
 
 namespace JustinHoltWeb\Caffeine\Services;
 
-use Craft;
-use craft\base\ElementInterface;
-use craft\elements\db\ElementQueryInterface;
-use JustinHoltWeb\Caffeine\Events\DefineSourceQueryEvent;
+use CraftCms\Cms\Element\Contracts\ElementInterface;
+use CraftCms\Cms\Element\Queries\Contracts\ElementQueryInterface;
+use CraftCms\Cms\Support\Facades\Sites;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
+use JustinHoltWeb\Caffeine\Events\DefineSourceQuery;
 use JustinHoltWeb\Caffeine\Models\IndexDefinition;
 use JustinHoltWeb\Caffeine\Models\SourceDefinition;
-use JustinHoltWeb\Caffeine\Plugin;
 use JustinHoltWeb\Caffeine\Sources\SourceInterface;
 use Throwable;
 
@@ -22,10 +23,9 @@ use Throwable;
 class Builder
 {
     /**
-     * @event DefineSourceQueryEvent Fired before a build loads elements to map, so a handler can
-     * eager-load what mapping reads. See `DefineSourceQueryEvent`.
+     * `DefineSourceQuery` is dispatched before a build loads elements to map, so a listener can
+     * eager-load what mapping reads. See `DefineSourceQuery`.
      */
-    public const EVENT_DEFINE_SOURCE_QUERY = 'defineSourceQuery';
 
     /** Elements per batch. Also the eager-loading unit, so it wants to be a real page's worth. */
     private const BATCH_SIZE = 100;
@@ -50,7 +50,7 @@ class Builder
         $total = $this->countElements($index, $range);
 
         foreach ($this->siteIds($index) as $siteId) {
-            foreach (Plugin::getInstance()->sources->resolve($index) as ['source' => $source, 'definition' => $definition]) {
+            foreach (app(Sources::class)->resolve($index) as ['source' => $source, 'definition' => $definition]) {
                 $query = $source->query($definition, $siteId);
 
                 if ($range !== null) {
@@ -59,7 +59,9 @@ class Builder
 
                 $this->defineQuery($index, $source, $definition, $siteId, $query);
 
-                foreach ($query->batch(self::BATCH_SIZE) as $elements) {
+                // `chunk()` pages with limit/offset under the id ordering every source applies, and
+                // eager-loads per page — the Craft 6 replacement for Craft 5's `batch()`.
+                $query->chunk(self::BATCH_SIZE, function(iterable $elements) use ($index, $progress, $total, &$records, &$errors, &$seenElementIds) {
                     foreach ($elements as $element) {
                         $seenElementIds[$element->id] = true;
 
@@ -69,9 +71,8 @@ class Builder
                         } catch (Throwable $e) {
                             $errors[] = sprintf('Element %d: %s', $element->id, $e->getMessage());
 
-                            Craft::error(
+                            Log::channel('caffeine')->error(
                                 sprintf('Caffeine failed to index element %d for “%s”: %s', $element->id, $index->handle, $e->getMessage()),
-                                Plugin::LOG_CATEGORY,
                             );
                         }
                     }
@@ -79,7 +80,7 @@ class Builder
                     if ($progress !== null) {
                         $progress($records, $total);
                     }
-                }
+                });
             }
         }
 
@@ -87,7 +88,7 @@ class Builder
 
         // Anything not seen this pass no longer qualifies — moved section, disabled, deleted.
         // Without this an index only ever grows.
-        $pruned = $prune ? Plugin::getInstance()->records->pruneMissing($index->uid, $seen) : 0;
+        $pruned = $prune ? app(Records::class)->pruneMissing($index->uid, $seen) : 0;
 
         return ['records' => $records, 'pruned' => $pruned, 'errors' => $errors, 'seen' => $seen];
     }
@@ -103,7 +104,7 @@ class Builder
         $ids = [];
 
         foreach ($this->siteIds($index) as $siteId) {
-            foreach (Plugin::getInstance()->sources->resolve($index) as ['source' => $source, 'definition' => $definition]) {
+            foreach (app(Sources::class)->resolve($index) as ['source' => $source, 'definition' => $definition]) {
                 foreach ($source->query($definition, $siteId)->ids() as $id) {
                     $ids[(int)$id] = true;
                 }
@@ -126,9 +127,9 @@ class Builder
     {
         // A definition that changed outside project config — a module adding different
         // attributes since the last publish — leaves every record stale. This is what notices.
-        Plugin::getInstance()->indexes->checkDefinition($index);
+        app(Indexes::class)->checkDefinition($index);
 
-        $elementIds = Plugin::getInstance()->records->dirtyElementIds($index->uid);
+        $elementIds = app(Records::class)->dirtyElementIds($index->uid);
 
         if ($elementIds === []) {
             return ['records' => 0, 'removed' => 0, 'errors' => []];
@@ -149,7 +150,8 @@ class Builder
         $records = 0;
         $removed = 0;
         $errors = [];
-        $sources = Plugin::getInstance()->sources;
+        $sources = app(Sources::class);
+        $store = app(Records::class);
 
         $siteIds = $this->siteIds($index);
         $total = max(1, count($elementIds) * count($siteIds));
@@ -163,7 +165,7 @@ class Builder
                         // another section, or disabled. Rebuilding it blindly would leave a
                         // live record for content that should have vanished from the index.
                         if (!$sources->covers($index, $element)) {
-                            $removed += Plugin::getInstance()->records->markDeleted($index->uid, [(int)$element->id]);
+                            $removed += $store->markDeleted($index->uid, [(int)$element->id]);
                             continue;
                         }
 
@@ -186,7 +188,7 @@ class Builder
         $missing = $this->missingElementIds($index, $elementIds);
 
         if ($missing !== []) {
-            $removed += Plugin::getInstance()->records->markDeleted($index->uid, $missing);
+            $removed += $store->markDeleted($index->uid, $missing);
         }
 
         return ['records' => $records, 'removed' => $removed, 'errors' => $errors];
@@ -194,9 +196,9 @@ class Builder
 
     public function buildOne(IndexDefinition $index, ElementInterface $element): void
     {
-        $record = Plugin::getInstance()->mapper->map($index, $element);
+        $record = app(Mapper::class)->map($index, $element);
 
-        Plugin::getInstance()->records->save($index, $record);
+        app(Records::class)->save($index, $record);
     }
 
     /**
@@ -207,7 +209,7 @@ class Builder
     {
         $elements = [];
 
-        foreach (Plugin::getInstance()->sources->resolve($index) as ['source' => $source, 'definition' => $definition]) {
+        foreach (app(Sources::class)->resolve($index) as ['source' => $source, 'definition' => $definition]) {
             $query = $source->query($definition, $siteId);
             $query->id($elementIds);
             // The definition's status filter is deliberately dropped here: this pass has to be
@@ -233,7 +235,7 @@ class Builder
         $found = [];
 
         foreach ($this->siteIds($index) as $siteId) {
-            foreach (Plugin::getInstance()->sources->resolve($index) as ['source' => $source, 'definition' => $definition]) {
+            foreach (app(Sources::class)->resolve($index) as ['source' => $source, 'definition' => $definition]) {
                 $query = $source->query($definition, $siteId);
                 $query->id($elementIds);
                 $query->status(null);
@@ -256,10 +258,10 @@ class Builder
             return $index->siteIds;
         }
 
-        return array_map(
-            fn($site) => (int)$site->id,
-            Craft::$app->getSites()->getAllSites(),
-        );
+        return Sites::getAllSites()
+            ->map(fn($site) => (int)$site->id)
+            ->values()
+            ->all();
     }
 
     /**
@@ -270,14 +272,14 @@ class Builder
         $total = 0;
 
         foreach ($this->siteIds($index) as $siteId) {
-            foreach (Plugin::getInstance()->sources->resolve($index) as ['source' => $source, 'definition' => $definition]) {
+            foreach (app(Sources::class)->resolve($index) as ['source' => $source, 'definition' => $definition]) {
                 $query = $source->query($definition, $siteId);
 
                 if ($range !== null) {
                     $this->applyRange($query, $range);
                 }
 
-                $total += (int)$query->count();
+                $total += $query->count();
             }
         }
 
@@ -296,16 +298,10 @@ class Builder
 
     private function defineQuery(IndexDefinition $index, SourceInterface $source, SourceDefinition $definition, int $siteId, ElementQueryInterface $query): void
     {
-        if (!$this->hasEventHandlers(self::EVENT_DEFINE_SOURCE_QUERY)) {
+        if (!Event::hasListeners(DefineSourceQuery::class)) {
             return;
         }
 
-        $this->trigger(self::EVENT_DEFINE_SOURCE_QUERY, new DefineSourceQueryEvent([
-            'index' => $index,
-            'source' => $source,
-            'definition' => $definition,
-            'siteId' => $siteId,
-            'query' => $query,
-        ]));
+        event(new DefineSourceQuery($index, $source, $definition, $siteId, $query));
     }
 }

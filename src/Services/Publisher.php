@@ -2,8 +2,8 @@
 
 namespace JustinHoltWeb\Caffeine\Services;
 
-use Craft;
-use craft\helpers\DateTimeHelper;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use JustinHoltWeb\Caffeine\Models\IndexDefinition;
 use JustinHoltWeb\Caffeine\Models\Settings;
 use JustinHoltWeb\Caffeine\Publish\FsStore;
@@ -186,7 +186,7 @@ class Publisher
             'format' => ArtifactEncoder::FORMAT,
             'index' => $index->handle,
             'version' => $version,
-            'generatedAt' => DateTimeHelper::toIso8601(new \DateTime()),
+            'generatedAt' => now()->toIso8601String(),
             'nbRecords' => $prepared['nbRecords'],
             'checksum' => $prepared['checksum'],
             'sharded' => $index->shardPayload,
@@ -212,7 +212,7 @@ class Publisher
         // version is retained, because every retained version lists it too.
         $files[] = $pointer;
 
-        Craft::info(
+        Log::channel('caffeine')->info(
             sprintf(
                 'Published “%s” v%d (%d records, %s) to %s%s',
                 $index->handle,
@@ -222,7 +222,6 @@ class Publisher
                 $store->describe(),
                 $written === 0 ? ' — shards reused' : '',
             ),
-            Plugin::LOG_CATEGORY,
         );
 
         return [
@@ -282,20 +281,24 @@ class Publisher
 
         $settings = $this->settings();
 
-        if ($settings->filesystemHandle === '') {
-            return $this->store = LocalStore::forPath($settings->publishPath);
+        $disk = (string)($settings->filesystemHandle ?? '');
+        $publishPath = (string)($settings->publishPath ?? '');
+
+        if ($disk === '') {
+            return $this->store = LocalStore::forPath($publishPath);
         }
 
-        $fs = Craft::$app->getFs()->getFilesystemByHandle($settings->filesystemHandle);
-
-        if ($fs === null) {
+        // Craft 6 filesystems are Laravel disks, and the setting keeps its Craft 5 name: Craft's
+        // own upgrade turns each filesystem into a disk with the same handle, so an upgraded
+        // site's setting still names the right place.
+        if (config("filesystems.disks.{$disk}") === null) {
             throw new RuntimeException(sprintf(
-                'Caffeine is configured to publish to the “%s” filesystem, which does not exist.',
-                $settings->filesystemHandle,
+                'Caffeine is configured to publish to the “%s” disk, which is not defined in config/filesystems.php.',
+                $disk,
             ));
         }
 
-        return $this->store = new FsStore($fs, $settings->publishPath);
+        return $this->store = new FsStore(Storage::disk($disk), $disk, $publishPath);
     }
 
     /** Lets tests and the CP preview point publishing somewhere harmless. */

@@ -2,17 +2,16 @@
 
 namespace JustinHoltWeb\Caffeine\Services;
 
-use Craft;
-use craft\base\ElementInterface;
-use craft\elements\db\ElementQueryInterface;
+use CraftCms\Cms\Element\Contracts\ElementInterface;
+use CraftCms\Cms\Element\Queries\Contracts\ElementQueryInterface;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use JustinHoltWeb\Caffeine\Extractors\ExtractedValue;
 use JustinHoltWeb\Caffeine\Helpers\ValueHelper;
 use JustinHoltWeb\Caffeine\Models\AttributeDefinition;
 use JustinHoltWeb\Caffeine\Models\IndexDefinition;
 use JustinHoltWeb\Caffeine\Models\MappedRecord;
 use JustinHoltWeb\Caffeine\Models\MappingContext;
-use JustinHoltWeb\Caffeine\Plugin;
 use Throwable;
 
 /**
@@ -181,9 +180,8 @@ class Mapper
             $elements = $value->limit(self::MAX_RELATED)->all();
 
             if (count($elements) === self::MAX_RELATED) {
-                Craft::warning(
+                Log::channel('caffeine')->warning(
                     sprintf('A relation hit the %d-element cap while indexing; the rest were skipped.', self::MAX_RELATED),
-                    Plugin::LOG_CATEGORY,
                 );
             }
 
@@ -215,14 +213,15 @@ class Mapper
         // Everything else that is still an object — a link, a price, an address, a colour — gets
         // one last chance to say what it is. Without this it reaches `ValueHelper` as an opaque
         // object and indexes as whatever `__toString()` gives, which is frequently nothing.
-        return Plugin::getInstance()->extractors->expand($value);
+        return app(Extractors::class)->expand($value);
     }
 
     private function attributeValue(ElementInterface $element, string $name): mixed
     {
         try {
             return $element->$name;
-        } catch (Throwable) { // @phpstan-ignore catch.neverThrown (a magic __get behind an element attribute can throw)
+        } catch (Throwable) {
+            // A magic `__get()` behind an element attribute can throw.
             return null;
         }
     }

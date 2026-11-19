@@ -2,15 +2,14 @@
 
 namespace JustinHoltWeb\Caffeine\Sources;
 
-use craft\base\Component;
-use craft\base\ElementInterface;
-use craft\elements\db\ElementQueryInterface;
+use CraftCms\Cms\Element\Contracts\ElementInterface;
+use CraftCms\Cms\Element\Queries\Contracts\ElementQueryInterface;
 use JustinHoltWeb\Caffeine\Models\SourceDefinition;
 
 /**
  * Shared behaviour for sources: status handling and the element-type guard.
  */
-abstract class BaseSource extends Component implements SourceInterface
+abstract class BaseSource implements SourceInterface
 {
     public static function isAvailable(): bool
     {
@@ -72,7 +71,7 @@ abstract class BaseSource extends Component implements SourceInterface
     /**
      * Translates the definition's status into one this element type understands.
      *
-     * `live` is an entry concept. Categories, assets and users have no such status, and asking
+     * `live` is an entry concept. Assets and users have no such status, and asking
      * for it returns nothing at all rather than erroring — an empty index with no explanation.
      * Each source maps the three choices onto whatever its element type actually has.
      */

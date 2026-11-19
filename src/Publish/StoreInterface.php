@@ -5,7 +5,7 @@ namespace JustinHoltWeb\Caffeine\Publish;
 /**
  * Where published artifacts are written.
  *
- * Deliberately smaller than Craft's filesystem interface. Publishing needs five operations, and
+ * Deliberately smaller than Laravel's filesystem contract. Publishing needs five operations, and
  * narrowing to them is what lets the local implementation guarantee an atomic write — something
  * the general interface cannot promise across every backend.
  */

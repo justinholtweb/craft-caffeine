@@ -2,9 +2,9 @@
 
 namespace JustinHoltWeb\Caffeine\Publish;
 
-use Craft;
-use craft\helpers\FileHelper;
-use craft\helpers\UrlHelper;
+use CraftCms\Aliases\Aliases;
+use CraftCms\Cms\Support\File;
+use CraftCms\Cms\Support\Url;
 use RuntimeException;
 
 /**
@@ -25,17 +25,19 @@ class LocalStore implements StoreInterface
 
     public static function forPath(string $publishPath): self
     {
-        $webroot = Craft::getAlias('@webroot', false);
+        // `@webroot` is still Craft's name for the public directory, and a site may point it
+        // somewhere other than Laravel's `public_path()`.
+        $webroot = Aliases::get('@webroot', false);
 
-        if (!is_string($webroot)) {
-            throw new RuntimeException('Caffeine cannot publish locally: the @webroot alias is not set.');
+        if (!is_string($webroot) || $webroot === '') {
+            $webroot = public_path();
         }
 
         $publishPath = trim($publishPath, '/');
 
         return new self(
             root: rtrim($webroot, '/') . ($publishPath !== '' ? '/' . $publishPath : ''),
-            baseUrl: UrlHelper::siteUrl($publishPath),
+            baseUrl: Url::siteUrl($publishPath),
         );
     }
 
@@ -43,7 +45,7 @@ class LocalStore implements StoreInterface
     {
         $full = $this->path($path);
 
-        FileHelper::createDirectory(dirname($full));
+        File::ensureDirectoryExists(dirname($full));
 
         // Same directory as the target, so the rename stays within one filesystem — across a
         // mount boundary `rename()` degrades to copy-then-delete and stops being atomic.

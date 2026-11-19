@@ -2,13 +2,15 @@
 
 namespace JustinHoltWeb\Caffeine\Services;
 
-use Craft;
 use Closure;
-use craft\db\Query;
-use craft\helpers\Db;
-use craft\helpers\Json;
-use craft\helpers\StringHelper;
-use JustinHoltWeb\Caffeine\Migrations\Install;
+use CraftCms\Cms\Support\Json;
+use CraftCms\Cms\Support\Query;
+use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use JustinHoltWeb\Caffeine\Database\Tables;
 use JustinHoltWeb\Caffeine\Models\IndexDefinition;
 use JustinHoltWeb\Caffeine\Plugin;
 use JustinHoltWeb\Caffeine\Search\Artifact;
@@ -42,6 +44,13 @@ class Artifacts
      */
     private const LOCK_TIMEOUT = 120;
 
+    /**
+     * Expiry of the publish lock. Laravel locks outlive a crashed process (Yii's mutex was freed at
+     * request end), so this is what frees an index whose publisher died. Sized well past the
+     * longest publish.
+     */
+    private const LOCK_TTL = 600;
+
     /** A temporary file left by an interrupted local write, collectable once it is this old. */
     private const STALE_TEMPORARY = 3600;
 
@@ -64,7 +73,7 @@ class Artifacts
     private function publishLocked(IndexDefinition $index): array
     {
         $startedAt = microtime(true);
-        $publisher = Plugin::getInstance()->publisher;
+        $publisher = app(Publisher::class);
         $version = $this->nextVersion($index->uid);
 
         $artifact = $this->compile($index, $version);
@@ -79,9 +88,9 @@ class Artifacts
             // facet no record has values for yet. Recorded anyway, or every later build would
             // see the old fingerprint and rebuild everything again for nothing.
             if (($live['definitionHash'] ?? null) !== $index->fingerprint()) {
-                Craft::$app->getDb()->createCommand()
-                    ->update(Install::TABLE_ARTIFACTS, ['definitionHash' => $index->fingerprint()], ['id' => $live['id']])
-                    ->execute();
+                DB::table(Tables::ARTIFACTS)
+                    ->where('id', $live['id'])
+                    ->update(['definitionHash' => $index->fingerprint()]);
             }
 
             return [
@@ -112,12 +121,7 @@ class Artifacts
 
         $buildMs = (int)round((microtime(true) - $startedAt) * 1000);
 
-        Craft::$app->getDb()->createCommand()
-            ->update(Install::TABLE_ARTIFACTS, [
-                'status' => self::STATUS_SUPERSEDED,
-                'dateUpdated' => Db::prepareDateForDb(new \DateTime()),
-            ], ['indexUid' => $index->uid, 'status' => self::STATUS_LIVE])
-            ->execute();
+        $this->supersedeLive($index->uid);
 
         $this->record($index, $version, self::STATUS_LIVE, [
             'recordCount' => $prepared['nbRecords'],
@@ -130,7 +134,7 @@ class Artifacts
 
         // Records for elements that have gone away have now fallen out of a published artifact,
         // so the rows that were only keeping the build honest can go.
-        Plugin::getInstance()->records->purgeDeleted($index->uid);
+        app(Records::class)->purgeDeleted($index->uid);
 
         return [
             'published' => true,
@@ -153,8 +157,8 @@ class Artifacts
         return (new Compiler())->compile(
             // Downgraded here rather than at every call site: this is the only place a build
             // starts, so it is the only place the edition can change what gets built.
-            Plugin::getInstance()->indexes->forEdition($index),
-            Plugin::getInstance()->records->stream($index->uid),
+            app(Indexes::class)->forEdition($index),
+            app(Records::class)->stream($index->uid),
             $version,
         );
     }
@@ -166,12 +170,12 @@ class Artifacts
      * the same rules, so a server-rendered first paint and the refinement that follows it are
      * answering from identical data.
      *
-     * Not called `load()`: `craft\base\Component` inherits `Model::load()`, and overriding it
-     * with a different signature is a fatal compile error rather than a warning.
+     * Not called `load()`, for historical reasons: Craft 5 services inherited Yii's `Model::load()`,
+     * and the name stuck.
      */
     public function published(IndexDefinition $index): ?Artifact
     {
-        $publisher = Plugin::getInstance()->publisher;
+        $publisher = app(Publisher::class);
         $manifest = $publisher->pointer($index);
 
         if ($manifest === null) {
@@ -183,7 +187,7 @@ class Artifacts
         $lazy = isset($manifest['shards']['payload']['file'], $manifest['lookup']['file']);
         $loader = $lazy ? $this->payloadLoader($index, $manifest) : null;
 
-        $cache = Plugin::getInstance()->artifactCache;
+        $cache = app(ArtifactCache::class);
         $cached = $cache->get($index, $manifest, $loader);
 
         if ($cached !== null) {
@@ -266,9 +270,8 @@ class Artifacts
                 $shard = array_values((array)($document['payloads'] ?? []));
 
                 if ($document === null) {
-                    Craft::warning(
+                    Log::channel('caffeine')->warning(
                         sprintf('Caffeine could not read the payload shard for “%s”; some hits are shown without their content.', $index->handle),
-                        Plugin::LOG_CATEGORY,
                     );
                 }
             }
@@ -306,24 +309,24 @@ class Artifacts
             return [];
         }
 
-        $rows = (new Query())
+        $rows = DB::table(Tables::RECORDS)
             ->select(['objectId', 'content'])
-            ->from(Install::TABLE_RECORDS)
-            ->where(['indexUid' => $index->uid, 'elementId' => array_keys($elementIds)])
-            ->all();
+            ->where('indexUid', $index->uid)
+            ->whereIntegerInRaw('elementId', array_keys($elementIds))
+            ->get();
 
         $payloads = [];
 
         foreach ($rows as $row) {
-            $id = $wanted[(string)$row['objectId']] ?? null;
+            $id = $wanted[(string)$row->objectId] ?? null;
 
-            if ($id === null || $row['content'] === null) {
+            if ($id === null || $row->content === null) {
                 continue;
             }
 
             // Decoded exactly the way `Records::stream()` hands content to the compiler, so an
             // unchanged record produces the very array that was published, and the same hash.
-            $content = Json::decodeIfJson($row['content']) ?: [];
+            $content = Json::decodeIfJson($row->content) ?: [];
             $payload = (array)($content['payload'] ?? []);
 
             if (ArtifactEncoder::payloadHash($payload) === $artifact->payloadHash($id)) {
@@ -339,14 +342,18 @@ class Artifacts
      */
     private function readDocument(IndexDefinition $index, string $file): ?array
     {
-        $publisher = Plugin::getInstance()->publisher;
+        $publisher = app(Publisher::class);
         $contents = $publisher->store()->read($publisher->path($index, $file));
 
         if ($contents === null) {
             return null;
         }
 
-        $document = Json::decode($contents);
+        try {
+            $document = Json::decode($contents);
+        } catch (\InvalidArgumentException) {
+            return null;
+        }
 
         return is_array($document) ? $document : null;
     }
@@ -365,12 +372,10 @@ class Artifacts
     {
         $keep = max(1, Plugin::getInstance()->getSettings()->keepVersions);
 
-        $rows = (new Query())
+        $rows = $this->rows(DB::table(Tables::ARTIFACTS)
             ->select(['id', 'version', 'status', 'files'])
-            ->from(Install::TABLE_ARTIFACTS)
-            ->where(['indexUid' => $index->uid])
-            ->orderBy(['version' => SORT_DESC])
-            ->all();
+            ->where('indexUid', $index->uid)
+            ->orderByDesc('version'));
 
         $retained = [];
         $doomed = [];
@@ -414,11 +419,11 @@ class Artifacts
             }
         }
 
-        Plugin::getInstance()->publisher->prune(array_keys($delete));
+        app(Publisher::class)->prune(array_keys($delete));
 
-        Craft::$app->getDb()->createCommand()
-            ->delete(Install::TABLE_ARTIFACTS, ['id' => array_column($doomed, 'id')])
-            ->execute();
+        DB::table(Tables::ARTIFACTS)
+            ->whereIntegerInRaw('id', array_column($doomed, 'id'))
+            ->delete();
 
         return count($doomed);
     }
@@ -430,13 +435,12 @@ class Artifacts
      */
     public function live(string $indexUid): ?array
     {
-        $row = (new Query())
-            ->from(Install::TABLE_ARTIFACTS)
+        $row = DB::table(Tables::ARTIFACTS)
             ->where(['indexUid' => $indexUid, 'status' => self::STATUS_LIVE])
-            ->orderBy(['version' => SORT_DESC])
-            ->one();
+            ->orderByDesc('version')
+            ->first();
 
-        return $row ?: null;
+        return $row !== null ? (array)$row : null;
     }
 
     /**
@@ -455,13 +459,11 @@ class Artifacts
      */
     public function versions(string $indexUid, int $limit = 20): array
     {
-        return (new Query())
+        return $this->rows(DB::table(Tables::ARTIFACTS)
             ->select(['version', 'status', 'recordCount', 'byteSize', 'checksum', 'buildMs', 'error', 'dateCreated'])
-            ->from(Install::TABLE_ARTIFACTS)
-            ->where(['indexUid' => $indexUid])
-            ->orderBy(['version' => SORT_DESC])
-            ->limit($limit)
-            ->all();
+            ->where('indexUid', $indexUid)
+            ->orderByDesc('version')
+            ->limit($limit));
     }
 
     /**
@@ -471,7 +473,7 @@ class Artifacts
      */
     public function status(IndexDefinition $index): array
     {
-        $records = Plugin::getInstance()->records;
+        $records = app(Records::class);
         $live = $this->live($index->uid);
         $dirty = $records->countFor($index->uid, true);
 
@@ -484,7 +486,7 @@ class Artifacts
             'bytes' => $live !== null ? (int)$live['byteSize'] : 0,
             'publishedAt' => $live !== null ? (string)$live['dateCreated'] : null,
             'buildMs' => $live !== null ? (int)$live['buildMs'] : null,
-            'url' => Plugin::getInstance()->publisher->pointerUrl($index),
+            'url' => app(Publisher::class)->pointerUrl($index),
             // Records have moved since the live artifact was cut, so what visitors are being
             // served is behind the CMS.
             'stale' => $live === null || $dirty > 0,
@@ -502,19 +504,23 @@ class Artifacts
      */
     public function forget(IndexDefinition $index): void
     {
-        Craft::$app->getDb()->createCommand()
-            ->update(Install::TABLE_ARTIFACTS, [
+        $this->supersedeLive($index->uid);
+    }
+
+    private function supersedeLive(string $indexUid): void
+    {
+        DB::table(Tables::ARTIFACTS)
+            ->where(['indexUid' => $indexUid, 'status' => self::STATUS_LIVE])
+            ->update([
                 'status' => self::STATUS_SUPERSEDED,
-                'dateUpdated' => Db::prepareDateForDb(new \DateTime()),
-            ], ['indexUid' => $index->uid, 'status' => self::STATUS_LIVE])
-            ->execute();
+                'dateUpdated' => Query::prepareDateForDb(now()),
+            ]);
     }
 
     public function nextVersion(string $indexUid): int
     {
-        $max = (new Query())
-            ->from(Install::TABLE_ARTIFACTS)
-            ->where(['indexUid' => $indexUid])
+        $max = DB::table(Tables::ARTIFACTS)
+            ->where('indexUid', $indexUid)
             ->max('version');
 
         return $max === null ? 1 : (int)$max + 1;
@@ -530,25 +536,21 @@ class Artifacts
      */
     public function deleteForIndex(string $indexUid): void
     {
-        $rows = (new Query())
-            ->select(['files'])
-            ->from(Install::TABLE_ARTIFACTS)
-            ->where(['indexUid' => $indexUid])
-            ->all();
+        $rows = DB::table(Tables::ARTIFACTS)
+            ->where('indexUid', $indexUid)
+            ->pluck('files');
 
         $files = [];
 
-        foreach ($rows as $row) {
-            foreach ((array)Json::decodeIfJson($row['files'] ?? '[]') as $file) {
+        foreach ($rows as $list) {
+            foreach ((array)Json::decodeIfJson($list ?? '[]') as $file) {
                 $files[$file] = true;
             }
         }
 
-        Plugin::getInstance()->publisher->prune(array_keys($files));
+        app(Publisher::class)->prune(array_keys($files));
 
-        Craft::$app->getDb()->createCommand()
-            ->delete(Install::TABLE_ARTIFACTS, ['indexUid' => $indexUid])
-            ->execute();
+        DB::table(Tables::ARTIFACTS)->where('indexUid', $indexUid)->delete();
     }
 
     /**
@@ -562,16 +564,13 @@ class Artifacts
      */
     public function deleteOrphans(array $keepUids): int
     {
-        $query = (new Query())
-            ->select(['indexUid'])
-            ->distinct()
-            ->from(Install::TABLE_ARTIFACTS);
+        $query = DB::table(Tables::ARTIFACTS)->distinct();
 
         if ($keepUids !== []) {
-            $query->where(['not', ['indexUid' => $keepUids]]);
+            $query->whereNotIn('indexUid', $keepUids);
         }
 
-        $orphans = $query->column();
+        $orphans = $query->pluck('indexUid')->all();
 
         foreach ($orphans as $uid) {
             $this->deleteForIndex((string)$uid);
@@ -598,15 +597,13 @@ class Artifacts
     public function sweep(IndexDefinition $index): ?array
     {
         return $this->locked($index->uid, 0, function() use ($index): array {
-            $publisher = Plugin::getInstance()->publisher;
+            $publisher = app(Publisher::class);
             $store = $publisher->store();
             $keep = [$publisher->path($index, Publisher::POINTER) => true];
 
-            $rows = (new Query())
-                ->select(['files'])
-                ->from(Install::TABLE_ARTIFACTS)
-                ->where(['indexUid' => $index->uid])
-                ->column();
+            $rows = DB::table(Tables::ARTIFACTS)
+                ->where('indexUid', $index->uid)
+                ->pluck('files');
 
             foreach ($rows as $files) {
                 foreach ((array)Json::decodeIfJson($files ?? '[]') as $file) {
@@ -658,21 +655,24 @@ class Artifacts
      */
     private function locked(string $indexUid, int $timeout, callable $callback, mixed $busy = null): mixed
     {
-        $mutex = Craft::$app->getMutex();
-        $name = "caffeine:publish:{$indexUid}";
+        $lock = Cache::lock("caffeine:publish:{$indexUid}", self::LOCK_TTL);
 
-        if (!$mutex->acquire($name, $timeout)) {
-            if ($timeout === 0) {
+        if ($timeout === 0) {
+            if (!$lock->get()) {
                 return $busy;
             }
-
-            throw new RuntimeException("Another Caffeine publish of this index has held the lock for over {$timeout}s.");
+        } else {
+            try {
+                $lock->block($timeout);
+            } catch (LockTimeoutException) {
+                throw new RuntimeException("Another Caffeine publish of this index has held the lock for over {$timeout}s.");
+            }
         }
 
         try {
             return $callback();
         } finally {
-            $mutex->release($name);
+            $lock->release();
         }
     }
 
@@ -681,9 +681,9 @@ class Artifacts
      */
     private function record(IndexDefinition $index, int $version, string $status, array $values): void
     {
-        $now = Db::prepareDateForDb(new \DateTime());
+        $now = Query::prepareDateForDb(now());
 
-        Craft::$app->getDb()->createCommand()->insert(Install::TABLE_ARTIFACTS, array_merge([
+        DB::table(Tables::ARTIFACTS)->insert(array_merge([
             'indexUid' => $index->uid,
             'version' => $version,
             'status' => $status,
@@ -691,10 +691,20 @@ class Artifacts
             'byteSize' => 0,
             'dateCreated' => $now,
             'dateUpdated' => $now,
-            'uid' => StringHelper::UUID(),
+            'uid' => (string)Str::uuid(),
         ], array_map(
-            fn($value) => is_array($value) ? Json::encode($value) : $value,
+            fn($value) => is_array($value) ? json_encode($value, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) : $value,
             $values,
-        )))->execute();
+        )));
+    }
+
+    /**
+     * Rows as plain arrays, the shape every caller of the ledger was written against.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function rows(\Illuminate\Database\Query\Builder $query): array
+    {
+        return $query->get()->map(fn(object $row) => (array)$row)->values()->all();
     }
 }

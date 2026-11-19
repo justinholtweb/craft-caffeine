@@ -2,10 +2,11 @@
 
 namespace JustinHoltWeb\Caffeine\Sources;
 
-use Craft;
-use craft\base\ElementInterface;
-use craft\elements\db\ElementQueryInterface;
-use craft\elements\Entry;
+use CraftCms\Cms\Element\Contracts\ElementInterface;
+use CraftCms\Cms\Element\Queries\Contracts\ElementQueryInterface;
+use CraftCms\Cms\Entry\Elements\Entry;
+use CraftCms\Cms\Support\Facades\EntryTypes;
+use CraftCms\Cms\Support\Facades\Sections;
 use JustinHoltWeb\Caffeine\Models\SourceDefinition;
 use Throwable;
 
@@ -33,8 +34,8 @@ class EntrySource extends BaseSource
     {
         $options = [];
 
-        foreach (Craft::$app->getEntries()->getAllSections() as $section) {
-            $options[$section->handle] = $section->name;
+        foreach (Sections::getAllSections() as $section) {
+            $options[(string)$section->handle] = (string)$section->name;
         }
 
         return $options;
@@ -44,8 +45,8 @@ class EntrySource extends BaseSource
     {
         $options = [];
 
-        foreach (Craft::$app->getEntries()->getAllEntryTypes() as $entryType) {
-            $options[$entryType->handle] = $entryType->name;
+        foreach (EntryTypes::getAllEntryTypes() as $entryType) {
+            $options[(string)$entryType->handle] = (string)$entryType->name;
         }
 
         return $options;
@@ -58,7 +59,7 @@ class EntrySource extends BaseSource
             // Ordered by id so a build walks records in a stable order across runs. Anything
             // that changes between builds — post date, structure position — would reshuffle
             // batches and make an interrupted build hard to resume.
-            ->orderBy(['elements.id' => SORT_ASC]);
+            ->orderBy('elements.id');
 
         if ($definition->containers !== []) {
             $query->section($definition->containers);
