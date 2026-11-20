@@ -5,6 +5,12 @@ All notable changes to Caffeine are documented here.
 Caffeine follows [semantic versioning](https://semver.org). The major version tracks Craft, so
 5.x supports Craft 5 — the same convention the rest of the family uses.
 
+## 6.0.0-beta.2 — 2026-11-20
+
+### Changed
+
+- The changelog is now shared between the Craft 5 and Craft 6 branches, so each lists both release lines.
+
 ## 6.0.0-beta.1 — 2026-11-19
 
 Caffeine for Craft CMS 6, rebuilt as a native Craft 6 plugin. It runs on Laravel and has no
@@ -56,6 +62,12 @@ conformance suite.
 
 - The client transport's hit template escapes single quotes and backticks, and a hit value that
   lands in a link or image as a `javascript:`, `vbscript:` or `data:` URL is replaced with `#`.
+
+## 5.3.2 — 2026-11-20
+
+### Changed
+
+- The changelog is now shared between the Craft 5 and Craft 6 branches, so each lists both release lines.
 
 ## 5.3.1 — 2026-11-19
 
